@@ -115,10 +115,14 @@ def reset_config():
 
 @app.route('/api/scenarios')
 def get_scenarios():
-    """List all available scenarios"""
+    """List all available scenarios with current active"""
     try:
         scenarios = list_scenarios()
-        return jsonify({"scenarios": scenarios})
+        active_name, _ = get_active()
+        return jsonify({
+            "scenarios": scenarios,
+            "active": active_name
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -160,17 +164,145 @@ def evaluate_scenario(scenario_name):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/scenarios/activate', methods=['POST'])
+def activate_scenario():
+    """Activate a scenario"""
+    try:
+        data = request.get_json()
+        scenario_name = data.get('name')
+        if not scenario_name:
+            return jsonify({"error": "Missing 'name' field"}), 400
+        
+        # Update config
+        update_config({"scenario": {"active": scenario_name}})
+        return jsonify({"success": True, "active": scenario_name})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scenarios/options', methods=['POST'])
+def update_scenario_options():
+    """Update scenario options"""
+    try:
+        data = request.get_json()
+        options = data.get('options', {})
+        
+        # Update config
+        update_config({"scenario": {"options": options}})
+        return jsonify({"success": True, "options": options})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/requirements')
+def get_requirements():
+    """Get current scenario requirements"""
+    try:
+        name, scenario = get_active()
+        return jsonify({
+            "scenario": name,
+            "requirements": scenario["requirements"]()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/simulation', methods=['POST'])
+def update_simulation():
+    """Update simulation settings"""
+    try:
+        data = request.get_json()
+        update_config({"simulation": data})
+        return jsonify({"success": True, "simulation": data})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/mode', methods=['POST'])
+def update_mode():
+    """Update operation mode"""
+    try:
+        data = request.get_json()
+        role = data.get('role')
+        if role not in ["applicant_only", "administrator_only", "full_stack"]:
+            return jsonify({"error": "Invalid role"}), 400
+        
+        update_config({"mode": {"role": role}})
+        return jsonify({"success": True, "role": role})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/transcript/<context_id>')
+def get_transcript(context_id):
+    """Get full task history JSON"""
+    try:
+        from app.engine import conversation_engine
+        conversation = conversation_engine.get_conversation_state(context_id)
+        if not conversation:
+            return jsonify({"error": "Conversation not found"}), 404
+        return jsonify(conversation)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/artifacts/<context_id>')
+def get_artifacts(context_id):
+    """Get artifact metadata"""
+    try:
+        from app.engine import conversation_engine
+        conversation = conversation_engine.get_conversation_state(context_id)
+        if not conversation:
+            return jsonify({"error": "Conversation not found"}), 404
+        
+        artifacts = []
+        for name, content in conversation.get("artifacts", {}).items():
+            artifacts.append({
+                "name": name,
+                "size": len(content),
+                "type": "application/fhir+json" if name.endswith(".json") else "application/octet-stream"
+            })
+        return jsonify({"artifacts": artifacts})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/reset', methods=['POST'])
+def reset_stores():
+    """Clear in-memory stores"""
+    try:
+        from app.store.memory import task_store, conversation_store
+        from app.engine import conversation_engine
+        
+        # Clear stores
+        task_store.clear()
+        conversation_store.clear()
+        conversation_engine.conversations.clear()
+        conversation_engine.capacity_counters.clear()
+        
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/selftest')
+def selftest():
+    """Conformance self-test"""
+    try:
+        scenarios = list_scenarios()
+        config = load_config()
+        
+        return jsonify({
+            "mcp_tools": ["begin_chat_thread", "send_message_to_chat_thread", "check_replies"],
+            "a2a_methods": ["message/send", "message/stream", "tasks/get", "tasks/cancel"],
+            "scenarios": list(scenarios.keys()),
+            "mode": config.mode.role,
+            "ok": True
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "ok": False}), 500
+
 @app.route('/.well-known/agent-card.json')
 def agent_card():
     """Agent Card derived from configuration"""
     config = load_config()
     
     # Determine role based on operation mode
-    role_mapping = {
-        "applicant_only": "client",
-        "administrator_only": "server", 
-        "full_stack": "both"
-    }
+    role = "applicant" if config.mode.role == "applicant_only" else \
+          "administrator" if config.mode.role == "administrator_only" else \
+          "composite"
     
     # Create agent card
     card = {
@@ -179,13 +311,24 @@ def agent_card():
         "capabilities": {
             "streaming": True
         },
-        "role": role_mapping.get(config.mode.role, "both"),
-        "extensions": {
+        "role": role,
+        "skills": [{
+            "name": "discovery",
+            "description": "Multi-scenario connectathon demo",
             "a2a.config64": base64.b64encode(
-                json.dumps({"scenario": config.scenario.active}).encode()
+                json.dumps({
+                    "scenario": config.scenario.active,
+                    "tags": config.tags
+                }).encode()
             ).decode()
-        }
+        }]
     }
+    
+    # Add endpoints if public_base_url is set
+    if config.protocol.public_base_url:
+        card["endpoints"] = {
+            "jsonrpc": f"{config.protocol.public_base_url}/api/bridge/demo/a2a"
+        }
     
     return jsonify(card)
 

@@ -6,6 +6,8 @@ let currentProtocol = 'A2A';
 let conversationId = null;
 let eventSource = null;
 let artifacts = [];
+let currentConfig = {};
+let scenarios = {};
 
 // DOM elements
 const transcriptElement = document.getElementById('transcript');
@@ -14,14 +16,44 @@ const startDemoBtn = document.getElementById('start-demo-btn');
 const sendApplicantInfoBtn = document.getElementById('send-applicant-info-btn');
 const resetBtn = document.getElementById('reset-btn');
 
+// Settings panel elements
+const scenarioSelect = document.getElementById('scenario-select');
+const modeRadios = document.querySelectorAll('input[name="mode"]');
+const adminProcessingMs = document.getElementById('admin-processing-ms');
+const errorInjectionRate = document.getElementById('error-injection-rate');
+const capacityLimit = document.getElementById('capacity-limit');
+const protocolDefaultRadios = document.querySelectorAll('input[name="protocol-default"]');
+const saveSettingsBtn = document.getElementById('save-settings-btn');
+const resetConfigBtn = document.getElementById('reset-config-btn');
+const examplesBtn = document.getElementById('examples-btn');
+const requirementsText = document.getElementById('requirements-text');
+const applicantPayload = document.getElementById('applicant-payload');
+const payloadError = document.getElementById('payload-error');
+const selftestStatus = document.getElementById('selftest-status');
+const exportTranscriptBtn = document.getElementById('export-transcript-btn');
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', function() {
     initializeInterface();
+    loadConfig();
+    loadScenarios();
+    runSelftest();
+    loadRequirements();
     
     // Event listeners
     startDemoBtn.addEventListener('click', startDemo);
     sendApplicantInfoBtn.addEventListener('click', sendApplicantInfo);
     resetBtn.addEventListener('click', resetDemo);
+    
+    // Settings panel listeners
+    saveSettingsBtn.addEventListener('click', saveSettings);
+    resetConfigBtn.addEventListener('click', resetConfig);
+    examplesBtn.addEventListener('click', fillExamples);
+    exportTranscriptBtn.addEventListener('click', exportTranscript);
+    scenarioSelect.addEventListener('change', onScenarioChange);
+    
+    // Payload validation
+    applicantPayload.addEventListener('input', validatePayload);
     
     // Protocol selection
     document.querySelectorAll('input[name="protocol"]').forEach(radio => {
@@ -363,4 +395,250 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// New functions for connectathon features
+
+async function loadConfig() {
+    try {
+        const response = await fetch('/api/config');
+        currentConfig = await response.json();
+        populateConfigControls();
+    } catch (error) {
+        console.error('Error loading config:', error);
+    }
+}
+
+async function loadScenarios() {
+    try {
+        const response = await fetch('/api/scenarios');
+        const data = await response.json();
+        scenarios = data.scenarios;
+        populateScenarioSelect(data.active);
+    } catch (error) {
+        console.error('Error loading scenarios:', error);
+    }
+}
+
+async function runSelftest() {
+    try {
+        const response = await fetch('/api/selftest');
+        const data = await response.json();
+        updateSelftestBadge(data.ok);
+    } catch (error) {
+        updateSelftestBadge(false);
+    }
+}
+
+async function loadRequirements() {
+    try {
+        const response = await fetch('/api/requirements');
+        const data = await response.json();
+        requirementsText.textContent = data.requirements;
+    } catch (error) {
+        requirementsText.textContent = 'Error loading requirements';
+    }
+}
+
+function populateConfigControls() {
+    // Set scenario
+    scenarioSelect.value = currentConfig.scenario?.active || 'bcse';
+    
+    // Set mode
+    const mode = currentConfig.mode?.role || 'full_stack';
+    modeRadios.forEach(radio => {
+        radio.checked = radio.value === mode;
+    });
+    
+    // Set simulation
+    adminProcessingMs.value = currentConfig.simulation?.admin_processing_ms || 1200;
+    errorInjectionRate.value = currentConfig.simulation?.error_injection_rate || 0;
+    capacityLimit.value = currentConfig.simulation?.capacity_limit || '';
+    
+    // Set protocol default
+    const protocolDefault = currentConfig.protocol?.default_transport || 'a2a';
+    protocolDefaultRadios.forEach(radio => {
+        radio.checked = radio.value === protocolDefault;
+    });
+}
+
+function populateScenarioSelect(activeScenario) {
+    scenarioSelect.innerHTML = '';
+    Object.entries(scenarios).forEach(([key, scenario]) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = scenario.label;
+        option.selected = key === activeScenario;
+        scenarioSelect.appendChild(option);
+    });
+}
+
+function updateSelftestBadge(success) {
+    selftestStatus.className = `badge ${success ? 'bg-success' : 'bg-danger'}`;
+    selftestStatus.textContent = success ? '✓ OK' : '✗ Failed';
+}
+
+async function saveSettings() {
+    try {
+        saveSettingsBtn.disabled = true;
+        saveSettingsBtn.textContent = 'Saving...';
+        
+        // Get values
+        const scenario = scenarioSelect.value;
+        const mode = document.querySelector('input[name="mode"]:checked').value;
+        const adminMs = parseInt(adminProcessingMs.value) || 1200;
+        const errorRate = parseFloat(errorInjectionRate.value) || 0;
+        const capacity = capacityLimit.value ? parseInt(capacityLimit.value) : null;
+        const protocolDefault = document.querySelector('input[name="protocol-default"]:checked').value;
+        
+        // Save all settings
+        await Promise.all([
+            fetch('/api/scenarios/activate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: scenario})
+            }),
+            fetch('/api/mode', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({role: mode})
+            }),
+            fetch('/api/simulation', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    admin_processing_ms: adminMs,
+                    error_injection_rate: errorRate,
+                    capacity_limit: capacity
+                })
+            }),
+            fetch('/api/config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    protocol: {default_transport: protocolDefault}
+                })
+            })
+        ]);
+        
+        // Reload config and requirements
+        await loadConfig();
+        await loadRequirements();
+        
+        // Reload transcript if conversation is active
+        if (conversationId) {
+            addMessage('system', 'Settings saved. Configuration updated.');
+        }
+        
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        addMessage('system', `Error saving settings: ${error.message}`);
+    } finally {
+        saveSettingsBtn.disabled = false;
+        saveSettingsBtn.textContent = 'Save Settings';
+    }
+}
+
+async function resetConfig() {
+    try {
+        resetConfigBtn.disabled = true;
+        resetConfigBtn.textContent = 'Resetting...';
+        
+        await fetch('/api/config/reset', {method: 'POST'});
+        await fetch('/api/admin/reset', {method: 'POST'});
+        
+        await loadConfig();
+        await loadRequirements();
+        
+        // Clear UI
+        clearTranscript();
+        clearArtifacts();
+        conversationId = null;
+        
+        addMessage('system', 'Configuration and stores reset to defaults.');
+    } catch (error) {
+        console.error('Error resetting config:', error);
+        addMessage('system', `Error resetting config: ${error.message}`);
+    } finally {
+        resetConfigBtn.disabled = false;
+        resetConfigBtn.textContent = 'Reset Config';
+    }
+}
+
+async function fillExamples() {
+    try {
+        const activeScenario = scenarioSelect.value;
+        const scenario = scenarios[activeScenario];
+        if (scenario && scenario.examples && scenario.examples.length > 0) {
+            applicantPayload.value = JSON.stringify(scenario.examples[0], null, 2);
+            validatePayload();
+        }
+    } catch (error) {
+        console.error('Error filling examples:', error);
+    }
+}
+
+function validatePayload() {
+    const value = applicantPayload.value.trim();
+    if (!value) {
+        payloadError.style.display = 'none';
+        return true;
+    }
+    
+    try {
+        JSON.parse(value);
+        payloadError.style.display = 'none';
+        return true;
+    } catch (error) {
+        payloadError.textContent = `Invalid JSON: ${error.message}`;
+        payloadError.style.display = 'block';
+        return false;
+    }
+}
+
+async function onScenarioChange() {
+    await loadRequirements();
+}
+
+async function exportTranscript() {
+    if (!conversationId) {
+        addMessage('system', 'No active conversation to export');
+        return;
+    }
+    
+    try {
+        exportTranscriptBtn.disabled = true;
+        exportTranscriptBtn.textContent = 'Exporting...';
+        
+        const [transcriptResponse, artifactsResponse] = await Promise.all([
+            fetch(`/api/admin/transcript/${conversationId}`),
+            fetch(`/api/admin/artifacts/${conversationId}`)
+        ]);
+        
+        const transcript = await transcriptResponse.json();
+        const artifactsList = await artifactsResponse.json();
+        
+        // Download transcript
+        downloadJson(transcript, `transcript_${conversationId}.json`);
+        
+        // Show artifact info
+        addMessage('system', `Transcript exported. Available artifacts: ${artifactsList.artifacts.map(a => a.name).join(', ')}`);
+        
+    } catch (error) {
+        console.error('Error exporting:', error);
+        addMessage('system', `Error exporting: ${error.message}`);
+    } finally {
+        exportTranscriptBtn.disabled = false;
+        exportTranscriptBtn.textContent = 'Export Transcript & Artifacts';
+    }
+}
+
+function downloadJson(data, filename) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
 }

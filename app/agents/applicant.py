@@ -7,6 +7,7 @@ from typing import Dict, Any, List
 from dateutil.parser import parse
 
 from app.eligibility.bcse import BCSDEligibilityChecker
+from app.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ class ApplicantAgent:
         self.name = "Applicant Agent"
         self.description = "Handles patient eligibility applications and data gathering"
         self.eligibility_checker = BCSDEligibilityChecker()
+        self.config = Config()
         
         # Load agent card
         self.card = self._load_agent_card()
@@ -177,8 +179,16 @@ class ApplicantAgent:
         }
     
     def _get_patient_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get patient data from storage"""
+        """Get patient data from storage based on config.data settings"""
         patient_id = params.get("patient_id", "001")
+        
+        # Check data source permissions
+        if not self.config.data.allow_local_bundle:
+            return {
+                "patient_id": patient_id,
+                "error": "Local bundle access disabled in configuration",
+                "timestamp": datetime.now().isoformat()
+            }
         
         try:
             patient_file = os.path.join(
@@ -189,12 +199,22 @@ class ApplicantAgent:
             with open(patient_file, 'r') as f:
                 patient_data = json.load(f)
             
-            return {
+            # Add data source metadata
+            result = {
                 "patient_id": patient_id,
                 "result": patient_data,
                 "retrieved_by": self.agent_id,
+                "data_source": "local_bundle",
                 "timestamp": datetime.now().isoformat()
             }
+            
+            # Add constraints based on config
+            if not self.config.data.allow_fhir_mcp:
+                result["restrictions"] = "FHIR MCP access disabled"
+            if not self.config.data.allow_free_text_context:
+                result["restrictions"] = result.get("restrictions", "") + " Free text context disabled"
+                
+            return result
         
         except Exception as e:
             logger.error(f"Error retrieving patient data: {str(e)}")
@@ -218,7 +238,36 @@ class ApplicantAgent:
         }
     
     def load_patient(self, patient_id: str = "001") -> Dict[str, Any]:
-        """Load patient data from FHIR Bundle in app/data/patients/001.json"""
+        """Load patient data from FHIR Bundle in app/data/patients/001.json based on config.data settings"""
+        # Check data source permissions
+        if not self.config.data.allow_local_bundle:
+            logger.warning("Local bundle access disabled - returning minimal patient data")
+            return {
+                "resourceType": "Bundle",
+                "id": "restricted-bundle",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "http://terminology.hl7.org/CodeSystem/common-tags",
+                            "code": "actionable",
+                            "display": "Access to local bundle disabled by configuration"
+                        }
+                    ]
+                },
+                "entry": [
+                    {
+                        "resource": {
+                            "resourceType": "Patient",
+                            "id": "restricted-access",
+                            "text": {
+                                "status": "generated",
+                                "div": "<div>Access to local bundle disabled by configuration</div>"
+                            }
+                        }
+                    }
+                ]
+            }
+        
         try:
             patient_file = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
@@ -231,6 +280,28 @@ class ApplicantAgent:
             if fhir_bundle.get("resourceType") != "Bundle":
                 raise ValueError(f"Expected FHIR Bundle, got {fhir_bundle.get('resourceType')}")
             
+            # Add metadata about data source constraints
+            if not self.config.data.allow_fhir_mcp or not self.config.data.allow_free_text_context:
+                if "meta" not in fhir_bundle:
+                    fhir_bundle["meta"] = {}
+                if "tag" not in fhir_bundle["meta"]:
+                    fhir_bundle["meta"]["tag"] = []
+                
+                if not self.config.data.allow_fhir_mcp:
+                    fhir_bundle["meta"]["tag"].append({
+                        "system": "http://terminology.hl7.org/CodeSystem/common-tags",
+                        "code": "actionable",
+                        "display": "FHIR MCP access disabled"
+                    })
+                    
+                if not self.config.data.allow_free_text_context:
+                    fhir_bundle["meta"]["tag"].append({
+                        "system": "http://terminology.hl7.org/CodeSystem/common-tags", 
+                        "code": "actionable",
+                        "display": "Free text context disabled"
+                    })
+            
+            logger.info(f"Patient bundle {patient_id} loaded successfully with config constraints")
             return fhir_bundle
         
         except Exception as e:

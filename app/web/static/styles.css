@@ -46,7 +46,7 @@ body {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Main Content - Two Column Layout */
+/* Main Content - Three Column Layout */
 .main-content {
     flex: 1;
     display: flex;
@@ -61,15 +61,24 @@ body {
     flex-direction: column;
 }
 
-.right-pane {
-    width: 300px;
+.center-pane {
+    flex: 1;
     padding: 1rem;
-    background-color: #2a2a2a;
+    border-right: 1px solid #444;
     display: flex;
     flex-direction: column;
 }
 
-.left-pane h2, .right-pane h2 {
+.right-pane {
+    width: 350px;
+    padding: 1rem;
+    background-color: #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.left-pane h2, .center-pane h2, .right-pane h2 {
     margin: 0 0 1rem 0;
     font-size: 1.2rem;
     color: #fff;
@@ -241,6 +250,44 @@ body {
 .btn-outline:hover:not(:disabled) {
     background-color: #f85149;
     color: white;
+}
+
+/* Settings Panel Styles */
+.settings-panel {
+    font-size: 0.9rem;
+}
+
+.settings-panel .form-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.settings-panel .form-control {
+    background-color: #333;
+    border-color: #555;
+    color: #e0e0e0;
+}
+
+.settings-panel .form-control:focus {
+    background-color: #333;
+    border-color: #0d6efd;
+    color: #e0e0e0;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.selftest-badge .badge {
+    font-size: 0.8rem;
+}
+
+.requirements-section {
+    background-color: #333;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid #555;
+}
+
+#payload-error {
+    font-size: 0.8rem;
 }
 
 /* Responsive design */

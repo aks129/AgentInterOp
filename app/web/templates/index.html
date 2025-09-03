@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Agent Demo - BCS-E Eligibility</title>
+    <title>Multi-Agent Connectathon Demo</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
@@ -15,7 +15,7 @@
     <!-- Header -->
     <header class="header">
         <div class="container-fluid">
-            <h1>Multi-Agent Demo - BCS-E Eligibility</h1>
+            <h1>Multi-Agent Connectathon Demo</h1>
             <div class="protocol-toggle">
                 <label>
                     <input type="radio" name="protocol" value="A2A" checked>
@@ -37,11 +37,108 @@
             <div id="transcript" class="transcript"></div>
         </div>
 
-        <!-- Right Pane: Artifacts -->
-        <div class="right-pane">
+        <!-- Center Pane: Artifacts -->
+        <div class="center-pane">
             <h2>Artifacts</h2>
             <div id="artifacts" class="artifacts">
                 <p class="no-artifacts">No artifacts available</p>
+            </div>
+        </div>
+
+        <!-- Right Pane: Connectathon Settings -->
+        <div class="right-pane">
+            <div class="settings-panel">
+                <h2>Connectathon Settings</h2>
+                
+                <!-- Self-test Badge -->
+                <div class="selftest-badge mb-3">
+                    <span id="selftest-status" class="badge bg-secondary">Checking...</span>
+                </div>
+
+                <!-- Scenario Selection -->
+                <div class="mb-3">
+                    <label for="scenario-select" class="form-label">Scenario:</label>
+                    <select id="scenario-select" class="form-select form-select-sm">
+                        <option value="bcse">BCS-E</option>
+                        <option value="clinical_trial">Clinical Trial</option>
+                        <option value="referral_specialist">Referral Specialist</option>
+                        <option value="prior_auth">Prior Authorization</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+
+                <!-- Mode Selection -->
+                <div class="mb-3">
+                    <label class="form-label">Mode:</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="mode" id="mode-applicant" value="applicant_only">
+                        <label class="form-check-label" for="mode-applicant">Applicant-only</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="mode" id="mode-admin" value="administrator_only">
+                        <label class="form-check-label" for="mode-admin">Administrator-only</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="mode" id="mode-full" value="full_stack" checked>
+                        <label class="form-check-label" for="mode-full">Full-stack</label>
+                    </div>
+                </div>
+
+                <!-- Simulation Controls -->
+                <div class="mb-3">
+                    <label class="form-label">Simulation:</label>
+                    <div class="mb-2">
+                        <label for="admin-processing-ms" class="form-label">Admin Processing (ms):</label>
+                        <input type="number" id="admin-processing-ms" class="form-control form-control-sm" value="1200" min="0">
+                    </div>
+                    <div class="mb-2">
+                        <label for="error-injection-rate" class="form-label">Error Injection Rate (0-1):</label>
+                        <input type="number" id="error-injection-rate" class="form-control form-control-sm" value="0.0" min="0" max="1" step="0.1">
+                    </div>
+                    <div class="mb-2">
+                        <label for="capacity-limit" class="form-label">Capacity Limit:</label>
+                        <input type="number" id="capacity-limit" class="form-control form-control-sm" placeholder="Leave blank for unlimited" min="1">
+                    </div>
+                </div>
+
+                <!-- Protocol Default -->
+                <div class="mb-3">
+                    <label class="form-label">Protocol Default:</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="protocol-default" id="protocol-a2a" value="a2a" checked>
+                        <label class="form-check-label" for="protocol-a2a">A2A</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="protocol-default" id="protocol-mcp" value="mcp">
+                        <label class="form-check-label" for="protocol-mcp">MCP</label>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="mb-3">
+                    <button id="save-settings-btn" class="btn btn-primary btn-sm w-100 mb-2">Save Settings</button>
+                    <button id="reset-config-btn" class="btn btn-outline-secondary btn-sm w-100 mb-2">Reset Config</button>
+                    <button id="examples-btn" class="btn btn-info btn-sm w-100">Examples</button>
+                </div>
+
+                <!-- Requirements Display -->
+                <div class="requirements-section">
+                    <h6>Current Requirements:</h6>
+                    <div id="requirements-text" class="small text-muted">Loading...</div>
+                </div>
+
+                <!-- Applicant Payload Override -->
+                <div class="mt-3">
+                    <label for="applicant-payload" class="form-label">Applicant Payload (optional JSON):</label>
+                    <textarea id="applicant-payload" class="form-control form-control-sm" rows="4" style="font-family: monospace;" placeholder='{"age": 56, "sex": "female"}'></textarea>
+                    <div id="payload-error" class="text-danger small mt-1" style="display: none;"></div>
+                </div>
+
+                <!-- Export Tools -->
+                <div class="mt-3">
+                    <h6>Export Tools:</h6>
+                    <button id="export-transcript-btn" class="btn btn-outline-info btn-sm w-100">Export Transcript & Artifacts</button>
+                </div>
             </div>
         </div>
     </main>
