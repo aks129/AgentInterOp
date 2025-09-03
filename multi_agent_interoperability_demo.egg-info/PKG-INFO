@@ -26,6 +26,11 @@ Requires-Dist: python-engineio>=4.7.0
 Requires-Dist: eventlet>=0.33.0
 Requires-Dist: requests>=2.31.0
 Requires-Dist: python-dateutil>=2.8.0
+Requires-Dist: pydantic>=2
+Requires-Dist: sse-starlette>=3.0.2
+Requires-Dist: jinja2>=3.1.6
+Requires-Dist: fastapi>=0.116.1
+Requires-Dist: uvicorn[standard]>=0.35.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"

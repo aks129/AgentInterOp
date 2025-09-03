@@ -1,9 +1,13 @@
 import os
 import logging
-from flask import Flask, render_template, request, jsonify
-from flask_socketio import SocketIO, emit
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 import json
 from datetime import datetime
+from typing import Dict, Any, Optional
 
 from app.protocols.a2a import A2AProtocol
 from app.protocols.mcp import MCPProtocol
@@ -12,12 +16,16 @@ from app.agents.applicant import ApplicantAgent
 from app.agents.administrator import AdministratorAgent
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__, template_folder='web/templates', static_folder='web/static')
-app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
-socketio = SocketIO(app, cors_allowed_origins="*")
+app = FastAPI(title="Multi-Agent Interoperability Demo", version="1.0.0")
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="app/web/static"), name="static")
+
+# Templates
+templates = Jinja2Templates(directory="app/web/templates")
 
 # Initialize components
 memory = ConversationMemory()
@@ -31,90 +39,79 @@ mcp_protocol = MCPProtocol(memory, applicant_agent, administrator_agent)
 # Current active protocol
 current_protocol = "a2a"
 
-@app.route('/')
-def index():
+# Pydantic models for request/response
+class ProtocolSwitchRequest(BaseModel):
+    protocol: str
+
+class ConversationStartRequest(BaseModel):
+    scenario: str = "eligibility_check"
+
+class SuccessResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+
+class ProtocolResponse(BaseModel):
+    success: bool
+    protocol: str
+
+class ConversationResponse(BaseModel):
+    success: bool
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
     """Main application page"""
-    return render_template('index.html')
+    return templates.TemplateResponse("simple_index.html", {"request": request})
 
-@app.route('/api/conversations')
-def get_conversations():
+@app.get("/api/conversations")
+async def get_conversations():
     """Get all conversations from memory"""
-    conversations = memory.get_all_conversations()
-    return jsonify(conversations)
+    try:
+        conversations = memory.get_all_conversations()
+        return conversations
+    except Exception as e:
+        logger.error(f"Error getting conversations: {str(e)}")
+        return []
 
-@app.route('/api/protocol', methods=['POST'])
-def switch_protocol():
+@app.post("/api/protocol", response_model=ProtocolResponse)
+async def switch_protocol(request: ProtocolSwitchRequest):
     """Switch between A2A and MCP protocols"""
     global current_protocol
-    data = request.get_json()
-    new_protocol = data.get('protocol')
     
-    if new_protocol in ['a2a', 'mcp']:
-        current_protocol = new_protocol
+    if request.protocol in ['a2a', 'mcp']:
+        current_protocol = request.protocol
         logger.info(f"Protocol switched to: {current_protocol}")
-        
-        # Emit protocol change to all clients
-        socketio.emit('protocol_changed', {'protocol': current_protocol})
-        
-        return jsonify({'success': True, 'protocol': current_protocol})
+        return ProtocolResponse(success=True, protocol=current_protocol)
     else:
-        return jsonify({'success': False, 'error': 'Invalid protocol'}), 400
+        raise HTTPException(status_code=400, detail="Invalid protocol")
 
-@app.route('/api/start_conversation', methods=['POST'])
-def start_conversation():
+@app.post("/api/start_conversation", response_model=ConversationResponse)
+async def start_conversation(request: ConversationStartRequest):
     """Start a new conversation between agents"""
-    data = request.get_json()
-    scenario = data.get('scenario', 'eligibility_check')
-    
     try:
         if current_protocol == "a2a":
-            result = a2a_protocol.start_conversation(scenario)
+            result = a2a_protocol.start_conversation(request.scenario)
         else:
-            result = mcp_protocol.start_conversation(scenario)
+            result = mcp_protocol.start_conversation(request.scenario)
         
-        # Emit conversation started event
-        socketio.emit('conversation_started', {
-            'protocol': current_protocol,
-            'scenario': scenario,
-            'result': result
-        })
-        
-        return jsonify({'success': True, 'result': result})
+        return ConversationResponse(success=True, result=result)
     except Exception as e:
         logger.error(f"Error starting conversation: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return ConversationResponse(success=False, error=str(e))
 
-@socketio.on('connect')
-def handle_connect():
-    """Handle client connection"""
-    logger.info("Client connected")
-    emit('connected', {'protocol': current_protocol})
+@app.get("/api/current_protocol")
+async def current_protocol_status():
+    """Get current protocol status"""
+    return {"protocol": current_protocol}
 
-@socketio.on('disconnect')
-def handle_disconnect():
-    """Handle client disconnection"""
-    logger.info("Client disconnected")
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
-@socketio.on('send_message')
-def handle_message(data):
-    """Handle incoming message from client"""
-    try:
-        message = data.get('message')
-        sender = data.get('sender', 'user')
-        
-        if current_protocol == "a2a":
-            response = a2a_protocol.handle_message(message, sender)
-        else:
-            response = mcp_protocol.handle_message(message, sender)
-        
-        # Emit response to all clients
-        emit('message_response', response, broadcast=True)
-        
-    except Exception as e:
-        logger.error(f"Error handling message: {str(e)}")
-        emit('error', {'message': str(e)})
-
-if __name__ == '__main__':
-    logger.info("Starting Multi-Agent Interoperability Demo")
+if __name__ == "__main__":
+    import uvicorn
+    logger.info("Starting Multi-Agent Interoperability Demo with FastAPI")
     logger.info(f"Current protocol: {current_protocol}")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    uvicorn.run(app, host="0.0.0.0", port=5000)

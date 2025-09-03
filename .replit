@@ -2,7 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["iana-etc", "openssl", "postgresql"]
+packages = ["iana-etc", "libxcrypt", "openssl", "postgresql"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -32,6 +32,10 @@ waitForPort = 5000
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
 
 [agent]
 integrations = ["styling_replit==1.0.0"]

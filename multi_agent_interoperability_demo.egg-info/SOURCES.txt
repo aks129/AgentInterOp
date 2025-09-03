@@ -7,6 +7,13 @@ pyproject.toml
 ./app/protocols/a2a.py
 ./app/protocols/mcp.py
 ./app/store/memory.py
+app/main.py
+app/agents/administrator.py
+app/agents/applicant.py
+app/eligibility/bcse.py
+app/protocols/a2a.py
+app/protocols/mcp.py
+app/store/memory.py
 multi_agent_interoperability_demo.egg-info/PKG-INFO
 multi_agent_interoperability_demo.egg-info/SOURCES.txt
 multi_agent_interoperability_demo.egg-info/dependency_links.txt
