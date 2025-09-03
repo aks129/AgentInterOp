@@ -1,112 +1,52 @@
 {
   "resourceType": "Bundle",
-  "id": "patient-001-bundle",
   "type": "collection",
   "entry": [
-    {
+    { 
       "resource": {
         "resourceType": "Patient",
-        "id": "patient-001",
+        "id": "pat-001",
         "gender": "female",
-        "birthDate": "1975-06-15",
-        "name": [
-          {
-            "use": "official",
-            "family": "Smith",
-            "given": ["Jane", "Marie"]
-          }
-        ],
-        "identifier": [
-          {
-            "system": "http://hospital.example.org/patients",
-            "value": "001"
-          }
-        ]
+        "birthDate": "1969-07-15"
       }
     },
-    {
+    { 
       "resource": {
         "resourceType": "Procedure",
-        "id": "mammogram-20231015",
+        "id": "proc-mammo-001",
         "status": "completed",
-        "code": {
-          "coding": [
-            {
-              "system": "http://www.ama-assn.org/go/cpt",
-              "code": "77067",
-              "display": "Screening mammography, bilateral"
-            }
-          ]
+        "code": { 
+          "coding": [ 
+            { 
+              "system": "http://www.ama-assn.org/go/cpt", 
+              "code": "77067", 
+              "display": "Screening mammography" 
+            } 
+          ] 
         },
-        "subject": {
-          "reference": "Patient/patient-001"
-        },
-        "performedDateTime": "2023-10-15"
+        "subject": { "reference": "Patient/pat-001" },
+        "performedDateTime": "2024-05-01"
       }
     },
-    {
+    { 
       "resource": {
         "resourceType": "DocumentReference",
-        "id": "clinical-note-001",
-        "status": "current",
-        "type": {
-          "coding": [
-            {
-              "system": "http://loinc.org",
-              "code": "11506-3",
-              "display": "Progress note"
-            }
-          ]
+        "id": "doc-abstract-001",
+        "type": { 
+          "coding": [ 
+            { 
+              "system": "http://loinc.org", 
+              "code": "34109-9", 
+              "display": "Outpatient Note" 
+            } 
+          ] 
         },
-        "subject": {
-          "reference": "Patient/patient-001"
-        },
-        "date": "2023-10-20T10:30:00Z",
-        "content": [
-          {
-            "attachment": {
-              "contentType": "text/plain",
-              "data": "UGF0aWVudCBoYWQgcm91dGluZSBzY3JlZW5pbmcgbWFtbW9ncmFtIG9uIDEwLzE1LzIwMjMuIE5vIGFibm9ybWFsIGZpbmRpbmdzLg=="
-            }
+        "content": [{
+          "attachment": {
+            "contentType": "text/markdown",
+            "data": "UGF0aWVudCB3ZWxsIHdpdGhvdXQgYm9vIGhpc3RvcnkuIFNjcmVlbmluZyBtYW1tb2dyYW0gY29tcGxldGVkIDIwMjQtMDUtMDEu"
           }
-        ]
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "Observation",
-        "id": "vital-signs-001",
-        "status": "final",
-        "category": [
-          {
-            "coding": [
-              {
-                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
-                "code": "vital-signs",
-                "display": "Vital Signs"
-              }
-            ]
-          }
-        ],
-        "code": {
-          "coding": [
-            {
-              "system": "http://loinc.org",
-              "code": "29463-7",
-              "display": "Body Weight"
-            }
-          ]
-        },
-        "subject": {
-          "reference": "Patient/patient-001"
-        },
-        "effectiveDateTime": "2023-10-20",
-        "valueQuantity": {
-          "value": 65.5,
-          "unit": "kg",
-          "system": "http://unitsofmeasure.org",
-          "code": "kg"
-        }
+        }]
       }
     }
   ]
