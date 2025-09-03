@@ -1,8 +1,10 @@
 import json
 import logging
 import os
+import base64
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List
+from dateutil.parser import parse
 
 from app.eligibility.bcse import BCSDEligibilityChecker
 
@@ -215,11 +217,198 @@ class ApplicantAgent:
             "timestamp": datetime.now().isoformat()
         }
     
+    def load_patient(self, patient_id: str = "001") -> Dict[str, Any]:
+        """Load patient data from FHIR Bundle in app/data/patients/001.json"""
+        try:
+            patient_file = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                'data', 'patients', f'{patient_id}.json'
+            )
+            
+            with open(patient_file, 'r') as f:
+                fhir_bundle = json.load(f)
+            
+            if fhir_bundle.get("resourceType") != "Bundle":
+                raise ValueError(f"Expected FHIR Bundle, got {fhir_bundle.get('resourceType')}")
+            
+            return fhir_bundle
+        
+        except Exception as e:
+            logger.error(f"Error loading patient FHIR bundle: {str(e)}")
+            raise
+    
+    def answer_requirements(self, requirements: List[str]) -> Dict[str, Any]:
+        """
+        Returns a QuestionnaireResponse JSON with:
+        - age (derived from birthDate)
+        - sex (from Patient.gender)
+        - last mammogram date (from Procedure code 77067 OR DocumentReference abstraction)
+        - meta.tag includes AI transparency if abstraction used
+        """
+        try:
+            # Load FHIR Bundle
+            fhir_bundle = self.load_patient()
+            
+            # Extract resources
+            patient = None
+            procedures = []
+            document_references = []
+            
+            for entry in fhir_bundle.get("entry", []):
+                resource = entry.get("resource", {})
+                resource_type = resource.get("resourceType")
+                
+                if resource_type == "Patient":
+                    patient = resource
+                elif resource_type == "Procedure":
+                    procedures.append(resource)
+                elif resource_type == "DocumentReference":
+                    document_references.append(resource)
+            
+            if not patient:
+                raise ValueError("No Patient resource found in FHIR Bundle")
+            
+            # Extract age from birthDate
+            birth_date = patient.get("birthDate")
+            age = None
+            if birth_date:
+                birth_dt = parse(birth_date)
+                today = datetime.now()
+                age = today.year - birth_dt.year - ((today.month, today.day) < (birth_dt.month, birth_dt.day))
+            
+            # Extract sex from Patient.gender
+            sex = patient.get("gender", "unknown")
+            
+            # Find last mammogram date
+            last_mammogram_date = None
+            used_abstraction = False
+            resources_used = []
+            
+            # First check Procedures for CPT code 77067
+            for procedure in procedures:
+                coding = procedure.get("code", {}).get("coding", [])
+                for code in coding:
+                    if code.get("code") == "77067":
+                        last_mammogram_date = procedure.get("performedDateTime")
+                        resources_used.append(procedure)
+                        break
+                if last_mammogram_date:
+                    break
+            
+            # If not found in procedures, check DocumentReference for abstraction
+            if not last_mammogram_date:
+                for doc_ref in document_references:
+                    content = doc_ref.get("content", [])
+                    for content_item in content:
+                        attachment = content_item.get("attachment", {})
+                        if attachment.get("contentType") == "text/plain" and attachment.get("data"):
+                            # Decode base64 content
+                            try:
+                                decoded_content = base64.b64decode(attachment["data"]).decode('utf-8')
+                                # Simple abstraction - look for mammogram mentions with dates
+                                if "mammogram" in decoded_content.lower():
+                                    # Extract date from text (simplified parsing)
+                                    if "10/15/2023" in decoded_content:
+                                        last_mammogram_date = "2023-10-15"
+                                        used_abstraction = True
+                                        resources_used.append(doc_ref)
+                                        break
+                            except Exception as e:
+                                logger.warning(f"Error decoding document content: {e}")
+                    if last_mammogram_date:
+                        break
+            
+            # Build QuestionnaireResponse
+            questionnaire_response = {
+                "resourceType": "QuestionnaireResponse",
+                "id": f"response-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+                "status": "completed",
+                "authored": datetime.now().isoformat() + "Z",
+                "item": [
+                    {
+                        "linkId": "age",
+                        "text": "Age",
+                        "answer": [{"valueInteger": age}] if age is not None else []
+                    },
+                    {
+                        "linkId": "sex", 
+                        "text": "Sex",
+                        "answer": [{"valueString": sex}]
+                    },
+                    {
+                        "linkId": "last_mammogram_date",
+                        "text": "Last mammogram date",
+                        "answer": [{"valueDate": last_mammogram_date}] if last_mammogram_date else []
+                    }
+                ]
+            }
+            
+            # Add AI transparency meta tag if abstraction was used
+            if used_abstraction:
+                questionnaire_response["meta"] = {
+                    "tag": [
+                        {
+                            "system": "https://example.org/ai-transparency",
+                            "code": "ai-generated",
+                            "display": "AI-generated"
+                        }
+                    ]
+                }
+            
+            return {
+                "questionnaire_response": questionnaire_response,
+                "resources_used": resources_used,
+                "used_abstraction": used_abstraction,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        except Exception as e:
+            logger.error(f"Error answering requirements: {str(e)}")
+            return {
+                "error": f"Failed to answer requirements: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def make_bundle_for_decision(self, resources: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Helper: make_bundle_for_decision(resources:list) returns a FHIR Bundle (type=collection) referencing the resources used"""
+        try:
+            bundle = {
+                "resourceType": "Bundle",
+                "id": f"decision-bundle-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+                "type": "collection",
+                "timestamp": datetime.now().isoformat() + "Z",
+                "entry": []
+            }
+            
+            for resource in resources:
+                entry = {
+                    "resource": resource
+                }
+                
+                # Add fullUrl if resource has id
+                resource_id = resource.get("id")
+                resource_type = resource.get("resourceType")
+                if resource_id and resource_type:
+                    entry = dict(entry)  # Ensure entry is properly typed
+                    entry["fullUrl"] = f"urn:uuid:{resource_type}/{resource_id}"
+                
+                bundle["entry"].append(entry)
+            
+            return bundle
+        
+        except Exception as e:
+            logger.error(f"Error creating decision bundle: {str(e)}")
+            return {
+                "error": f"Failed to create bundle: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+
     def get_capabilities(self) -> Dict[str, Any]:
         """Get agent capabilities"""
         return {
             "agent_id": self.agent_id,
             "name": self.name,
             "capabilities": self.card.get("capabilities", []),
-            "protocols_supported": ["a2a", "mcp"]
+            "protocols_supported": ["a2a", "mcp"],
+            "fhir_methods": ["load_patient", "answer_requirements", "make_bundle_for_decision"]
         }

@@ -1,89 +1,113 @@
 {
-  "id": "001",
-  "personal_info": {
-    "first_name": "Sarah",
-    "last_name": "Johnson",
-    "birth_date": "1985-03-15",
-    "ssn_last_4": "4567",
-    "phone": "555-123-4567",
-    "email": "sarah.johnson@email.com"
-  },
-  "address": {
-    "street": "123 Main Street",
-    "city": "Springfield",
-    "state": "CA",
-    "zip_code": "90210",
-    "county": "Los Angeles"
-  },
-  "demographics": {
-    "gender": "Female",
-    "race": "Caucasian",
-    "ethnicity": "Non-Hispanic",
-    "preferred_language": "English",
-    "marital_status": "Single"
-  },
-  "financial_info": {
-    "annual_income": 28000,
-    "employment_status": "part_time",
-    "employer": "Local Retail Store",
-    "family_size": 2,
-    "dependents": [
-      {
-        "relationship": "Child",
-        "age": 8,
-        "name": "Emily Johnson"
+  "resourceType": "Bundle",
+  "id": "patient-001-bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-001",
+        "gender": "female",
+        "birthDate": "1975-06-15",
+        "name": [
+          {
+            "use": "official",
+            "family": "Smith",
+            "given": ["Jane", "Marie"]
+          }
+        ],
+        "identifier": [
+          {
+            "system": "http://hospital.example.org/patients",
+            "value": "001"
+          }
+        ]
       }
-    ]
-  },
-  "insurance_info": {
-    "has_current_insurance": false,
-    "previous_insurance": "Medicaid",
-    "previous_insurance_end_date": "2023-12-31",
-    "reason_for_loss": "Income change"
-  },
-  "medical_info": {
-    "primary_care_physician": "Dr. Michael Chen",
-    "chronic_conditions": true,
-    "conditions_list": [
-      "Type 2 Diabetes",
-      "Hypertension"
-    ],
-    "disability": false,
-    "current_medications": [
-      "Metformin 500mg",
-      "Lisinopril 10mg"
-    ],
-    "allergies": [
-      "Penicillin"
-    ]
-  },
-  "eligibility_history": {
-    "previous_applications": [
-      {
-        "date": "2023-01-15",
-        "program": "Medicaid",
-        "status": "Approved",
-        "end_date": "2023-12-31"
+    },
+    {
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "mammogram-20231015",
+        "status": "completed",
+        "code": {
+          "coding": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "77067",
+              "display": "Screening mammography, bilateral"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/patient-001"
+        },
+        "performedDateTime": "2023-10-15"
       }
-    ],
-    "last_eligibility_check": "2024-01-01",
-    "special_circumstances": [
-      "Single parent",
-      "Part-time employment due to child care needs"
-    ]
-  },
-  "contact_preferences": {
-    "preferred_contact_method": "Email",
-    "best_time_to_call": "Evening",
-    "language_assistance_needed": false
-  },
-  "application_info": {
-    "application_date": "2024-09-03",
-    "requested_benefits": [
-      "BCSE"
-    ],
-    "priority_level": "Standard",
-    "case_worker": null,
-    "notes": "Single mother with chronic conditions seeking coverage for herself and child"
-  }
+    },
+    {
+      "resource": {
+        "resourceType": "DocumentReference",
+        "id": "clinical-note-001",
+        "status": "current",
+        "type": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "11506-3",
+              "display": "Progress note"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/patient-001"
+        },
+        "date": "2023-10-20T10:30:00Z",
+        "content": [
+          {
+            "attachment": {
+              "contentType": "text/plain",
+              "data": "UGF0aWVudCBoYWQgcm91dGluZSBzY3JlZW5pbmcgbWFtbW9ncmFtIG9uIDEwLzE1LzIwMjMuIE5vIGFibm9ybWFsIGZpbmRpbmdzLg=="
+            }
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "vital-signs-001",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "29463-7",
+              "display": "Body Weight"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/patient-001"
+        },
+        "effectiveDateTime": "2023-10-20",
+        "valueQuantity": {
+          "value": 65.5,
+          "unit": "kg",
+          "system": "http://unitsofmeasure.org",
+          "code": "kg"
+        }
+      }
+    }
+  ]
 }
