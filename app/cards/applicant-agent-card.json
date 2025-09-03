@@ -1,75 +1,34 @@
 {
-  "agent_id": "applicant",
+  "protocolVersion": "0.2.9",
+  "preferredTransport": "JSONRPC",
   "name": "Applicant Agent",
-  "version": "1.0.0",
-  "description": "Handles patient eligibility applications and data gathering for benefits programs",
-  "type": "service_agent",
-  "capabilities": [
-    "eligibility_assessment",
-    "data_collection",
-    "application_submission",
-    "patient_data_retrieval",
-    "form_completion",
-    "document_verification"
-  ],
-  "protocols_supported": [
+  "description": "FHIR-enabled applicant agent for healthcare benefits eligibility processing",
+  "role": "applicant",
+  "capabilities": {
+    "streaming": true,
+    "protocols": ["A2A", "MCP"],
+    "fhir": true
+  },
+  "skills": [
     {
-      "name": "a2a",
-      "version": "1.0",
-      "methods": [
-        "initiate_eligibility_check",
-        "get_patient_data",
-        "submit_application"
-      ]
-    },
-    {
-      "name": "mcp",
-      "version": "1.0",
-      "tools": [
-        "eligibility_check",
-        "get_patient_data"
-      ]
+      "name": "bcse_eligibility_application",
+      "description": "Process FHIR patient data and generate eligibility applications for BCS-E screening benefits",
+      "type": "discovery",
+      "scenario": "healthcare_eligibility",
+      "inputs": ["patient_data", "requirements"],
+      "outputs": ["questionnaire_response", "fhir_bundle"],
+      "a2a": {
+        "config64": "ZGVtby1jb25maWc="
+      }
     }
   ],
-  "data_sources": [
-    "patient_database",
-    "eligibility_rules_engine",
-    "application_forms"
+  "methods": [
+    "load_patient",
+    "answer_requirements", 
+    "make_bundle_for_decision"
   ],
-  "output_formats": [
-    "json",
-    "form_data",
-    "eligibility_report"
-  ],
-  "security": {
-    "data_encryption": true,
-    "pii_handling": "compliant",
-    "audit_logging": true
-  },
-  "configuration": {
-    "default_benefit_type": "bcse",
-    "timeout_seconds": 30,
-    "max_retries": 3
-  },
-  "integrations": [
-    {
-      "name": "BCSE Eligibility Checker",
-      "type": "internal_service"
-    },
-    {
-      "name": "Patient Database",
-      "type": "data_source"
-    }
-  ],
-  "metadata": {
-    "created_at": "2024-09-03T00:00:00Z",
-    "last_updated": "2024-09-03T00:00:00Z",
-    "tags": [
-      "healthcare",
-      "benefits",
-      "eligibility",
-      "patient_services"
-    ],
-    "owner": "Healthcare Benefits Department"
-  }
+  "supported_formats": [
+    "application/fhir+json",
+    "application/json"
+  ]
 }

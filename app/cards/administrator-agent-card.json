@@ -1,106 +1,34 @@
 {
-  "agent_id": "administrator",
+  "protocolVersion": "0.2.9",
+  "preferredTransport": "JSONRPC",
   "name": "Administrator Agent",
-  "version": "1.0.0",
-  "description": "Processes eligibility applications and makes benefit determinations for healthcare programs",
-  "type": "decision_agent",
-  "capabilities": [
-    "application_processing",
-    "eligibility_determination",
-    "benefits_approval",
-    "administrative_review",
-    "compliance_checking",
-    "decision_documentation"
-  ],
-  "protocols_supported": [
+  "description": "BCS-E eligibility decision agent with FHIR validation and artifact generation",
+  "role": "administrator",
+  "capabilities": {
+    "streaming": true,
+    "protocols": ["A2A", "MCP"],
+    "fhir": true
+  },
+  "skills": [
     {
-      "name": "a2a",
-      "version": "1.0",
-      "methods": [
-        "process_application",
-        "approve_application",
-        "review_eligibility"
-      ]
-    },
-    {
-      "name": "mcp",
-      "version": "1.0",
-      "tools": [
-        "process_application",
-        "approve_application",
-        "review_eligibility"
-      ]
+      "name": "bcse_eligibility_determination",
+      "description": "Validate BCS-E eligibility criteria and generate decision artifacts with FHIR compliance",
+      "type": "discovery",
+      "scenario": "healthcare_eligibility",
+      "inputs": ["questionnaire_response", "patient_resource"],
+      "outputs": ["decision_text", "artifacts", "rationale"],
+      "a2a": {
+        "config64": "ZGVtby1jb25maWc="
+      }
     }
   ],
-  "decision_authority": {
-    "benefit_programs": [
-      "BCSE",
-      "Medicaid",
-      "CHIP"
-    ],
-    "approval_limits": {
-      "standard_applications": "unlimited",
-      "expedited_applications": "unlimited",
-      "appeals": "level_1"
-    }
-  },
-  "workflow_integration": [
-    "eligibility_rules_engine",
-    "benefits_management_system",
-    "audit_trail_system"
+  "methods": [
+    "requirements_message",
+    "validate",
+    "finalize"
   ],
-  "output_formats": [
-    "determination_letter",
-    "approval_notification",
-    "denial_notice",
-    "audit_report"
-  ],
-  "security": {
-    "authorization_level": "administrator",
-    "data_access": "full_patient_records",
-    "audit_logging": true,
-    "decision_tracking": true
-  },
-  "configuration": {
-    "auto_approve_threshold": 0.95,
-    "require_supervisor_review": false,
-    "timeout_seconds": 60,
-    "max_applications_per_session": 50
-  },
-  "compliance": {
-    "hipaa_compliant": true,
-    "ada_compliant": true,
-    "regulatory_frameworks": [
-      "CMS Guidelines",
-      "State Medicaid Rules",
-      "HIPAA Privacy Rule"
-    ]
-  },
-  "integrations": [
-    {
-      "name": "BCSE Eligibility Checker",
-      "type": "internal_service"
-    },
-    {
-      "name": "Benefits Management System",
-      "type": "external_system"
-    },
-    {
-      "name": "Audit Trail Service",
-      "type": "compliance_system"
-    }
-  ],
-  "metadata": {
-    "created_at": "2024-09-03T00:00:00Z",
-    "last_updated": "2024-09-03T00:00:00Z",
-    "tags": [
-      "healthcare",
-      "benefits",
-      "administration",
-      "decision_making",
-      "compliance"
-    ],
-    "owner": "Healthcare Benefits Administration",
-    "approval_authority": "Department of Health Services"
-  }
+  "supported_formats": [
+    "application/fhir+json",
+    "application/json"
+  ]
 }
