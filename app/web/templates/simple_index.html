@@ -476,7 +476,10 @@
                 }
                 
                 toast.className = `toast ${bgClass} text-white`;
-                toast.querySelector('i').setAttribute('data-feather', icon);
+                const iconElement = toast.querySelector('i');
+                if (iconElement) {
+                    iconElement.setAttribute('data-feather', icon);
+                }
                 toastBody.textContent = message;
                 
                 const bsToast = new bootstrap.Toast(toast);

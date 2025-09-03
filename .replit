@@ -46,4 +46,3 @@ localPort = 8000
 externalPort = 8000
 
 [agent]
-integrations = ["styling_replit==1.0.0"]

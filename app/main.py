@@ -90,6 +90,61 @@ async def download_artifact(task_id: str, name: str):
         }
     )
 
+# Global state for protocol management
+current_protocol = "a2a"
+
+@app.get("/api/current_protocol")
+async def get_current_protocol():
+    """Get the current active protocol"""
+    return {"protocol": current_protocol}
+
+@app.post("/api/protocol")
+async def switch_protocol(request: Request):
+    """Switch between A2A and MCP protocols"""
+    global current_protocol
+    data = await request.json()
+    new_protocol = data.get('protocol')
+    
+    if new_protocol in ['a2a', 'mcp']:
+        current_protocol = new_protocol
+        return {"success": True, "protocol": current_protocol}
+    else:
+        raise HTTPException(status_code=400, detail="Invalid protocol")
+
+@app.post("/api/start_conversation")
+async def start_conversation(request: Request):
+    """Start a new conversation between agents"""
+    data = await request.json()
+    scenario = data.get('scenario', 'eligibility_check')
+    
+    # Mock response for demonstration - in real implementation this would
+    # interact with the conversation engine
+    import uuid
+    session_id = str(uuid.uuid4())
+    
+    if current_protocol == "a2a":
+        initial_exchange = {
+            "applicant_request": {"method": "initiate_eligibility_check", "id": "req-1"},
+            "applicant_response": {"result": "Request submitted", "id": "req-1"},
+            "admin_response": {"method": "process_application", "result": "Application received", "id": "req-2"}
+        }
+    else:
+        initial_exchange = {
+            "eligibility_call": {"tool": "eligibility_check", "parameters": {"scenario": scenario}},
+            "applicant_response": {"result": "Eligibility check initiated"},
+            "process_call": {"tool": "process_application", "parameters": {"data": "application_data"}},
+            "admin_response": {"result": "Application processed successfully"}
+        }
+    
+    return {
+        "success": True,
+        "result": {
+            "session_id": session_id,
+            "protocol": current_protocol,
+            "initial_exchange": initial_exchange
+        }
+    }
+
 @app.get("/health")
 async def health():
     """Health check endpoint"""
