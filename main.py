@@ -31,6 +31,11 @@ def index():
     """Main application page"""
     return render_template('simple_index.html')
 
+@app.route('/config')
+def config_page():
+    """Configuration control panel"""
+    return render_template('config.html')
+
 @app.route('/api/current_protocol')
 def get_current_protocol():
     """Get the current active protocol"""
