@@ -8,6 +8,8 @@ import uuid
 import base64
 from flask import Flask, render_template, request, jsonify
 from app.config import load_config, save_config, update_config, ConnectathonConfig
+from app.scenarios.registry import get_active, list_scenarios
+import app.scenarios  # Initialize scenario registry
 
 # Create Flask app (WSGI compatible)
 app = Flask(__name__, template_folder='app/web/templates', static_folder='app/web/static')
@@ -102,6 +104,53 @@ def reset_config():
         "success": True,
         "config": json.loads(default_config.model_dump_json())
     })
+
+@app.route('/api/scenarios')
+def get_scenarios():
+    """List all available scenarios"""
+    try:
+        scenarios = list_scenarios()
+        return jsonify({"scenarios": scenarios})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scenarios/active')
+def get_active_scenario():
+    """Get active scenario details"""
+    try:
+        name, scenario = get_active()
+        return jsonify({
+            "name": name,
+            "label": scenario["label"],
+            "requirements": scenario["requirements"](),
+            "examples": scenario["examples"]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scenarios/<scenario_name>/evaluate', methods=['POST'])
+def evaluate_scenario(scenario_name):
+    """Evaluate a specific scenario"""
+    try:
+        data = request.get_json()
+        applicant_payload = data.get('applicant_payload', {})
+        patient_bundle = data.get('patient_bundle', {})
+        
+        # Get scenario and evaluate
+        name, scenario = get_active()
+        if name != scenario_name:
+            return jsonify({"error": f"Scenario '{scenario_name}' is not active"}), 400
+            
+        decision, rationale, artifacts = scenario["evaluate"](applicant_payload, patient_bundle)
+        
+        return jsonify({
+            "scenario": name,
+            "decision": decision,
+            "rationale": rationale,
+            "artifacts": artifacts
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/.well-known/agent-card.json')
 def agent_card():
