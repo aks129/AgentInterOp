@@ -1,7 +1,9 @@
 import json
 import logging
 from datetime import datetime, date
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
+from dateutil.parser import parse
+from dateutil.relativedelta import relativedelta
 
 logger = logging.getLogger(__name__)
 
@@ -255,3 +257,83 @@ class BCSDEligibilityChecker:
         except Exception as e:
             logger.error(f"Error updating eligibility rules: {str(e)}")
             return False
+
+
+def evaluate_bcse(patient: Dict[str, Any], qresp: Dict[str, Any], measurement_date: date = None) -> str:
+    """
+    Evaluate BCS-E (Breast Cancer Screening Eligibility) based on specific criteria:
+    
+    Returns:
+    - "eligible" if female AND 50–74 at measurement date AND mammogram within 27 months of measurement date
+    - "needs-more-info" if age, sex, or mammogram date missing
+    - "ineligible" otherwise
+    
+    Args:
+        patient: FHIR Patient resource
+        qresp: QuestionnaireResponse with age, sex, and last_mammogram_date
+        measurement_date: Date for age calculation (defaults to today)
+    """
+    if measurement_date is None:
+        measurement_date = date.today()
+    
+    try:
+        # Extract data from QuestionnaireResponse
+        age = None
+        sex = None
+        last_mammogram_date = None
+        
+        for item in qresp.get("item", []):
+            link_id = item.get("linkId")
+            answers = item.get("answer", [])
+            
+            if link_id == "age" and answers:
+                age = answers[0].get("valueInteger")
+            elif link_id == "sex" and answers:
+                sex = answers[0].get("valueString", "").lower()
+            elif link_id == "last_mammogram_date" and answers:
+                last_mammogram_date_str = answers[0].get("valueDate")
+                if last_mammogram_date_str:
+                    try:
+                        last_mammogram_date = parse(last_mammogram_date_str).date()
+                    except Exception as e:
+                        logger.warning(f"Error parsing mammogram date: {e}")
+        
+        # Check if we have required information
+        if age is None or sex is None or last_mammogram_date is None:
+            missing_fields = []
+            if age is None:
+                missing_fields.append("age")
+            if sex is None:
+                missing_fields.append("sex")
+            if last_mammogram_date is None:
+                missing_fields.append("mammogram date")
+            
+            logger.info(f"Missing required fields for BCS-E evaluation: {missing_fields}")
+            return "needs-more-info"
+        
+        # Check eligibility criteria:
+        # 1. Must be female
+        if sex != "female":
+            logger.info(f"BCS-E ineligible: not female (sex: {sex})")
+            return "ineligible"
+        
+        # 2. Must be 50-74 years old at measurement date
+        if not (50 <= age <= 74):
+            logger.info(f"BCS-E ineligible: age {age} not in range 50-74")
+            return "ineligible"
+        
+        # 3. Must have mammogram within 27 months of measurement date
+        months_since_mammogram = relativedelta(measurement_date, last_mammogram_date).months + \
+                                (relativedelta(measurement_date, last_mammogram_date).years * 12)
+        
+        if months_since_mammogram > 27:
+            logger.info(f"BCS-E ineligible: mammogram {months_since_mammogram} months ago (>27 months)")
+            return "ineligible"
+        
+        # All criteria met
+        logger.info(f"BCS-E eligible: female, age {age}, mammogram {months_since_mammogram} months ago")
+        return "eligible"
+        
+    except Exception as e:
+        logger.error(f"Error evaluating BCS-E eligibility: {str(e)}")
+        return "needs-more-info"

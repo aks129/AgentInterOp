@@ -2,9 +2,9 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple
 
-from app.eligibility.bcse import BCSDEligibilityChecker
+from app.eligibility.bcse import BCSDEligibilityChecker, evaluate_bcse
 
 logger = logging.getLogger(__name__)
 
@@ -221,11 +221,173 @@ class AdministratorAgent:
         
         return review_result
     
+    def requirements_message(self) -> List[str]:
+        """Returns a clear list of required fields for BCS-E evaluation"""
+        return [
+            "age - Patient's age (must be 50-74 years old)",
+            "sex - Patient's gender (must be female for BCS-E eligibility)",
+            "last_mammogram_date - Date of most recent mammogram (must be within 27 months)"
+        ]
+    
+    def validate(self, qresp: Dict[str, Any], patient: Dict[str, Any]) -> Tuple[str, str, List[Dict[str, Any]]]:
+        """
+        Uses evaluate_bcse and returns (decision, rationale:str, used_resources:list)
+        
+        Args:
+            qresp: QuestionnaireResponse with patient data
+            patient: FHIR Patient resource
+            
+        Returns:
+            Tuple of (decision, rationale, used_resources)
+        """
+        try:
+            # Track resources used in decision making
+            used_resources = [patient]
+            
+            # Evaluate BCS-E eligibility
+            decision = evaluate_bcse(patient, qresp)
+            
+            # Create detailed rationale based on decision
+            if decision == "eligible":
+                rationale = "Patient meets all BCS-E eligibility criteria: female gender, age 50-74, and mammogram within 27 months."
+            elif decision == "needs-more-info":
+                missing_info = []
+                for item in qresp.get("item", []):
+                    link_id = item.get("linkId")
+                    answers = item.get("answer", [])
+                    if not answers:
+                        if link_id == "age":
+                            missing_info.append("age")
+                        elif link_id == "sex":
+                            missing_info.append("sex/gender")
+                        elif link_id == "last_mammogram_date":
+                            missing_info.append("mammogram date")
+                
+                rationale = f"Cannot determine BCS-E eligibility due to missing information: {', '.join(missing_info)}. Please provide complete patient data."
+            else:  # ineligible
+                # Determine specific reason for ineligibility
+                reasons = []
+                for item in qresp.get("item", []):
+                    link_id = item.get("linkId")
+                    answers = item.get("answer", [])
+                    if answers:
+                        if link_id == "sex" and answers[0].get("valueString", "").lower() != "female":
+                            reasons.append("patient is not female")
+                        elif link_id == "age":
+                            age = answers[0].get("valueInteger")
+                            if age is not None and not (50 <= age <= 74):
+                                reasons.append(f"age {age} is outside eligible range (50-74)")
+                        elif link_id == "last_mammogram_date":
+                            # This would require more complex logic to determine if mammogram is too old
+                            reasons.append("mammogram may be outside the 27-month eligibility window")
+                
+                if not reasons:
+                    reasons.append("does not meet BCS-E eligibility criteria")
+                
+                rationale = f"Patient is ineligible for BCS-E because: {', '.join(reasons)}."
+            
+            logger.info(f"BCS-E validation completed: {decision} - {rationale}")
+            return decision, rationale, used_resources
+            
+        except Exception as e:
+            logger.error(f"Error during BCS-E validation: {str(e)}")
+            return "needs-more-info", f"Error evaluating eligibility: {str(e)}", [patient]
+    
+    def finalize(self, decision: str, rationale: str, used_resources: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Returns decision text + artifacts list
+        
+        Args:
+            decision: The eligibility decision ("eligible", "ineligible", "needs-more-info")
+            rationale: Detailed reasoning for the decision
+            used_resources: List of FHIR resources used in decision making
+            
+        Returns:
+            Dictionary with decision text and artifacts
+        """
+        try:
+            # Create decision text based on outcome
+            if decision == "eligible":
+                decision_text = "APPROVED: Patient is eligible for BCS-E (Breast Cancer Screening Eligibility) benefits."
+            elif decision == "ineligible":
+                decision_text = "DENIED: Patient does not meet BCS-E eligibility requirements."
+            else:  # needs-more-info
+                decision_text = "PENDING: Additional information required to complete BCS-E eligibility determination."
+            
+            # Create artifacts list from used resources
+            artifacts = []
+            for resource in used_resources:
+                artifact = {
+                    "kind": "file",
+                    "file": {
+                        "name": f"{resource.get('resourceType', 'Resource')}_{resource.get('id', 'unknown')}.json",
+                        "mimeType": "application/fhir+json",
+                        "bytes": json.dumps(resource, indent=2).encode('utf-8').hex()  # Hex encoding instead of base64
+                    }
+                }
+                artifacts.append(artifact)
+            
+            # Add decision document as artifact
+            decision_document = {
+                "resourceType": "DocumentReference",
+                "id": f"decision-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+                "status": "current",
+                "type": {
+                    "coding": [{
+                        "system": "http://loinc.org",
+                        "code": "11506-3",
+                        "display": "Progress note"
+                    }]
+                },
+                "content": [{
+                    "attachment": {
+                        "contentType": "text/plain",
+                        "data": f"BCS-E Eligibility Decision: {decision}\n\nRationale: {rationale}\n\nDecision made by: {self.agent_id}\nTimestamp: {datetime.now().isoformat()}"
+                    }
+                }]
+            }
+            
+            decision_artifact = {
+                "kind": "file",
+                "file": {
+                    "name": "bcse_decision.json",
+                    "mimeType": "application/fhir+json", 
+                    "bytes": json.dumps(decision_document, indent=2).encode('utf-8').hex()
+                }
+            }
+            artifacts.append(decision_artifact)
+            
+            result = {
+                "decision_text": decision_text,
+                "decision": decision,
+                "rationale": rationale,
+                "artifacts": artifacts,
+                "finalized_by": self.agent_id,
+                "finalized_at": datetime.now().isoformat(),
+                "resources_used_count": len(used_resources)
+            }
+            
+            logger.info(f"BCS-E decision finalized: {decision} with {len(artifacts)} artifacts")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error finalizing BCS-E decision: {str(e)}")
+            return {
+                "decision_text": f"ERROR: Unable to finalize decision due to system error: {str(e)}",
+                "decision": "needs-more-info",
+                "rationale": f"System error during finalization: {str(e)}",
+                "artifacts": [],
+                "finalized_by": self.agent_id,
+                "finalized_at": datetime.now().isoformat(),
+                "error": str(e)
+            }
+
     def get_capabilities(self) -> Dict[str, Any]:
         """Get agent capabilities"""
         return {
             "agent_id": self.agent_id,
             "name": self.name,
             "capabilities": self.card.get("capabilities", []),
-            "protocols_supported": ["a2a", "mcp"]
+            "protocols_supported": ["a2a", "mcp"],
+            "bcse_methods": ["requirements_message", "validate", "finalize"]
         }
