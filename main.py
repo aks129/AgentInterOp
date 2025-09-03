@@ -9,11 +9,19 @@ import base64
 from flask import Flask, render_template, request, jsonify
 from app.config import load_config, save_config, update_config, ConnectathonConfig
 from app.scenarios.registry import get_active, list_scenarios
-import app.scenarios  # Initialize scenario registry
+from app.scenarios import registry
+from app.scenarios import sc_bcse, sc_clinical_trial, sc_referral_specialist, sc_prior_auth, sc_custom
 
 # Create Flask app (WSGI compatible)
 app = Flask(__name__, template_folder='app/web/templates', static_folder='app/web/static')
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
+
+# Register scenarios
+registry.register("bcse", sc_bcse)
+registry.register("clinical_trial", sc_clinical_trial)
+registry.register("referral_specialist", sc_referral_specialist)
+registry.register("prior_auth", sc_prior_auth)
+registry.register("custom", sc_custom)
 
 # Global state for protocol management
 current_protocol = "a2a"
