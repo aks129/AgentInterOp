@@ -1,50 +1,19 @@
 """
 Custom scenario implementation - configurable logic
 """
-from typing import List, Dict, Tuple
-
-LABEL = "Custom Scenario"
-EXAMPLES = [
-    "Configurable eligibility rules",
-    "Custom workflow logic"
-]
+from typing import Tuple, List, Dict, Any
+from app.config import load_config
+LABEL = "Custom (Config-Driven)"
+EXAMPLES = [{"note": "Define custom rules in config.scenario.options"}]
 
 def requirements() -> str:
-    """Return requirements for custom scenario"""
-    return """
-Custom Scenario Requirements:
-- Configurable via scenario options
-- Flexible rule evaluation
-- Custom data validation
-- Adaptable decision logic
-"""
+    return ("Provide fields as specified by custom scenario options. "
+            "Organizer can edit config.scenario.options to define keys & validations.")
 
-def evaluate(applicant_payload: dict, patient_bundle: dict) -> Tuple[str, str, List[dict]]:
-    """
-    Evaluate custom scenario based on configuration
-    
-    Returns:
-        decision: "approved", "denied", or "pending"
-        rationale: explanation of decision
-        artifacts: list of supporting documents/data
-    """
-    # For demo purposes, implement a simple pass-through
-    patient = patient_bundle.get("entry", [{}])[0].get("resource", {})
-    
-    # Default approval for custom scenarios
-    decision = "approved"
-    rationale = "Custom scenario evaluation - configured rules applied successfully."
-    
-    artifacts = [
-        {
-            "type": "custom_evaluation",
-            "content": {
-                "patient_id": patient.get("id", "unknown"),
-                "scenario_type": "custom",
-                "decision": decision,
-                "timestamp": "2025-09-03T22:20:00Z"
-            }
-        }
-    ]
-    
-    return decision, rationale, artifacts
+def evaluate(applicant_payload: Dict[str, Any], patient_bundle: Dict[str, Any]) -> Tuple[str, str, List[Dict[str, Any]]]:
+    cfg = load_config().scenario.options or {}
+    required = cfg.get("required_fields", [])
+    for f in required:
+        if f not in applicant_payload:
+            return "needs-more-info", f"Missing required field: {f}", []
+    return cfg.get("decision","eligible"), cfg.get("rationale","Custom rule passed."), []

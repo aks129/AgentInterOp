@@ -412,3 +412,42 @@ def get_bcse_rationale(patient: Dict[str, Any], qresp: Dict[str, Any], decision:
             
     except Exception as e:
         return f"Error generating rationale: {str(e)}"
+
+def evaluate_bcse(patient_bundle: Dict[str, Any], applicant_payload: Dict[str, Any]) -> Tuple[str, str, List[Dict[str, Any]]]:
+    """
+    Simplified BCSE evaluation function for scenario integration
+    
+    Returns:
+        decision: "eligible", "ineligible", or "needs-more-info"
+        rationale: explanation of decision
+        used: list of FHIR resources used in evaluation
+    """
+    checker = BCSDEligibilityChecker()
+    
+    try:
+        # Use the existing comprehensive checker
+        result = checker.check_eligibility(patient_bundle)
+        
+        # Convert to scenario format
+        if result.get("eligible", False):
+            decision = "eligible"
+            rationale = f"Patient meets BCSE criteria: {result.get('summary', 'All requirements satisfied')}"
+        else:
+            failed_criteria = result.get("failed_criteria", [])
+            if failed_criteria:
+                decision = "ineligible"
+                rationale = f"Failed criteria: {', '.join(failed_criteria)}"
+            else:
+                decision = "needs-more-info"
+                rationale = "Insufficient information to determine eligibility"
+        
+        # Extract used resources from the comprehensive result
+        used_resources = []
+        if "patient_data" in result:
+            used_resources.append(result["patient_data"])
+        
+        return decision, rationale, used_resources
+        
+    except Exception as e:
+        logger.error(f"BCSE evaluation error: {str(e)}")
+        return "needs-more-info", f"Evaluation error: {str(e)}", []
