@@ -35,7 +35,7 @@ class ConversationEngine:
         Returns:
             Dict containing messages, artifacts, and status
         """
-        logger.info(f"Driving turn for context {context_id}, role: {role}, text: {incoming_text[:100] if incoming_text else 'None'}")
+        logger.info(f"🔄 TURN START - Protocol: Unknown, Context: {context_id}, Role: {role}, Text: {incoming_text[:50] if incoming_text else 'None'}...")
         
         # Initialize conversation state if not exists
         if context_id not in self.conversations:
@@ -54,7 +54,7 @@ class ConversationEngine:
         
         # First turn - Administrator sends requirements message
         if incoming_text is None and not conv["messages"]:
-            logger.info("First turn - sending administrator requirements")
+            logger.info("📋 STAGE: requirements → Administrator sending BCS-E requirements")
             requirements = administrator_agent.requirements_message()
             requirements_text = "Please provide the following information for BCS-E eligibility checking:\n" + "\n".join(f"- {req}" for req in requirements)
             
@@ -66,6 +66,7 @@ class ConversationEngine:
             conv["messages"].append(message)
             response_messages.append(message)
             
+            logger.info(f"✅ TURN END - Status: {conv['status']}, Messages: {len(response_messages)}, Artifacts: {len(conv['artifacts'])}")
             return {
                 "messages": response_messages,
                 "artifacts": conv["artifacts"],
@@ -84,7 +85,7 @@ class ConversationEngine:
         # Process based on conversation stage
         if conv["stage"] == "requirements" and role == "applicant" and incoming_text:
             # Applicant responding to requirements
-            logger.info("Processing applicant response to requirements")
+            logger.info("🤖 STAGE: requirements → Applicant processing patient data and generating QuestionnaireResponse")
             
             # Parse requirements from administrator
             admin_requirements = administrator_agent.requirements_message()
@@ -122,7 +123,7 @@ class ConversationEngine:
                 conv["artifacts"]["QuestionnaireResponse.json"] = encode_base64(qresp_json)
                 
                 # Automatically proceed to process the application
-                logger.info("Auto-processing application for decision")
+                logger.info("⚖️ STAGE: application → Administrator evaluating BCS-E eligibility")
                 decision, rationale, used_resources = administrator_agent.validate(
                     conv["questionnaire_response"], 
                     conv["patient_data"]
@@ -148,6 +149,7 @@ class ConversationEngine:
                 
                 # Mark as completed
                 conv["status"] = "completed"
+                logger.info(f"🎯 DECISION: {decision} - {rationale[:50]}...")
                 
                 completion_message = {
                     "role": "system",
@@ -206,6 +208,7 @@ class ConversationEngine:
                 conv["messages"].append(completion_message)
                 response_messages.append(completion_message)
             
+        logger.info(f"✅ TURN END - Status: {conv['status']}, Messages: {len(response_messages)}, Artifacts: {len(conv['artifacts'])}, Stage: {conv['stage']}")
         return {
             "messages": response_messages,
             "artifacts": conv["artifacts"],

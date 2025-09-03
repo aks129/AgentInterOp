@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from typing import Dict, Any, List, Tuple
 
-from app.eligibility.bcse import BCSDEligibilityChecker, evaluate_bcse
+from app.eligibility.bcse import BCSDEligibilityChecker, evaluate_bcse, get_bcse_rationale
 
 logger = logging.getLogger(__name__)
 
@@ -247,44 +247,8 @@ class AdministratorAgent:
             # Evaluate BCS-E eligibility
             decision = evaluate_bcse(patient, qresp)
             
-            # Create detailed rationale based on decision
-            if decision == "eligible":
-                rationale = "Patient meets all BCS-E eligibility criteria: female gender, age 50-74, and mammogram within 27 months."
-            elif decision == "needs-more-info":
-                missing_info = []
-                for item in qresp.get("item", []):
-                    link_id = item.get("linkId")
-                    answers = item.get("answer", [])
-                    if not answers:
-                        if link_id == "age":
-                            missing_info.append("age")
-                        elif link_id == "sex":
-                            missing_info.append("sex/gender")
-                        elif link_id == "last_mammogram_date":
-                            missing_info.append("mammogram date")
-                
-                rationale = f"Cannot determine BCS-E eligibility due to missing information: {', '.join(missing_info)}. Please provide complete patient data."
-            else:  # ineligible
-                # Determine specific reason for ineligibility
-                reasons = []
-                for item in qresp.get("item", []):
-                    link_id = item.get("linkId")
-                    answers = item.get("answer", [])
-                    if answers:
-                        if link_id == "sex" and answers[0].get("valueString", "").lower() != "female":
-                            reasons.append("patient is not female")
-                        elif link_id == "age":
-                            age = answers[0].get("valueInteger")
-                            if age is not None and not (50 <= age <= 74):
-                                reasons.append(f"age {age} is outside eligible range (50-74)")
-                        elif link_id == "last_mammogram_date":
-                            # This would require more complex logic to determine if mammogram is too old
-                            reasons.append("mammogram may be outside the 27-month eligibility window")
-                
-                if not reasons:
-                    reasons.append("does not meet BCS-E eligibility criteria")
-                
-                rationale = f"Patient is ineligible for BCS-E because: {', '.join(reasons)}."
+            # Generate human-readable rationale using the dedicated function
+            rationale = get_bcse_rationale(patient, qresp, decision)
             
             logger.info(f"BCS-E validation completed: {decision} - {rationale}")
             return decision, rationale, used_resources

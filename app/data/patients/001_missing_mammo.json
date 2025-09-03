@@ -1,0 +1,53 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    { 
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-001-neg",
+        "gender": "female",
+        "birthDate": "1969-07-15"
+      }
+    },
+    { 
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "proc-mammo-001-old",
+        "status": "completed",
+        "code": { 
+          "coding": [ 
+            { 
+              "system": "http://www.ama-assn.org/go/cpt", 
+              "code": "77067", 
+              "display": "Screening mammography" 
+            } 
+          ] 
+        },
+        "subject": { "reference": "Patient/pat-001-neg" },
+        "performedDateTime": "2021-08-01"
+      }
+    },
+    { 
+      "resource": {
+        "resourceType": "DocumentReference",
+        "id": "doc-abstract-001-neg",
+        "type": { 
+          "coding": [ 
+            { 
+              "system": "http://loinc.org", 
+              "code": "34109-9", 
+              "display": "Outpatient Note" 
+            } 
+          ] 
+        },
+        "content": [{
+          "attachment": {
+            "contentType": "text/plain",
+            "data": "UGF0aWVudCB3aXRoIGhpc3Rvcnkgb2YgYnJlYXN0IGNhbmNlciBzY3JlZW5pbmcuIExhc3QgbWFtbW9ncmFtIHdhcyBpbiAyMDIxLg=="
+          }
+        }]
+      }
+    }
+  ]
+}

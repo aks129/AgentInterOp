@@ -337,3 +337,78 @@ def evaluate_bcse(patient: Dict[str, Any], qresp: Dict[str, Any], measurement_da
     except Exception as e:
         logger.error(f"Error evaluating BCS-E eligibility: {str(e)}")
         return "needs-more-info"
+
+
+def get_bcse_rationale(patient: Dict[str, Any], qresp: Dict[str, Any], decision: str, measurement_date: date = None) -> str:
+    """
+    Generate human-readable rationale for BCS-E eligibility decision
+    
+    Args:
+        patient: FHIR Patient resource
+        qresp: QuestionnaireResponse with age, sex, and last_mammogram_date
+        decision: The eligibility decision (eligible/ineligible/needs-more-info)
+        measurement_date: Date for age calculation (defaults to today)
+    
+    Returns:
+        Human-readable explanation of the decision
+    """
+    if measurement_date is None:
+        measurement_date = date.today()
+    
+    try:
+        # Extract data from QuestionnaireResponse
+        age = None
+        sex = None
+        last_mammogram_date = None
+        
+        for item in qresp.get("item", []):
+            link_id = item.get("linkId")
+            answers = item.get("answer", [])
+            
+            if link_id == "age" and answers:
+                age = answers[0].get("valueInteger")
+            elif link_id == "sex" and answers:
+                sex = answers[0].get("valueString", "").lower()
+            elif link_id == "last_mammogram_date" and answers:
+                last_mammogram_date_str = answers[0].get("valueDate")
+                if last_mammogram_date_str:
+                    try:
+                        last_mammogram_date = parse(last_mammogram_date_str).date()
+                    except Exception:
+                        pass
+        
+        if decision == "eligible":
+            months_ago = relativedelta(measurement_date, last_mammogram_date).months + \
+                        (relativedelta(measurement_date, last_mammogram_date).years * 12)
+            return f"Patient meets all BCS-E eligibility criteria: female patient aged {age} years (within 50-74 range), with mammogram performed {months_ago} months ago (within required 27-month window)."
+        
+        elif decision == "ineligible":
+            reasons = []
+            if sex != "female":
+                reasons.append(f"patient gender is {sex} (must be female)")
+            if age and not (50 <= age <= 74):
+                reasons.append(f"patient age is {age} years (must be 50-74)")
+            if last_mammogram_date:
+                months_ago = relativedelta(measurement_date, last_mammogram_date).months + \
+                            (relativedelta(measurement_date, last_mammogram_date).years * 12)
+                if months_ago > 27:
+                    reasons.append(f"last mammogram was {months_ago} months ago (must be within 27 months)")
+            
+            return f"Patient does not meet BCS-E eligibility criteria: {'; '.join(reasons)}."
+        
+        elif decision == "needs-more-info":
+            missing = []
+            if age is None:
+                missing.append("patient age")
+            if sex is None:
+                missing.append("patient gender")
+            if last_mammogram_date is None:
+                missing.append("mammogram date")
+            
+            return f"Additional information required for BCS-E determination: {', '.join(missing)}."
+        
+        else:
+            return f"Unknown decision status: {decision}."
+            
+    except Exception as e:
+        return f"Error generating rationale: {str(e)}"

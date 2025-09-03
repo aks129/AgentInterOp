@@ -46,6 +46,15 @@
         </div>
     </main>
 
+    <!-- Patient selection -->
+    <div class="patient-selection mb-3">
+        <label for="patient-select" class="form-label">Patient Case:</label>
+        <select id="patient-select" class="form-select form-select-sm">
+            <option value="001">001.json (Eligible - Recent mammogram)</option>
+            <option value="001_missing_mammo">001_missing_mammo.json (Ineligible - Old mammogram)</option>
+        </select>
+    </div>
+
     <!-- Control Buttons -->
     <div class="controls">
         <button id="start-demo-btn" class="btn btn-primary">Start Demo</button>
