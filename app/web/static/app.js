@@ -1,422 +1,366 @@
-// Multi-Agent Interoperability Demo - Frontend Application
-class MultiAgentDemo {
-    constructor() {
-        this.socket = null;
-        this.currentProtocol = 'a2a';
-        this.activeSession = null;
-        this.conversations = [];
-        
-        this.init();
-    }
+// Multi-Agent Demo JavaScript
+console.log("Multi-Agent Demo initialized");
+
+// Global state
+let currentProtocol = 'A2A';
+let conversationId = null;
+let eventSource = null;
+let artifacts = [];
+
+// DOM elements
+const transcriptElement = document.getElementById('transcript');
+const artifactsElement = document.getElementById('artifacts');
+const startDemoBtn = document.getElementById('start-demo-btn');
+const sendApplicantInfoBtn = document.getElementById('send-applicant-info-btn');
+const resetBtn = document.getElementById('reset-btn');
+
+// Initialize on DOM load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeInterface();
     
-    init() {
-        this.initializeSocket();
-        this.bindEventListeners();
-        this.loadConversations();
-        
-        console.log('Multi-Agent Demo initialized');
-    }
+    // Event listeners
+    startDemoBtn.addEventListener('click', startDemo);
+    sendApplicantInfoBtn.addEventListener('click', sendApplicantInfo);
+    resetBtn.addEventListener('click', resetDemo);
     
-    initializeSocket() {
-        this.socket = io();
-        
-        this.socket.on('connect', () => {
-            console.log('Connected to server');
-            this.updateStatus('Connected to server', 'success');
+    // Protocol selection
+    document.querySelectorAll('input[name="protocol"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            currentProtocol = this.value;
+            console.log(`Protocol switched to: ${currentProtocol}`);
         });
-        
-        this.socket.on('disconnect', () => {
-            console.log('Disconnected from server');
-            this.updateStatus('Disconnected from server', 'warning');
-        });
-        
-        this.socket.on('connected', (data) => {
-            this.currentProtocol = data.protocol;
-            this.updateProtocolDisplay();
-        });
-        
-        this.socket.on('protocol_changed', (data) => {
-            this.currentProtocol = data.protocol;
-            this.updateProtocolDisplay();
-            this.updateStatus(`Protocol switched to ${data.protocol.toUpperCase()}`, 'info');
-        });
-        
-        this.socket.on('conversation_started', (data) => {
-            this.handleConversationStarted(data);
-        });
-        
-        this.socket.on('message_response', (data) => {
-            this.handleMessageResponse(data);
-        });
-        
-        this.socket.on('error', (data) => {
-            console.error('Socket error:', data);
-            this.updateStatus(`Error: ${data.message}`, 'error');
-        });
-    }
+    });
+});
+
+function initializeInterface() {
+    console.log("Initializing interface");
+    clearTranscript();
+    clearArtifacts();
+}
+
+async function startDemo() {
+    clearTranscript();
+    clearArtifacts();
     
-    bindEventListeners() {
-        // Protocol switching
-        document.getElementById('switch-protocol-btn').addEventListener('click', () => {
-            this.switchProtocol();
-        });
-        
-        // Start conversation
-        document.getElementById('start-conversation-btn').addEventListener('click', () => {
-            this.startConversation();
-        });
-        
-        // Send message
-        document.getElementById('send-message-btn').addEventListener('click', () => {
-            this.sendMessage();
-        });
-        
-        // Enter key for message input
-        document.getElementById('message-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.sendMessage();
-            }
-        });
-        
-        // Protocol radio buttons
-        document.querySelectorAll('input[name="protocol"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    this.currentProtocol = e.target.value;
-                }
-            });
-        });
-    }
+    addMessage('system', 'Starting BCS-E eligibility demo...');
     
-    switchProtocol() {
-        const selectedProtocol = document.querySelector('input[name="protocol"]:checked').value;
-        
-        fetch('/api/protocol', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                protocol: selectedProtocol
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                this.currentProtocol = data.protocol;
-                this.updateProtocolDisplay();
-                this.updateStatus(`Switched to ${data.protocol.toUpperCase()} protocol`, 'success');
-            } else {
-                this.updateStatus(`Failed to switch protocol: ${data.error}`, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error switching protocol:', error);
-            this.updateStatus('Error switching protocol', 'error');
-        });
-    }
-    
-    startConversation() {
-        const scenario = document.getElementById('scenario-select').value;
-        const startBtn = document.getElementById('start-conversation-btn');
-        
-        startBtn.disabled = true;
-        startBtn.innerHTML = '<i data-feather="loader" class="me-2"></i>Starting...';
-        feather.replace();
-        
-        fetch('/api/start_conversation', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                scenario: scenario
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                this.updateStatus('Conversation started successfully', 'success');
-                this.enableMessageInput();
-            } else {
-                this.updateStatus(`Failed to start conversation: ${data.error}`, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error starting conversation:', error);
-            this.updateStatus('Error starting conversation', 'error');
-        })
-        .finally(() => {
-            startBtn.disabled = false;
-            startBtn.innerHTML = '<i data-feather="play" class="me-2"></i>Start Conversation';
-            feather.replace();
-        });
-    }
-    
-    sendMessage() {
-        const messageInput = document.getElementById('message-input');
-        const message = messageInput.value.trim();
-        
-        if (!message) return;
-        
-        this.socket.emit('send_message', {
-            message: message,
-            sender: 'user'
-        });
-        
-        // Add user message to display immediately
-        this.addMessageToDisplay('user', message, 'user_message');
-        
-        messageInput.value = '';
-    }
-    
-    handleConversationStarted(data) {
-        this.activeSession = data.result.session_id;
-        this.clearConversationDisplay();
-        
-        // Display initial exchange based on protocol
-        if (data.protocol === 'a2a') {
-            this.displayA2AExchange(data.result.initial_exchange);
-        } else {
-            this.displayMCPExchange(data.result.initial_exchange);
-        }
-        
-        this.enableMessageInput();
-        this.loadArtifacts();
-    }
-    
-    handleMessageResponse(data) {
-        if (data.protocol === 'a2a') {
-            this.displayA2AMessage(data);
-        } else {
-            this.displayMCPMessage(data);
-        }
-        
-        this.loadArtifacts();
-    }
-    
-    displayA2AExchange(exchange) {
-        // Display applicant request
-        this.addMessageToDisplay('applicant', JSON.stringify(exchange.applicant_request, null, 2), 'json_message');
-        
-        // Display applicant response
-        this.addMessageToDisplay('applicant', JSON.stringify(exchange.applicant_response, null, 2), 'json_message');
-        
-        // Display admin response
-        this.addMessageToDisplay('administrator', JSON.stringify(exchange.admin_response, null, 2), 'json_message');
-    }
-    
-    displayMCPExchange(exchange) {
-        // Display eligibility call
-        this.addMessageToDisplay('applicant', JSON.stringify(exchange.eligibility_call, null, 2), 'tool_call');
-        
-        // Display applicant response
-        this.addMessageToDisplay('applicant', JSON.stringify(exchange.applicant_response, null, 2), 'tool_response');
-        
-        // Display process call
-        this.addMessageToDisplay('administrator', JSON.stringify(exchange.process_call, null, 2), 'tool_call');
-        
-        // Display admin response
-        this.addMessageToDisplay('administrator', JSON.stringify(exchange.admin_response, null, 2), 'tool_response');
-    }
-    
-    displayA2AMessage(data) {
-        // Display the JSON-RPC request
-        this.addMessageToDisplay(data.agent, JSON.stringify(data.request, null, 2), 'json_message');
-        
-        // Display the JSON-RPC response
-        this.addMessageToDisplay(data.agent, JSON.stringify(data.response, null, 2), 'json_message');
-    }
-    
-    displayMCPMessage(data) {
-        if (data.tool_call) {
-            this.addMessageToDisplay(data.agent, JSON.stringify(data.tool_call, null, 2), 'tool_call');
-        }
-        
-        if (data.response) {
-            this.addMessageToDisplay(data.agent, JSON.stringify(data.response, null, 2), 'tool_response');
-        }
-    }
-    
-    addMessageToDisplay(agent, content, type) {
-        const conversationDisplay = document.getElementById('conversation-display');
-        
-        // Remove empty state if present
-        const emptyState = conversationDisplay.querySelector('.text-center.text-muted');
-        if (emptyState) {
-            emptyState.remove();
-        }
-        
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${agent}-message mb-3`;
-        
-        const timestamp = new Date().toLocaleTimeString();
-        
-        let icon = 'user';
-        let badgeClass = 'bg-secondary';
-        
-        if (agent === 'applicant') {
-            icon = 'user-check';
-            badgeClass = 'bg-primary';
-        } else if (agent === 'administrator') {
-            icon = 'shield-check';
-            badgeClass = 'bg-success';
-        }
-        
-        let contentHTML = '';
-        if (type === 'json_message' || type === 'tool_call' || type === 'tool_response') {
-            contentHTML = `<pre class="bg-dark p-2 rounded"><code>${this.escapeHtml(content)}</code></pre>`;
-        } else {
-            contentHTML = `<p class="mb-0">${this.escapeHtml(content)}</p>`;
-        }
-        
-        messageDiv.innerHTML = `
-            <div class="d-flex align-items-start">
-                <div class="me-3">
-                    <i data-feather="${icon}" class="text-muted"></i>
-                </div>
-                <div class="flex-grow-1">
-                    <div class="d-flex align-items-center mb-2">
-                        <span class="badge ${badgeClass} me-2">${agent.charAt(0).toUpperCase() + agent.slice(1)}</span>
-                        <small class="text-muted">${timestamp}</small>
-                        ${type !== 'user_message' ? `<span class="badge bg-info ms-2">${this.currentProtocol.toUpperCase()}</span>` : ''}
-                    </div>
-                    ${contentHTML}
-                </div>
-            </div>
-        `;
-        
-        conversationDisplay.appendChild(messageDiv);
-        conversationDisplay.scrollTop = conversationDisplay.scrollHeight;
-        
-        // Re-initialize Feather icons
-        feather.replace();
-    }
-    
-    clearConversationDisplay() {
-        const conversationDisplay = document.getElementById('conversation-display');
-        conversationDisplay.innerHTML = '';
-    }
-    
-    enableMessageInput() {
-        document.getElementById('message-input').disabled = false;
-        document.getElementById('send-message-btn').disabled = false;
-    }
-    
-    disableMessageInput() {
-        document.getElementById('message-input').disabled = true;
-        document.getElementById('send-message-btn').disabled = true;
-    }
-    
-    loadConversations() {
-        fetch('/api/conversations')
-        .then(response => response.json())
-        .then(data => {
-            this.conversations = data;
-            this.updateConversationsList();
-        })
-        .catch(error => {
-            console.error('Error loading conversations:', error);
-        });
-    }
-    
-    loadArtifacts() {
-        // Mock artifacts for demonstration
-        const artifactsDisplay = document.getElementById('artifacts-display');
-        
-        if (this.activeSession) {
-            artifactsDisplay.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="card-title mb-0">
-                                    <i data-feather="file-text" class="me-2"></i>
-                                    Patient Data
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <p class="card-text">Patient ID: 001</p>
-                                <p class="card-text">Name: Sarah Johnson</p>
-                                <p class="card-text">Status: Active Application</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="card-title mb-0">
-                                    <i data-feather="check-circle" class="me-2"></i>
-                                    Eligibility Result
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <p class="card-text">BCSE Eligibility: <span class="badge bg-success">Approved</span></p>
-                                <p class="card-text">Score: 85/100</p>
-                                <p class="card-text">Protocol: ${this.currentProtocol.toUpperCase()}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            feather.replace();
-        }
-    }
-    
-    updateProtocolDisplay() {
-        document.getElementById('current-protocol').textContent = this.currentProtocol.toUpperCase();
-        document.querySelector(`input[value="${this.currentProtocol}"]`).checked = true;
-    }
-    
-    updateStatus(message, type) {
-        const toast = document.getElementById('status-toast');
-        const toastBody = toast.querySelector('.toast-body');
-        
-        let icon = 'info';
-        let bgClass = 'bg-info';
-        
-        switch (type) {
-            case 'success':
-                icon = 'check-circle';
-                bgClass = 'bg-success';
-                break;
-            case 'warning':
-                icon = 'alert-triangle';
-                bgClass = 'bg-warning';
-                break;
-            case 'error':
-                icon = 'alert-circle';
-                bgClass = 'bg-danger';
-                break;
-        }
-        
-        toast.className = `toast ${bgClass} text-white`;
-        toast.querySelector('i').setAttribute('data-feather', icon);
-        toastBody.textContent = message;
-        
-        const bsToast = new bootstrap.Toast(toast);
-        bsToast.show();
-        
-        feather.replace();
-        
-        console.log(`[${type.toUpperCase()}] ${message}`);
-    }
-    
-    escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        
-        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    if (currentProtocol === 'A2A') {
+        await startA2ADemo();
+    } else {
+        await startMCPDemo();
     }
 }
 
-// Initialize the application when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    window.multiAgentDemo = new MultiAgentDemo();
-});
+async function startA2ADemo() {
+    try {
+        addMessage('system', 'Using A2A Protocol (JSON-RPC + SSE)');
+        
+        const response = await fetch('/api/bridge/demo/a2a', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                method: 'message/stream',
+                parts: [{
+                    kind: 'text',
+                    text: 'Begin demo'
+                }]
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Start SSE connection for real-time updates
+        if (data.stream_url) {
+            startSSEConnection(data.stream_url);
+        }
+        
+        // Display initial response
+        if (data.result) {
+            addMessage('applicant', JSON.stringify(data.result, null, 2));
+        }
+        
+        startDemoBtn.disabled = true;
+        sendApplicantInfoBtn.disabled = false;
+        
+    } catch (error) {
+        console.error('A2A demo error:', error);
+        addMessage('error', `A2A error: ${error.message}`);
+    }
+}
+
+async function startMCPDemo() {
+    try {
+        addMessage('system', 'Using MCP Protocol (Streamable HTTP)');
+        
+        // Begin chat thread
+        const response = await fetch('/api/mcp/begin_chat_thread', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                scenario: 'bcse_eligibility',
+                agent: 'applicant'
+            })
+        });
+        
+        const data = await response.json();
+        conversationId = data.conversationId;
+        
+        addMessage('system', `MCP conversation started (ID: ${conversationId})`);
+        
+        // Send initial message
+        await sendMCPMessage('Begin BCS-E eligibility demo');
+        
+        startDemoBtn.disabled = true;
+        sendApplicantInfoBtn.disabled = false;
+        
+    } catch (error) {
+        console.error('MCP demo error:', error);
+        addMessage('error', `MCP error: ${error.message}`);
+    }
+}
+
+function startSSEConnection(streamUrl) {
+    if (eventSource) {
+        eventSource.close();
+    }
+    
+    eventSource = new EventSource(streamUrl);
+    
+    eventSource.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            displaySSEMessage(data);
+        } catch (error) {
+            console.error('SSE message parsing error:', error);
+            addMessage('system', event.data);
+        }
+    };
+    
+    eventSource.onerror = function(error) {
+        console.error('SSE connection error:', error);
+        addMessage('error', 'SSE connection error');
+    };
+}
+
+function displaySSEMessage(data) {
+    if (data.role && data.content) {
+        addMessage(data.role, data.content);
+    } else if (data.artifacts) {
+        handleArtifacts(data.artifacts);
+    } else {
+        addMessage('system', JSON.stringify(data, null, 2));
+    }
+}
+
+async function sendApplicantInfo() {
+    addMessage('user', 'Sending applicant information...');
+    
+    if (currentProtocol === 'A2A') {
+        await sendA2AApplicantInfo();
+    } else {
+        await sendMCPApplicantInfo();
+    }
+}
+
+async function sendA2AApplicantInfo() {
+    try {
+        const response = await fetch('/api/bridge/demo/a2a', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                method: 'message/send',
+                content: 'Process patient data for BCS-E eligibility'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to send applicant info');
+        }
+        
+        if (data.result) {
+            addMessage('administrator', JSON.stringify(data.result, null, 2));
+        }
+        
+        // Check for artifacts
+        if (data.artifacts) {
+            handleArtifacts(data.artifacts);
+        }
+        
+    } catch (error) {
+        console.error('A2A applicant info error:', error);
+        addMessage('error', `A2A error: ${error.message}`);
+    }
+}
+
+async function sendMCPApplicantInfo() {
+    try {
+        await sendMCPMessage('Process patient data for BCS-E eligibility');
+        
+    } catch (error) {
+        console.error('MCP applicant info error:', error);
+        addMessage('error', `MCP error: ${error.message}`);
+    }
+}
+
+async function sendMCPMessage(message) {
+    try {
+        // Send message
+        const sendResponse = await fetch('/api/mcp/send_message_to_chat_thread', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                conversationId: conversationId,
+                message: message
+            })
+        });
+        
+        if (!sendResponse.ok) {
+            throw new Error(`Failed to send MCP message: ${sendResponse.statusText}`);
+        }
+        
+        // Poll for replies
+        pollMCPReplies();
+        
+    } catch (error) {
+        console.error('MCP send message error:', error);
+        addMessage('error', `MCP send error: ${error.message}`);
+    }
+}
+
+async function pollMCPReplies() {
+    if (!conversationId) return;
+    
+    try {
+        const response = await fetch('/api/mcp/check_replies', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                conversationId: conversationId,
+                waitMs: 2000
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.messages && data.messages.length > 0) {
+            data.messages.forEach(msg => {
+                addMessage(msg.role || 'agent', msg.content || msg.message);
+            });
+        }
+        
+        // Handle artifacts
+        if (data.artifacts) {
+            handleArtifacts(data.artifacts);
+        }
+        
+        // Continue polling if status indicates more messages might come
+        if (data.status === 'active' || data.status === 'pending') {
+            setTimeout(() => pollMCPReplies(), 2000);
+        }
+        
+    } catch (error) {
+        console.error('MCP polling error:', error);
+        addMessage('error', `MCP polling error: ${error.message}`);
+    }
+}
+
+function addMessage(role, content) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message';
+    
+    const timestamp = new Date().toLocaleTimeString();
+    
+    messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="role-badge role-${role}">${role.toUpperCase()}</span>
+            <span class="timestamp">${timestamp}</span>
+        </div>
+        <div class="message-content">${escapeHtml(content)}</div>
+    `;
+    
+    transcriptElement.appendChild(messageDiv);
+    transcriptElement.scrollTop = transcriptElement.scrollHeight;
+}
+
+function handleArtifacts(artifactList) {
+    artifacts = artifacts.concat(artifactList);
+    displayArtifacts();
+}
+
+function displayArtifacts() {
+    if (artifacts.length === 0) {
+        artifactsElement.innerHTML = '<p class="no-artifacts">No artifacts available</p>';
+        return;
+    }
+    
+    let html = '<h3>Available Downloads:</h3><ul class="artifact-list">';
+    
+    artifacts.forEach((artifact, index) => {
+        const fileName = artifact.file?.name || `artifact-${index}.json`;
+        const taskId = 'demo-task'; // Simple task ID for demo
+        
+        html += `
+            <li class="artifact-item">
+                <a href="/artifacts/${taskId}/${fileName}" download="${fileName}" class="artifact-link">
+                    📄 ${fileName}
+                </a>
+                <small class="artifact-type">(${artifact.file?.mimeType || 'application/json'})</small>
+            </li>
+        `;
+    });
+    
+    html += '</ul>';
+    artifactsElement.innerHTML = html;
+}
+
+function resetDemo() {
+    // Close SSE connection
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+    
+    // Reset state
+    conversationId = null;
+    artifacts = [];
+    
+    // Reset UI
+    clearTranscript();
+    clearArtifacts();
+    
+    startDemoBtn.disabled = false;
+    sendApplicantInfoBtn.disabled = true;
+    
+    addMessage('system', 'Demo reset');
+}
+
+function clearTranscript() {
+    transcriptElement.innerHTML = '<p class="no-messages">No messages yet. Click "Start Demo" to begin.</p>';
+}
+
+function clearArtifacts() {
+    artifacts = [];
+    artifactsElement.innerHTML = '<p class="no-artifacts">No artifacts available</p>';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
