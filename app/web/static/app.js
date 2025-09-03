@@ -318,13 +318,30 @@ function addMessage(role, content) {
     
     const timestamp = new Date().toLocaleTimeString();
     
-    messageDiv.innerHTML = `
-        <div class="message-header">
-            <span class="role-badge role-${role}">${role.toUpperCase()}</span>
-            <span class="timestamp">${timestamp}</span>
-        </div>
-        <div class="message-content">${escapeHtml(content)}</div>
-    `;
+    // Create message header
+    const messageHeader = document.createElement('div');
+    messageHeader.className = 'message-header';
+    
+    // Create role badge
+    const roleBadge = document.createElement('span');
+    roleBadge.className = `role-badge role-${CSS.escape(role)}`;
+    roleBadge.textContent = role.toUpperCase();
+    
+    // Create timestamp span
+    const timestampSpan = document.createElement('span');
+    timestampSpan.className = 'timestamp';
+    timestampSpan.textContent = timestamp;
+    
+    // Create message content
+    const messageContent = document.createElement('div');
+    messageContent.className = 'message-content';
+    messageContent.textContent = content;
+    
+    // Assemble the message
+    messageHeader.appendChild(roleBadge);
+    messageHeader.appendChild(timestampSpan);
+    messageDiv.appendChild(messageHeader);
+    messageDiv.appendChild(messageContent);
     
     transcriptElement.appendChild(messageDiv);
     transcriptElement.scrollTop = transcriptElement.scrollHeight;
