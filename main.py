@@ -5,7 +5,9 @@ Flask-compatible WSGI application for Replit workflow compatibility
 import os
 import json
 import uuid
+import base64
 from flask import Flask, render_template, request, jsonify
+from app.config import load_config, save_config, update_config, ConnectathonConfig
 
 # Create Flask app (WSGI compatible)
 app = Flask(__name__, template_folder='app/web/templates', static_folder='app/web/static')
@@ -68,6 +70,67 @@ def start_conversation():
             "initial_exchange": initial_exchange
         }
     })
+
+@app.route('/api/config')
+def get_config():
+    """Get current configuration"""
+    config = load_config()
+    return jsonify(json.loads(config.model_dump_json()))
+
+@app.route('/api/config', methods=['POST'])
+def update_config_endpoint():
+    """Update configuration with JSON patch"""
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "error": "No data provided"}), 400
+    
+    try:
+        updated_config = update_config(data)
+        return jsonify({
+            "success": True,
+            "config": json.loads(updated_config.model_dump_json())
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route('/api/config/reset', methods=['POST'])
+def reset_config():
+    """Reset configuration to defaults"""
+    default_config = ConnectathonConfig()
+    save_config(default_config)
+    return jsonify({
+        "success": True,
+        "config": json.loads(default_config.model_dump_json())
+    })
+
+@app.route('/.well-known/agent-card.json')
+def agent_card():
+    """Agent Card derived from configuration"""
+    config = load_config()
+    
+    # Determine role based on operation mode
+    role_mapping = {
+        "applicant_only": "client",
+        "administrator_only": "server", 
+        "full_stack": "both"
+    }
+    
+    # Create agent card
+    card = {
+        "protocolVersion": "0.2.9",
+        "preferredTransport": "JSONRPC",
+        "capabilities": {
+            "streaming": True
+        },
+        "role": role_mapping.get(config.mode.role, "both"),
+        "extensions": {
+            "a2a.config64": base64.b64encode(
+                json.dumps({"scenario": config.scenario.active}).encode()
+            ).decode()
+        }
+    }
+    
+    return jsonify(card)
 
 @app.route('/health')
 def health():

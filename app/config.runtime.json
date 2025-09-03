@@ -1,0 +1,32 @@
+{
+  "mode": {
+    "role": "full_stack"
+  },
+  "protocol": {
+    "default_transport": "a2a",
+    "public_base_url": null
+  },
+  "scenario": {
+    "active": "bcse",
+    "options": {}
+  },
+  "data": {
+    "allow_fhir_mcp": true,
+    "allow_local_bundle": true,
+    "allow_free_text_context": true
+  },
+  "simulation": {
+    "measurement_date": null,
+    "admin_processing_ms": 1200,
+    "error_injection_rate": 0.0,
+    "capacity_limit": null
+  },
+  "logging": {
+    "level": "INFO",
+    "persist_transcript": true
+  },
+  "tags": [
+    "connectathon",
+    "demo"
+  ]
+}
