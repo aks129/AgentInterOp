@@ -10,8 +10,8 @@ from app.store.memory import conversation_store, new_id, iso8601_now
 
 router = APIRouter()
 
-# Import the shared conversation engine from A2A
-from app.protocols.a2a import drive_turn, MessagePartText, MessagePartFile
+# Import the shared conversation engine
+from app.engine import conversation_engine
 
 # MCP Tool Response Models
 
@@ -142,46 +142,31 @@ async def send_message_to_chat_thread(request: SendMessageRequest) -> MCPToolRes
         )
         conversation["messages"].append(user_message.model_dump())
         
-        # Convert message to drive_turn format
-        parts: List[Union[MessagePartText, MessagePartFile]] = [
-            MessagePartText(kind="text", text=request.message)
-        ]
-        
-        # Add attachments as file parts
+        # Extract attachment file names if any
+        incoming_files = []
         if request.attachments:
-            for attachment in request.attachments:
-                from app.protocols.a2a import FileModel
-                file_model = FileModel(
-                    name=attachment.name,
-                    mimeType=attachment.contentType,
-                    bytes=attachment.content
-                )
-                file_part = MessagePartFile(
-                    kind="file",
-                    file=file_model
-                )
-                parts.append(file_part)
+            incoming_files = [att.name for att in request.attachments]
         
-        # Process through shared conversation engine
-        agent_parts, artifacts, new_state = await drive_turn(parts)
-        
-        # Add agent response to conversation
-        agent_text = ""
-        for part in agent_parts:
-            if isinstance(part, MessagePartText):
-                agent_text += part.text + " "
-        
-        agent_message = MCPMessage(
-            **{"from": "administrator"},
-            at=iso8601_now(),
-            text=agent_text.strip(),
-            attachments=[]  # Artifacts could be converted to attachments if needed
+        # Process through conversation engine
+        result = conversation_engine.drive_turn(
+            context_id=conversation_id,
+            incoming_text=request.message,
+            incoming_files=incoming_files if incoming_files else None,
+            role="applicant"
         )
-        conversation["messages"].append(agent_message.model_dump())
         
-        # Update conversation status and guidance
-        valid_states = ["working", "input-required", "completed"]
-        status = new_state if new_state in valid_states else "completed"
+        # Add agent response messages to conversation
+        for message in result["messages"]:
+            agent_message = MCPMessage(
+                **{"from": message["role"]},
+                at=message["timestamp"],
+                text=message["content"],
+                attachments=[]
+            )
+            conversation["messages"].append(agent_message.model_dump())
+        
+        # Update conversation status and guidance based on engine result
+        status = "completed" if result["status"] == "completed" else "working"
         conversation["status"] = status
         
         if status == "completed":

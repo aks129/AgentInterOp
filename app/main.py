@@ -43,6 +43,30 @@ async def index(request: Request):
 @app.get("/artifacts/{task_id}/{name}")
 async def download_artifact(task_id: str, name: str):
     """Download artifact by task_id and filename"""
+    
+    # First, check if artifacts exist in the conversation engine
+    from app.engine import conversation_engine
+    conv_state = conversation_engine.get_conversation_state(task_id)
+    
+    if conv_state and "artifacts" in conv_state and name in conv_state["artifacts"]:
+        # Use real artifacts from conversation engine
+        base64_content = conv_state["artifacts"][name]
+        mime_type = "application/fhir+json" if name.endswith(".json") else "application/octet-stream"
+        
+        try:
+            content = base64.b64decode(base64_content)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid artifact data")
+        
+        return Response(
+            content=content,
+            media_type=mime_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{name}"'
+            }
+        )
+    
+    # Fall back to demo artifacts for testing
     if task_id not in demo_artifacts:
         raise HTTPException(status_code=404, detail="Task not found")
     

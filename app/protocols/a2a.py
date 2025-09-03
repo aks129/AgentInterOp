@@ -77,21 +77,57 @@ class JsonRpcError(BaseModel):
 # In-memory storage for tasks
 _active_tasks: Dict[str, TaskSnapshot] = {}
 
-# Conversation engine interface - to be linked later
-async def drive_turn(parts: List[Union[MessagePartText, MessagePartFile]]) -> tuple[List[Union[MessagePartText, MessagePartFile]], List[ArtifactModel], str]:
+# Conversation engine integration
+from app.engine import conversation_engine
+
+async def drive_turn_a2a(context_id: str, parts: List[Union[MessagePartText, MessagePartFile]]) -> tuple[List[Union[MessagePartText, MessagePartFile]], List[ArtifactModel], str]:
     """
-    Shared conversation engine interface
+    A2A conversation engine integration
     Returns: (agent_message_parts, artifacts, new_state)
     """
-    # Placeholder implementation - will be replaced with actual conversation engine
-    agent_parts: List[Union[MessagePartText, MessagePartFile]] = [MessagePartText(kind="text", text=f"Agent processed {len(parts)} parts")]
-    artifacts = []
-    new_state = "completed"
+    # Extract text from message parts
+    incoming_text = None
+    incoming_files = []
     
-    # Simulate processing delay
-    await asyncio.sleep(0.1)
+    for part in parts:
+        if isinstance(part, MessagePartText):
+            incoming_text = part.text
+        elif isinstance(part, MessagePartFile):
+            incoming_files.append(part.file.name)
     
-    return agent_parts, artifacts, new_state
+    # Drive conversation turn
+    result = conversation_engine.drive_turn(
+        context_id=context_id,
+        incoming_text=incoming_text,
+        incoming_files=incoming_files if incoming_files else None,
+        role="applicant"
+    )
+    
+    # Convert response messages to A2A message parts
+    agent_parts: List[Union[MessagePartText, MessagePartFile]] = []
+    for message in result["messages"]:
+        agent_parts.append(MessagePartText(kind="text", text=message["content"]))
+    
+    # Convert artifacts to A2A format
+    artifacts: List[ArtifactModel] = []
+    for name, base64_content in result["artifacts"].items():
+        # Determine MIME type
+        mime_type = "application/fhir+json" if name.endswith(".json") else "application/octet-stream"
+        
+        artifact = ArtifactModel(
+            kind="file",
+            file=FileModel(
+                name=name,
+                mimeType=mime_type,
+                bytes=base64_content
+            )
+        )
+        artifacts.append(artifact)
+    
+    # Convert status to A2A state
+    state = "completed" if result["status"] == "completed" else "working"
+    
+    return agent_parts, artifacts, state
 
 # JSON-RPC method handlers
 
@@ -121,7 +157,7 @@ async def handle_message_send(params: Dict[str, Any], request_id: Optional[Union
         task.status.state = "working"
         
         # Process through conversation engine
-        agent_parts, artifacts, new_state = await drive_turn(parts)
+        agent_parts, artifacts, new_state = await drive_turn_a2a(context_id, parts)
         
         # Add agent response to history
         agent_message = HistoryMessage(role="agent", parts=agent_parts)
@@ -241,7 +277,7 @@ async def handle_message_stream(params: Dict[str, Any], request_id: Optional[Uni
             }
             
             # Process through conversation engine
-            agent_parts, artifacts, new_state = await drive_turn(parts)
+            agent_parts, artifacts, new_state = await drive_turn_a2a(context_id, parts)
             
             # Emit message frame for each agent part
             for part in agent_parts:
