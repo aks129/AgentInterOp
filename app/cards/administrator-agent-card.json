@@ -1,0 +1,106 @@
+{
+  "agent_id": "administrator",
+  "name": "Administrator Agent",
+  "version": "1.0.0",
+  "description": "Processes eligibility applications and makes benefit determinations for healthcare programs",
+  "type": "decision_agent",
+  "capabilities": [
+    "application_processing",
+    "eligibility_determination",
+    "benefits_approval",
+    "administrative_review",
+    "compliance_checking",
+    "decision_documentation"
+  ],
+  "protocols_supported": [
+    {
+      "name": "a2a",
+      "version": "1.0",
+      "methods": [
+        "process_application",
+        "approve_application",
+        "review_eligibility"
+      ]
+    },
+    {
+      "name": "mcp",
+      "version": "1.0",
+      "tools": [
+        "process_application",
+        "approve_application",
+        "review_eligibility"
+      ]
+    }
+  ],
+  "decision_authority": {
+    "benefit_programs": [
+      "BCSE",
+      "Medicaid",
+      "CHIP"
+    ],
+    "approval_limits": {
+      "standard_applications": "unlimited",
+      "expedited_applications": "unlimited",
+      "appeals": "level_1"
+    }
+  },
+  "workflow_integration": [
+    "eligibility_rules_engine",
+    "benefits_management_system",
+    "audit_trail_system"
+  ],
+  "output_formats": [
+    "determination_letter",
+    "approval_notification",
+    "denial_notice",
+    "audit_report"
+  ],
+  "security": {
+    "authorization_level": "administrator",
+    "data_access": "full_patient_records",
+    "audit_logging": true,
+    "decision_tracking": true
+  },
+  "configuration": {
+    "auto_approve_threshold": 0.95,
+    "require_supervisor_review": false,
+    "timeout_seconds": 60,
+    "max_applications_per_session": 50
+  },
+  "compliance": {
+    "hipaa_compliant": true,
+    "ada_compliant": true,
+    "regulatory_frameworks": [
+      "CMS Guidelines",
+      "State Medicaid Rules",
+      "HIPAA Privacy Rule"
+    ]
+  },
+  "integrations": [
+    {
+      "name": "BCSE Eligibility Checker",
+      "type": "internal_service"
+    },
+    {
+      "name": "Benefits Management System",
+      "type": "external_system"
+    },
+    {
+      "name": "Audit Trail Service",
+      "type": "compliance_system"
+    }
+  ],
+  "metadata": {
+    "created_at": "2024-09-03T00:00:00Z",
+    "last_updated": "2024-09-03T00:00:00Z",
+    "tags": [
+      "healthcare",
+      "benefits",
+      "administration",
+      "decision_making",
+      "compliance"
+    ],
+    "owner": "Healthcare Benefits Administration",
+    "approval_authority": "Department of Health Services"
+  }
+}

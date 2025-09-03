@@ -1,0 +1,2 @@
+[console_scripts]
+multi-agent-demo = app.main:main

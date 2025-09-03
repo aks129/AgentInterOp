@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent Interoperability Demo</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <!-- Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <i data-feather="layers" class="me-2"></i>
+                Multi-Agent Interoperability Demo
+            </a>
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item">
+                    <span class="navbar-text">
+                        Protocol: <span id="current-protocol" class="badge bg-primary">A2A</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid h-100">
+        <div class="row h-100">
+            <!-- Control Panel -->
+            <div class="col-md-3 bg-dark border-end p-3">
+                <h5 class="mb-3">
+                    <i data-feather="settings" class="me-2"></i>
+                    Control Panel
+                </h5>
+                
+                <!-- Protocol Selection -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i data-feather="shuffle" class="me-2"></i>
+                            Protocol Selection
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="protocol" id="protocol-a2a" value="a2a" checked>
+                            <label class="form-check-label" for="protocol-a2a">
+                                A2A (JSON-RPC + SSE)
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="protocol" id="protocol-mcp" value="mcp">
+                            <label class="form-check-label" for="protocol-mcp">
+                                MCP (Streamable HTTP)
+                            </label>
+                        </div>
+                        <button id="switch-protocol-btn" class="btn btn-outline-primary btn-sm w-100">
+                            <i data-feather="refresh-cw" class="me-2"></i>
+                            Switch Protocol
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scenario Control -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i data-feather="play-circle" class="me-2"></i>
+                            Conversation Control
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="scenario-select" class="form-label">Scenario</label>
+                            <select id="scenario-select" class="form-select">
+                                <option value="eligibility_check">Eligibility Check</option>
+                                <option value="application_review">Application Review</option>
+                                <option value="benefits_inquiry">Benefits Inquiry</option>
+                            </select>
+                        </div>
+                        <button id="start-conversation-btn" class="btn btn-success w-100">
+                            <i data-feather="play" class="me-2"></i>
+                            Start Conversation
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Agent Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i data-feather="users" class="me-2"></i>
+                            Agent Status
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="status-indicator bg-success me-2"></div>
+                            <small>Applicant Agent</small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="status-indicator bg-success me-2"></div>
+                            <small>Administrator Agent</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Display Area -->
+            <div class="col-md-9 d-flex flex-column">
+                <!-- Tabs for Different Views -->
+                <ul class="nav nav-tabs" id="display-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="transcript-tab" data-bs-toggle="tab" data-bs-target="#transcript" type="button" role="tab">
+                            <i data-feather="message-square" class="me-2"></i>
+                            Conversation Transcript
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="artifacts-tab" data-bs-toggle="tab" data-bs-target="#artifacts" type="button" role="tab">
+                            <i data-feather="file-text" class="me-2"></i>
+                            Artifacts
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="protocol-details-tab" data-bs-toggle="tab" data-bs-target="#protocol-details" type="button" role="tab">
+                            <i data-feather="code" class="me-2"></i>
+                            Protocol Details
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content flex-grow-1" id="display-tab-content">
+                    <!-- Transcript Tab -->
+                    <div class="tab-pane fade show active h-100" id="transcript" role="tabpanel">
+                        <div class="h-100 d-flex flex-column">
+                            <div id="conversation-display" class="flex-grow-1 p-3 overflow-auto">
+                                <div class="text-center text-muted">
+                                    <i data-feather="message-circle" size="48" class="mb-3"></i>
+                                    <p>No active conversation. Start a new conversation to see the agent interaction.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Artifacts Tab -->
+                    <div class="tab-pane fade h-100" id="artifacts" role="tabpanel">
+                        <div class="p-3 h-100 overflow-auto">
+                            <div id="artifacts-display">
+                                <div class="text-center text-muted">
+                                    <i data-feather="inbox" size="48" class="mb-3"></i>
+                                    <p>No artifacts available. Artifacts will appear here during agent interactions.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Protocol Details Tab -->
+                    <div class="tab-pane fade h-100" id="protocol-details" role="tabpanel">
+                        <div class="p-3 h-100 overflow-auto">
+                            <div id="protocol-details-display">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6 class="card-title mb-0">A2A Protocol</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <p class="card-text">JSON-RPC 2.0 over HTTP with Server-Sent Events for real-time communication.</p>
+                                                <ul class="list-unstyled">
+                                                    <li><strong>Transport:</strong> HTTP/HTTPS</li>
+                                                    <li><strong>Format:</strong> JSON-RPC 2.0</li>
+                                                    <li><strong>Real-time:</strong> Server-Sent Events</li>
+                                                    <li><strong>Methods:</strong> initiate_eligibility_check, process_application</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6 class="card-title mb-0">MCP Protocol</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <p class="card-text">Model Context Protocol with streamable HTTP tools for agent interaction.</p>
+                                                <ul class="list-unstyled">
+                                                    <li><strong>Transport:</strong> HTTP/HTTPS</li>
+                                                    <li><strong>Format:</strong> Tool-based interactions</li>
+                                                    <li><strong>Real-time:</strong> HTTP streaming</li>
+                                                    <li><strong>Tools:</strong> eligibility_check, process_application</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="status-toast" class="toast" role="alert">
+            <div class="toast-header">
+                <i data-feather="info" class="me-2"></i>
+                <strong class="me-auto">System Status</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                <!-- Toast content will be set dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Simple JavaScript (no SocketIO) -->
+    <script>
+        class SimpleMultiAgentDemo {
+            constructor() {
+                this.currentProtocol = 'a2a';
+                this.init();
+            }
+            
+            init() {
+                this.bindEventListeners();
+                this.loadCurrentProtocol();
+                console.log('Simple Multi-Agent Demo initialized');
+            }
+            
+            bindEventListeners() {
+                // Protocol switching
+                document.getElementById('switch-protocol-btn').addEventListener('click', () => {
+                    this.switchProtocol();
+                });
+                
+                // Start conversation
+                document.getElementById('start-conversation-btn').addEventListener('click', () => {
+                    this.startConversation();
+                });
+            }
+            
+            async loadCurrentProtocol() {
+                try {
+                    const response = await fetch('/api/current_protocol');
+                    const data = await response.json();
+                    this.currentProtocol = data.protocol;
+                    this.updateProtocolDisplay();
+                } catch (error) {
+                    console.log('Using default protocol');
+                }
+            }
+            
+            async switchProtocol() {
+                const selectedProtocol = document.querySelector('input[name="protocol"]:checked').value;
+                
+                try {
+                    const response = await fetch('/api/protocol', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            protocol: selectedProtocol
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.currentProtocol = data.protocol;
+                        this.updateProtocolDisplay();
+                        this.updateStatus(`Switched to ${data.protocol.toUpperCase()} protocol`, 'success');
+                    } else {
+                        this.updateStatus(`Failed to switch protocol: ${data.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error switching protocol:', error);
+                    this.updateStatus('Error switching protocol', 'error');
+                }
+            }
+            
+            async startConversation() {
+                const scenario = document.getElementById('scenario-select').value;
+                const startBtn = document.getElementById('start-conversation-btn');
+                
+                startBtn.disabled = true;
+                startBtn.innerHTML = '<i data-feather="loader" class="me-2"></i>Starting...';
+                feather.replace();
+                
+                try {
+                    const response = await fetch('/api/start_conversation', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            scenario: scenario
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.updateStatus('Conversation started successfully', 'success');
+                        this.displayConversationResult(data.result);
+                        this.loadArtifacts(data.result);
+                    } else {
+                        this.updateStatus(`Failed to start conversation: ${data.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error starting conversation:', error);
+                    this.updateStatus('Error starting conversation', 'error');
+                } finally {
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '<i data-feather="play" class="me-2"></i>Start Conversation';
+                    feather.replace();
+                }
+            }
+            
+            displayConversationResult(result) {
+                const conversationDisplay = document.getElementById('conversation-display');
+                conversationDisplay.innerHTML = '';
+                
+                // Display initial exchange
+                if (result.initial_exchange) {
+                    if (this.currentProtocol === 'a2a') {
+                        this.displayA2AExchange(result.initial_exchange);
+                    } else {
+                        this.displayMCPExchange(result.initial_exchange);
+                    }
+                }
+            }
+            
+            displayA2AExchange(exchange) {
+                this.addMessageToDisplay('applicant', JSON.stringify(exchange.applicant_request, null, 2), 'json_message');
+                this.addMessageToDisplay('applicant', JSON.stringify(exchange.applicant_response, null, 2), 'json_message');
+                this.addMessageToDisplay('administrator', JSON.stringify(exchange.admin_response, null, 2), 'json_message');
+            }
+            
+            displayMCPExchange(exchange) {
+                this.addMessageToDisplay('applicant', JSON.stringify(exchange.eligibility_call, null, 2), 'tool_call');
+                this.addMessageToDisplay('applicant', JSON.stringify(exchange.applicant_response, null, 2), 'tool_response');
+                this.addMessageToDisplay('administrator', JSON.stringify(exchange.process_call, null, 2), 'tool_call');
+                this.addMessageToDisplay('administrator', JSON.stringify(exchange.admin_response, null, 2), 'tool_response');
+            }
+            
+            addMessageToDisplay(agent, content, type) {
+                const conversationDisplay = document.getElementById('conversation-display');
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${agent}-message mb-3`;
+                
+                const timestamp = new Date().toLocaleTimeString();
+                
+                let icon = 'user';
+                let badgeClass = 'bg-secondary';
+                
+                if (agent === 'applicant') {
+                    icon = 'user-check';
+                    badgeClass = 'bg-primary';
+                } else if (agent === 'administrator') {
+                    icon = 'shield-check';
+                    badgeClass = 'bg-success';
+                }
+                
+                let contentHTML = '';
+                if (type === 'json_message' || type === 'tool_call' || type === 'tool_response') {
+                    contentHTML = `<pre class="bg-dark p-2 rounded"><code>${this.escapeHtml(content)}</code></pre>`;
+                } else {
+                    contentHTML = `<p class="mb-0">${this.escapeHtml(content)}</p>`;
+                }
+                
+                messageDiv.innerHTML = `
+                    <div class="d-flex align-items-start">
+                        <div class="me-3">
+                            <i data-feather="${icon}" class="text-muted"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge ${badgeClass} me-2">${agent.charAt(0).toUpperCase() + agent.slice(1)}</span>
+                                <small class="text-muted">${timestamp}</small>
+                                <span class="badge bg-info ms-2">${this.currentProtocol.toUpperCase()}</span>
+                            </div>
+                            ${contentHTML}
+                        </div>
+                    </div>
+                `;
+                
+                conversationDisplay.appendChild(messageDiv);
+                conversationDisplay.scrollTop = conversationDisplay.scrollHeight;
+                
+                feather.replace();
+            }
+            
+            loadArtifacts(result) {
+                const artifactsDisplay = document.getElementById('artifacts-display');
+                
+                artifactsDisplay.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i data-feather="file-text" class="me-2"></i>
+                                        Session Information
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Session ID: ${result.session_id}</p>
+                                    <p class="card-text">Protocol: ${result.protocol.toUpperCase()}</p>
+                                    <p class="card-text">Status: Active</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i data-feather="check-circle" class="me-2"></i>
+                                        Exchange Summary
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Agents Involved: 2</p>
+                                    <p class="card-text">Exchange Type: ${result.protocol === 'a2a' ? 'JSON-RPC' : 'MCP Tools'}</p>
+                                    <p class="card-text">Status: <span class="badge bg-success">Completed</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                feather.replace();
+            }
+            
+            updateProtocolDisplay() {
+                document.getElementById('current-protocol').textContent = this.currentProtocol.toUpperCase();
+                document.querySelector(`input[value="${this.currentProtocol}"]`).checked = true;
+            }
+            
+            updateStatus(message, type) {
+                const toast = document.getElementById('status-toast');
+                const toastBody = toast.querySelector('.toast-body');
+                
+                let icon = 'info';
+                let bgClass = 'bg-info';
+                
+                switch (type) {
+                    case 'success':
+                        icon = 'check-circle';
+                        bgClass = 'bg-success';
+                        break;
+                    case 'warning':
+                        icon = 'alert-triangle';
+                        bgClass = 'bg-warning';
+                        break;
+                    case 'error':
+                        icon = 'alert-circle';
+                        bgClass = 'bg-danger';
+                        break;
+                }
+                
+                toast.className = `toast ${bgClass} text-white`;
+                toast.querySelector('i').setAttribute('data-feather', icon);
+                toastBody.textContent = message;
+                
+                const bsToast = new bootstrap.Toast(toast);
+                bsToast.show();
+                
+                feather.replace();
+                
+                console.log(`[${type.toUpperCase()}] ${message}`);
+            }
+            
+            escapeHtml(text) {
+                const map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                
+                return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            }
+        }
+        
+        // Initialize the application when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            feather.replace();
+            window.simpleMultiAgentDemo = new SimpleMultiAgentDemo();
+        });
+    </script>
+</body>
+</html>

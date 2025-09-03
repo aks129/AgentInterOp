@@ -1,0 +1,75 @@
+{
+  "agent_id": "applicant",
+  "name": "Applicant Agent",
+  "version": "1.0.0",
+  "description": "Handles patient eligibility applications and data gathering for benefits programs",
+  "type": "service_agent",
+  "capabilities": [
+    "eligibility_assessment",
+    "data_collection",
+    "application_submission",
+    "patient_data_retrieval",
+    "form_completion",
+    "document_verification"
+  ],
+  "protocols_supported": [
+    {
+      "name": "a2a",
+      "version": "1.0",
+      "methods": [
+        "initiate_eligibility_check",
+        "get_patient_data",
+        "submit_application"
+      ]
+    },
+    {
+      "name": "mcp",
+      "version": "1.0",
+      "tools": [
+        "eligibility_check",
+        "get_patient_data"
+      ]
+    }
+  ],
+  "data_sources": [
+    "patient_database",
+    "eligibility_rules_engine",
+    "application_forms"
+  ],
+  "output_formats": [
+    "json",
+    "form_data",
+    "eligibility_report"
+  ],
+  "security": {
+    "data_encryption": true,
+    "pii_handling": "compliant",
+    "audit_logging": true
+  },
+  "configuration": {
+    "default_benefit_type": "bcse",
+    "timeout_seconds": 30,
+    "max_retries": 3
+  },
+  "integrations": [
+    {
+      "name": "BCSE Eligibility Checker",
+      "type": "internal_service"
+    },
+    {
+      "name": "Patient Database",
+      "type": "data_source"
+    }
+  ],
+  "metadata": {
+    "created_at": "2024-09-03T00:00:00Z",
+    "last_updated": "2024-09-03T00:00:00Z",
+    "tags": [
+      "healthcare",
+      "benefits",
+      "eligibility",
+      "patient_services"
+    ],
+    "owner": "Healthcare Benefits Department"
+  }
+}

@@ -1,0 +1,68 @@
+Metadata-Version: 2.4
+Name: multi-agent-interoperability-demo
+Version: 1.0.0
+Summary: A multi-agent interoperability demo with A2A and MCP protocol support
+Author-email: Multi-Agent Demo Team <demo@example.com>
+License: MIT
+Project-URL: Homepage, https://github.com/example/multi-agent-interoperability-demo
+Project-URL: Documentation, https://github.com/example/multi-agent-interoperability-demo#readme
+Project-URL: Repository, https://github.com/example/multi-agent-interoperability-demo.git
+Project-URL: Bug Tracker, https://github.com/example/multi-agent-interoperability-demo/issues
+Keywords: multi-agent,interoperability,a2a,mcp,agents,protocols,healthcare,eligibility
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application
+Classifier: Topic :: Communications
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: flask>=2.3.0
+Requires-Dist: flask-socketio>=5.3.0
+Requires-Dist: python-socketio>=5.8.0
+Requires-Dist: python-engineio>=4.7.0
+Requires-Dist: eventlet>=0.33.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: python-dateutil>=2.8.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: pre-commit>=3.0.0; extra == "dev"
+
+# Multi-Agent Interoperability Demo
+
+A comprehensive demonstration of "Language-First Interoperability" featuring two agents (Applicant and Administrator) that can communicate using both A2A JSON-RPC + SSE and MCP (Model Context Protocol) protocols.
+
+## Overview
+
+This demo showcases how different agent communication protocols can share the same conversation core while maintaining protocol-specific implementations. The system demonstrates real-time agent interactions for healthcare benefits eligibility processing.
+
+## Features
+
+### Core Functionality
+- **Dual Protocol Support**: Switch between A2A JSON-RPC + SSE and MCP protocols
+- **Two Distinct Agents**: Applicant Agent and Administrator Agent with specialized capabilities  
+- **Shared Conversation Core**: Common conversation state management across protocols
+- **Real-time Web UI**: Live transcript viewing and protocol switching
+- **BCSE Eligibility System**: Benefits Coverage Support Eligibility checking
+- **Persistent Memory**: Conversation history and artifacts storage
+
+### Protocols
+
+#### A2A (Agent-to-Agent)
+- JSON-RPC 2.0 over HTTP
+- Server-Sent Events for real-time updates
+- Methods: `initiate_eligibility_check`, `process_application`, `approve_application`
+
+#### MCP (Model Context Protocol)  
+- Streamable HTTP tools
+- Tool-based interactions
+- Tools: `eligibility_check`, `process_application`, `get_patient_data`
+
+## Architecture
+
