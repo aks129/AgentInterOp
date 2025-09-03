@@ -1,0 +1,153 @@
+Expose scenario list + switch endpoints
+
+Add small admin APIs and link from UI.
+
+In app/main.py add:
+
+GET /api/scenarios -> returns registry.list_scenarios() + current active
+POST /api/scenarios/activate -> body: {"name":"prior_auth"} -> updates config.scenario.active and saves
+POST /api/scenarios/options -> body: {"options": {...}} -> merges into config.scenario.options
+
+Also add:
+POST /api/simulation -> body: {"admin_processing_ms":1200,"error_injection_rate":0.1,"capacity_limit":10}
+POST /api/mode -> body: {"role":"applicant_only"|"administrator_only"|"full_stack"}
+
+Prompt 6 — Update Agent Cards dynamically
+
+.well-known/agent-card.json should reflect role and scenario.
+
+In the existing /.well-known/agent-card.json handler:
+
+- role: "applicant" if mode.role == "applicant_only" else "administrator" if "administrator_only" else "composite"
+- skills: one discovery skill with a2a.config64 = base64 of {"scenario": active, "tags": config.tags}
+- preferredTransport: "JSONRPC"
+- capabilities.streaming: true
+- include "endpoints": { "jsonrpc": f"{base}/api/bridge/demo/a2a" } if public_base_url is set
+
+Prompt 7 — UI: Connectathon Mode panel
+
+Add a right-rail panel to set scenario, role, and simulation. (No auth; demo only.)
+
+Edit app/web/templates/index.html:
+
+- Add a right-side "Connectathon Settings" panel with:
+  * Scenario dropdown (bcse, clinical_trial, referral_specialist, prior_auth, custom)
+  * Mode radio (Applicant-only / Administrator-only / Full-stack)
+  * Simulation controls: admin_processing_ms (number), error_injection_rate (0..1), capacity_limit (int, blank for none)
+  * Protocol default selector (A2A / MCP)
+  * Buttons: Save Settings, Reset Config
+
+- Show the current scenario requirements string in the UI (fetch from /api/scenarios then GET /api/requirements)
+
+Add a new endpoint GET /api/requirements that returns scenario.requirements()
+
+
+Update app/web/static/app.js to:
+
+fetch /api/config on load and populate controls,
+
+POST updates to /api/scenarios/activate, /api/scenarios/options, /api/simulation, /api/mode, /api/config,
+
+reload transcript after saving.
+Add a small “Examples” button that pulls EXAMPLES for the active scenario and pre-fills the Applicant payload editor.
+
+Add a simple JSON textarea for Applicant Payload so you can override the automatic extraction and test edge cases.
+
+
+---
+
+# Prompt 8 — Applicant payload overrides
+Let users provide/override the Applicant’s structured payload (useful for clinical trial and prior-auth).
+
+
+
+In the engine/App UI:
+
+Add a textarea (monospace) labeled "Applicant Payload (optional JSON)".
+
+If non-empty, parse JSON and pass as applicant_payload to scenario.evaluate()
+
+Otherwise, fallback to existing behavior (deriving from FHIR, notes, etc.)
+
+If JSON parse fails, display an inline error toast and do not advance the turn.
+
+
+---
+
+# Prompt 9 — Data source switches (FHIR MCP, local bundle, free-text)
+Respect `config.data.*` when building Applicant info.
+
+
+
+In app/agents/applicant.py:
+
+Before loading from MCP or local bundle, check config.data.allow_fhir_mcp / allow_local_bundle.
+
+If both disabled and no override JSON provided, return needs-more-info with guidance "No data sources enabled; enable a source or supply payload JSON."
+
+If allow_free_text_context is on, include a short summary string in QuestionnaireResponse.item that notes context used.
+
+
+---
+
+# Prompt 10 — Export & reset utilities
+Admins will ask for artifacts or to reset between tests.
+
+
+
+In app/main.py:
+
+GET /api/admin/transcript/{contextId} -> returns full task history JSON
+
+GET /api/admin/artifacts/{contextId} -> returns list of artifact metadata
+
+POST /api/admin/reset -> clears in-memory stores (TaskStore/ConversationStore), returns {ok:true}
+
+Add a footer button in UI: “Export Transcript & Artifacts” that calls those endpoints and downloads as files.
+
+
+---
+
+# Prompt 11 — Conformance quick checks
+A tiny self-test so you can say “we implement the track’s shape.”
+
+
+
+Add GET /api/selftest that returns:
+{
+"mcp_tools":["begin_chat_thread","send_message_to_chat_thread","check_replies"],
+"a2a_methods":["message/send","message/stream","tasks/get","tasks/cancel"],
+"scenarios": <list from registry>,
+"mode": <from config>,
+"ok": true
+}
+Show a green badge in the UI if ok=true.
+
+
+---
+
+# Prompt 12 — README additions (Connectathon ops)
+Append to README:
+
+- **Connectathon Modes**: Applicant-only, Administrator-only, Full-stack.
+- **Scenario Matrix** with one-liners for expected inputs/decisions.
+- **How to bump latency & inject errors** to simulate real review time.
+- **How to expose public base URL** (if you’re tunneling) and how the Agent Card updates.
+- **MCP client instructions** (tool names & sample calls).
+- **A2A JSON-RPC examples** for each scenario (short `curl` blocks).
+- **Custom scenario authoring**: Edit `config.scenario.options` (with example).
+
+---
+
+## Quick demo script (for Josh)
+
+1) Open **Settings** → choose **Full-stack** + **A2A**, Scenario = **Clinical Trial**.  
+2) Click **Start Demo** → Admin posts **requirements**.  
+3) Click **Examples → Fill** → then **Send Applicant Info** → Admin returns **eligible** + rationale.  
+4) Switch **Scenario = Prior Auth** → **Save**, **Start Demo** → post JSON with CPT but no docs → see **needs-more-info**.  
+5) Toggle to **MCP**, repeat BCS-E: show the same decision via tools, download `QuestionnaireResponse.json` and `DecisionBundle.json`.  
+6) Show **.well-known/agent-card.json** reflects active scenario and mode.
+
+—
+
+If you hit any snags wiring these into your current engine, paste me your `drive_turn` function si

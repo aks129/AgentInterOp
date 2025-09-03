@@ -17,8 +17,8 @@
   },
   "simulation": {
     "measurement_date": null,
-    "admin_processing_ms": 1200,
-    "error_injection_rate": 0.0,
+    "admin_processing_ms": 500,
+    "error_injection_rate": 0.1,
     "capacity_limit": null
   },
   "logging": {
