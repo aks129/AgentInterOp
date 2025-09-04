@@ -273,8 +273,8 @@ def reset_stores():
         from app.engine import conversation_engine
         
         # Clear stores
-        task_store.clear()
-        conversation_store.clear()
+        task_store._tasks.clear()
+        conversation_store._conversations.clear()
         conversation_engine.conversations.clear()
         conversation_engine.capacity_counters.clear()
         
