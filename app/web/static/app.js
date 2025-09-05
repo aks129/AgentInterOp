@@ -354,28 +354,53 @@ function handleArtifacts(artifactList) {
 
 function displayArtifacts() {
     if (artifacts.length === 0) {
-        artifactsElement.innerHTML = '<p class="no-artifacts">No artifacts available</p>';
+        artifactsElement.textContent = '';
+        const noArtifactsP = document.createElement('p');
+        noArtifactsP.className = 'no-artifacts';
+        noArtifactsP.textContent = 'No artifacts available';
+        artifactsElement.appendChild(noArtifactsP);
         return;
     }
     
-    let html = '<h3>Available Downloads:</h3><ul class="artifact-list">';
+    // Clear existing content
+    artifactsElement.textContent = '';
+    
+    // Create heading
+    const heading = document.createElement('h3');
+    heading.textContent = 'Available Downloads:';
+    artifactsElement.appendChild(heading);
+    
+    // Create list
+    const list = document.createElement('ul');
+    list.className = 'artifact-list';
     
     artifacts.forEach((artifact, index) => {
         const fileName = artifact.file?.name || `artifact-${index}.json`;
         const taskId = 'demo-task'; // Simple task ID for demo
         
-        html += `
-            <li class="artifact-item">
-                <a href="/artifacts/${taskId}/${fileName}" download="${fileName}" class="artifact-link">
-                    📄 ${fileName}
-                </a>
-                <small class="artifact-type">(${artifact.file?.mimeType || 'application/json'})</small>
-            </li>
-        `;
+        // Create list item
+        const listItem = document.createElement('li');
+        listItem.className = 'artifact-item';
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.href = `/artifacts/${taskId}/${fileName}`;
+        link.download = fileName;
+        link.className = 'artifact-link';
+        link.textContent = `📄 ${fileName}`;
+        
+        // Create type info
+        const typeInfo = document.createElement('small');
+        typeInfo.className = 'artifact-type';
+        typeInfo.textContent = `(${artifact.file?.mimeType || 'application/json'})`;
+        
+        // Assemble list item
+        listItem.appendChild(link);
+        listItem.appendChild(typeInfo);
+        list.appendChild(listItem);
     });
     
-    html += '</ul>';
-    artifactsElement.innerHTML = html;
+    artifactsElement.appendChild(list);
 }
 
 function resetDemo() {
@@ -400,12 +425,20 @@ function resetDemo() {
 }
 
 function clearTranscript() {
-    transcriptElement.innerHTML = '<p class="no-messages">No messages yet. Click "Start Demo" to begin.</p>';
+    transcriptElement.textContent = '';
+    const noMessagesP = document.createElement('p');
+    noMessagesP.className = 'no-messages';
+    noMessagesP.textContent = 'No messages yet. Click "Start Demo" to begin.';
+    transcriptElement.appendChild(noMessagesP);
 }
 
 function clearArtifacts() {
     artifacts = [];
-    artifactsElement.innerHTML = '<p class="no-artifacts">No artifacts available</p>';
+    artifactsElement.textContent = '';
+    const noArtifactsP = document.createElement('p');
+    noArtifactsP.className = 'no-artifacts';
+    noArtifactsP.textContent = 'No artifacts available';
+    artifactsElement.appendChild(noArtifactsP);
 }
 
 function escapeHtml(text) {
