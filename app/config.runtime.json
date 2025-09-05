@@ -15,7 +15,8 @@
     "allow_local_bundle": true,
     "allow_free_text_context": true,
     "options": {
-      "fhir_base": "https://hapi.fhir.org/baseR4"
+      "fhir_base": "https://hapi.fhir.org/baseR4",
+      "fhir_token": "test-token-123"
     }
   },
   "simulation": {
