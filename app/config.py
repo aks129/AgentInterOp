@@ -3,7 +3,10 @@ from typing import Literal, Optional, Dict, Any, List
 from datetime import date
 import os, json, base64
 
-CONFIG_PATH = os.getenv("APP_CONFIG_PATH", "app/config.runtime.json")
+CONFIG_PATH = os.getenv(
+    "APP_CONFIG_PATH",
+    "/tmp/config.runtime.json" if os.getenv("APP_ENV") == "vercel" else "app/config.runtime.json"
+)
 
 class ScenarioConfig(BaseModel):
     # Which scenario is active and scenario-specific options
