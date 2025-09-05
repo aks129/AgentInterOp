@@ -99,7 +99,17 @@ def start_conversation():
 def get_config():
     """Get current configuration"""
     config = load_config()
-    return jsonify(json.loads(config.model_dump_json()))
+    config_dict = json.loads(config.model_dump_json())
+    
+    # Redact tokens if redact_tokens is True
+    if config.logging.redact_tokens:
+        # Redact FHIR token if present
+        if "data" in config_dict and "options" in config_dict["data"]:
+            options = config_dict["data"]["options"]
+            if "fhir_token" in options and options["fhir_token"]:
+                options["fhir_token"] = "•••"
+    
+    return jsonify(config_dict)
 
 @app.route('/api/config', methods=['POST'])
 def update_config_endpoint():
@@ -110,9 +120,19 @@ def update_config_endpoint():
     
     try:
         updated_config = update_config(data)
+        config_dict = json.loads(updated_config.model_dump_json())
+        
+        # Redact tokens if redact_tokens is True
+        if updated_config.logging.redact_tokens:
+            # Redact FHIR token if present
+            if "data" in config_dict and "options" in config_dict["data"]:
+                options = config_dict["data"]["options"]
+                if "fhir_token" in options and options["fhir_token"]:
+                    options["fhir_token"] = "•••"
+        
         return jsonify({
             "success": True,
-            "config": json.loads(updated_config.model_dump_json())
+            "config": config_dict
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
@@ -289,9 +309,9 @@ def get_artifacts(context_id):
 
 @app.route('/api/admin/reset', methods=['POST'])
 def reset_stores():
-    """Clear in-memory stores"""
+    """Clear in-memory stores and traces"""
     try:
-        from app.store.memory import task_store, conversation_store
+        from app.store.memory import task_store, conversation_store, trace_store
         from app.engine import conversation_engine
         
         # Clear stores
@@ -300,7 +320,10 @@ def reset_stores():
         conversation_engine.conversations.clear()
         conversation_engine.capacity_counters.clear()
         
-        return jsonify({"ok": True})
+        # Clear traces
+        trace_store._traces.clear()
+        
+        return jsonify({"ok": True, "message": "All stores and traces cleared"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
