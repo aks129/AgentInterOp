@@ -13,7 +13,10 @@
   "data": {
     "allow_fhir_mcp": true,
     "allow_local_bundle": true,
-    "allow_free_text_context": true
+    "allow_free_text_context": true,
+    "options": {
+      "fhir_base": "https://hapi.fhir.org/baseR4"
+    }
   },
   "simulation": {
     "measurement_date": null,

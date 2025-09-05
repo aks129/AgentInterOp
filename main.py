@@ -6,6 +6,7 @@ import os
 import json
 import uuid
 import base64
+import asyncio
 from flask import Flask, render_template, request, jsonify
 from app.config import load_config, save_config, update_config, ConnectathonConfig
 from app.scenarios.registry import get_active, list_scenarios
@@ -336,6 +337,87 @@ def agent_card():
         }
     
     return jsonify(card)
+
+# FHIR Integration Routes
+@app.route('/api/fhir/config', methods=['POST'])
+def configure_fhir():
+    """Configure FHIR connection"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"ok": False, "error": "No data provided"}), 400
+        
+        base_url = data.get('base')
+        token = data.get('token')
+        
+        if not base_url:
+            return jsonify({"ok": False, "error": "FHIR base URL is required"}), 400
+        
+        # Update config with FHIR settings
+        fhir_options = {"fhir_base": base_url}
+        if token:
+            fhir_options["fhir_token"] = token
+        
+        # Update the data.options in config
+        current_config = load_config()
+        current_options = current_config.data.options.copy()
+        current_options.update(fhir_options)
+        
+        update_config({"data": {"options": current_options}})
+        
+        return jsonify({"ok": True, "message": "FHIR configuration saved"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/api/fhir/capabilities')
+def get_fhir_capabilities():
+    """Get FHIR server capabilities"""
+    try:
+        from app.fhir.service import build_connector
+        connector = asyncio.run(build_connector())
+        capabilities = asyncio.run(connector.capabilities())
+        return jsonify(capabilities)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"FHIR server error: {str(e)}"}), 500
+
+@app.route('/api/fhir/patients')
+def get_fhir_patients():
+    """Search FHIR patients"""
+    try:
+        from app.fhir.service import build_connector
+        connector = asyncio.run(build_connector())
+        
+        # Extract query parameters
+        search_params = {}
+        if request.args.get('name'):
+            search_params['name'] = request.args.get('name')
+        if request.args.get('identifier'):
+            search_params['identifier'] = request.args.get('identifier')
+        
+        # Search patients
+        result = asyncio.run(connector.search("Patient", **search_params))
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"FHIR search error: {str(e)}"}), 500
+
+@app.route('/api/fhir/patient/<patient_id>/everything')
+def get_patient_everything(patient_id: str):
+    """Get patient $everything bundle"""
+    try:
+        from app.fhir.service import build_connector
+        connector = asyncio.run(build_connector())
+        
+        # Get patient everything
+        result = asyncio.run(connector.patient_everything(patient_id))
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"FHIR patient error: {str(e)}"}), 500
 
 @app.route('/health')
 def health():

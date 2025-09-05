@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project demonstrates "Language-First Interoperability" between two specialized agents (Applicant and Administrator) that can communicate using multiple protocols while sharing a common conversation state. The system showcases real-time agent interactions for healthcare benefits eligibility processing, specifically focusing on BCSE (Benefits Coverage Support Eligibility) checking. The architecture supports switching between A2A JSON-RPC + SSE and MCP (Model Context Protocol) protocols seamlessly.
+This project demonstrates "Language-First Interoperability" between two specialized agents (Applicant and Administrator) that can communicate using multiple protocols while sharing a common conversation state. The system showcases real-time agent interactions for healthcare benefits eligibility processing, specifically focusing on BCSE (Benefits Coverage Support Eligibility) checking. The architecture supports switching between A2A JSON-RPC + SSE and MCP (Model Context Protocol) protocols seamlessly, with integrated FHIR connectivity for real-world healthcare data testing.
 
 ## User Preferences
 
@@ -54,12 +54,20 @@ Preferred communication style: Simple, everyday language.
 - **Medical Condition Support**: Chronic conditions and disability eligibility checking
 - **Structured Results**: Detailed eligibility reports with pass/fail criteria and reasoning
 
+### FHIR Integration
+- **Real FHIR Connectivity**: Pluggable FHIR server integration with configurable base URL and authentication
+- **FHIR Capabilities**: Automatic server capability discovery and metadata retrieval
+- **Patient Search**: Typed patient searches by name, identifier, and other parameters
+- **Patient Everything**: Complete patient data bundle retrieval via $everything operation
+- **Test Bench Functionality**: Converts demo into real inter-agent FHIR testing platform
+
 ## External Dependencies
 
 ### Core Framework Dependencies
 - **Flask**: Web application framework for HTTP server and routing
 - **Flask-SocketIO**: WebSocket support for real-time communication
 - **Socket.IO Client**: JavaScript library for WebSocket connections
+- **httpx**: Async HTTP client for FHIR server integration and external API calls
 
 ### Frontend Dependencies
 - **Bootstrap**: UI framework with dark theme styling (via Replit CDN)

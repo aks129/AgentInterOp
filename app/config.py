@@ -25,6 +25,7 @@ class DataSources(BaseModel):
     allow_fhir_mcp: bool = True
     allow_local_bundle: bool = True
     allow_free_text_context: bool = True
+    options: Dict[str, Any] = Field(default_factory=dict)  # FHIR config and other options
 
 class Simulation(BaseModel):
     measurement_date: Optional[date] = None
