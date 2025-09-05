@@ -295,6 +295,30 @@ The system uses precise date arithmetic with `dateutil.relativedelta` to subtrac
 - Mammogram on 2021-11-01: ✅ Valid (within window)
 - Mammogram on 2021-09-15: ❌ Invalid (outside window)
 
+## Smoke Test
+
+Complete end-to-end validation of all system features:
+
+### 1) Configure FHIR
+- Enter Base URL (e.g., `https://hapi.fhir.org/baseR4`) and leave token blank
+- Test Capabilities → success
+- Search Patient name="Petersen" → pick an id → Ingest $everything
+
+### 2) Scenario = BCS-E
+- Toggle "Use Ingested FHIR" → see Applicant Payload auto-filled
+- Start Demo (A2A) → Admin posts requirements
+- Send Applicant Info → decision + artifacts; see Trace populate
+
+### 3) Switch to MCP
+- Begin chat thread; send message; poll replies → same decision flow
+
+### 4) Narrative → JSON
+- Paste narrative of "Prior-Auth for 97110…"
+- Convert with Claude → Apply → rerun flow
+
+### 5) Export/Import room
+- Export context; Import to new context; confirm continuity
+
 ## License
 
 This project is designed for healthcare interoperability testing and demonstration purposes.
