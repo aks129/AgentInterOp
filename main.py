@@ -419,6 +419,53 @@ def get_patient_everything(patient_id: str):
     except Exception as e:
         return jsonify({"ok": False, "error": f"FHIR patient error: {str(e)}"}), 500
 
+@app.route('/api/ingest', methods=['POST'])
+def ingest_patient_data():
+    """Ingest patient data for use in agent conversations"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"ok": False, "error": "No data provided"}), 400
+        
+        patient_data = data.get('patientData')
+        patient_id = data.get('patientId')
+        
+        if not patient_data or not patient_id:
+            return jsonify({"ok": False, "error": "Missing patientData or patientId"}), 400
+        
+        # Store the patient data in the conversation engine for use in agent interactions
+        from app.engine import conversation_engine
+        
+        # Create a special conversation context for the ingested patient
+        ingest_context_id = f"ingested-patient-{patient_id}"
+        conversation_engine.conversations[ingest_context_id] = {
+            "status": "ingested",
+            "patient_data": patient_data,
+            "patient_id": patient_id,
+            "ingested_at": conversation_engine._get_timestamp(),
+            "messages": [],
+            "artifacts": {},
+            "stage": "data_available"
+        }
+        
+        # Extract summary information for response
+        bundle_entries = patient_data.get('entry', [])
+        resource_counts = {}
+        for entry in bundle_entries:
+            resource_type = entry.get('resource', {}).get('resourceType', 'Unknown')
+            resource_counts[resource_type] = resource_counts.get(resource_type, 0) + 1
+        
+        return jsonify({
+            "ok": True,
+            "message": f"Patient {patient_id} data ingested successfully",
+            "context_id": ingest_context_id,
+            "resource_summary": resource_counts,
+            "total_resources": len(bundle_entries)
+        })
+        
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Ingestion error: {str(e)}"}), 500
+
 @app.route('/health')
 def health():
     """Health check endpoint"""

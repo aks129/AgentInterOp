@@ -62,6 +62,21 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log(`Protocol switched to: ${currentProtocol}`);
         });
     });
+    
+    // FHIR UI event listeners
+    const saveFhirBtn = document.getElementById('save-fhir-config-btn');
+    const testCapabilitiesBtn = document.getElementById('test-capabilities-btn');
+    const searchPatientBtn = document.getElementById('search-patient-btn');
+    const patientSearchInput = document.getElementById('patient-search');
+    
+    if (saveFhirBtn) saveFhirBtn.addEventListener('click', saveFhirConfig);
+    if (testCapabilitiesBtn) testCapabilitiesBtn.addEventListener('click', testCapabilities);
+    if (searchPatientBtn) searchPatientBtn.addEventListener('click', searchPatient);
+    if (patientSearchInput) {
+        patientSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') searchPatient();
+        });
+    }
 });
 
 function initializeInterface() {
@@ -691,4 +706,168 @@ function downloadJson(data, filename) {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+}
+
+// FHIR Connection Functionality
+let currentPatientData = null;
+
+function saveFhirConfig() {
+    const baseUrl = document.getElementById('fhir-base-url').value;
+    const token = document.getElementById('fhir-token').value;
+    const statusDiv = document.getElementById('fhir-status');
+    
+    if (!baseUrl) {
+        showFhirStatus('Please enter a FHIR base URL', 'danger');
+        return;
+    }
+    
+    const config = { base: baseUrl };
+    if (token) config.token = token;
+    
+    fetch('/api/fhir/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            showFhirStatus('FHIR configuration saved successfully', 'success');
+        } else {
+            showFhirStatus('Error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => showFhirStatus('Network error: ' + error.message, 'danger'));
+}
+
+function testCapabilities() {
+    const capabilitiesDiv = document.getElementById('capabilities-display');
+    showFhirStatus('Testing FHIR server capabilities...', 'info');
+    
+    fetch('/api/fhir/capabilities')
+    .then(response => response.json())
+    .then(data => {
+        if (data.fhirVersion) {
+            const mode = data.rest && data.rest[0] ? data.rest[0].mode : 'unknown';
+            capabilitiesDiv.innerHTML = `✅ FHIR ${data.fhirVersion} (${mode} mode)`;
+            capabilitiesDiv.classList.remove('d-none');
+            showFhirStatus('FHIR server capabilities verified', 'success');
+        } else if (data.ok === false) {
+            showFhirStatus('Error: ' + data.error, 'danger');
+        } else {
+            showFhirStatus('Capabilities received but version unclear', 'warning');
+        }
+    })
+    .catch(error => showFhirStatus('Error testing capabilities: ' + error.message, 'danger'));
+}
+
+function searchPatient() {
+    const searchTerm = document.getElementById('patient-search').value;
+    const resultsDiv = document.getElementById('patient-results');
+    
+    if (!searchTerm) {
+        showFhirStatus('Please enter a name or identifier to search', 'warning');
+        return;
+    }
+    
+    showFhirStatus('Searching for patients...', 'info');
+    
+    // Determine if search term looks like an identifier or name
+    const isIdentifier = /^[a-zA-Z0-9_-]+$/.test(searchTerm) && !/ /.test(searchTerm);
+    const searchParam = isIdentifier ? `identifier=${searchTerm}` : `name=${searchTerm}`;
+    
+    fetch(`/api/fhir/patients?${searchParam}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok === false) {
+            showFhirStatus('Error: ' + data.error, 'danger');
+            return;
+        }
+        
+        if (data.entry && data.entry.length > 0) {
+            displayPatientResults(data.entry);
+            showFhirStatus(`Found ${data.entry.length} patient(s)`, 'success');
+        } else {
+            resultsDiv.innerHTML = '<small class="text-muted">No patients found</small>';
+            showFhirStatus('No patients found', 'warning');
+        }
+    })
+    .catch(error => showFhirStatus('Error searching patients: ' + error.message, 'danger'));
+}
+
+function displayPatientResults(patients) {
+    const resultsDiv = document.getElementById('patient-results');
+    
+    let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr>';
+    html += '<th>ID</th><th>Display</th><th>Action</th></tr></thead><tbody>';
+    
+    patients.forEach(entry => {
+        const patient = entry.resource;
+        const id = patient.id;
+        const name = patient.name && patient.name[0] ? 
+            `${patient.name[0].given ? patient.name[0].given.join(' ') : ''} ${patient.name[0].family || ''}`.trim() :
+            'No name';
+        const birthDate = patient.birthDate || 'Unknown';
+        const display = `${name} (${birthDate})`;
+        
+        html += `<tr>
+            <td><code>${id}</code></td>
+            <td>${display}</td>
+            <td>
+                <button class="btn btn-outline-primary btn-xs" onclick="ingestPatientData('${id}')">
+                    <i data-feather="download" width="14" height="14"></i> Ingest $everything
+                </button>
+            </td>
+        </tr>`;
+    });
+    
+    html += '</tbody></table></div>';
+    resultsDiv.innerHTML = html;
+    feather.replace(); // Re-initialize feather icons
+}
+
+function ingestPatientData(patientId) {
+    showFhirStatus(`Ingesting patient data for ${patientId}...`, 'info');
+    
+    fetch(`/api/fhir/patient/${patientId}/everything`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok === false) {
+            showFhirStatus('Error: ' + data.error, 'danger');
+            return;
+        }
+        
+        // Store patient data in client variable
+        currentPatientData = data;
+        
+        // Also send to ingest endpoint
+        return fetch('/api/ingest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ patientData: data, patientId: patientId })
+        });
+    })
+    .then(response => response.json())
+    .then(ingestResult => {
+        if (ingestResult && ingestResult.ok !== false) {
+            showFhirStatus(`✅ Patient ${patientId} data ingested successfully`, 'success');
+        } else {
+            showFhirStatus(`Patient data retrieved but ingest failed: ${ingestResult ? ingestResult.error : 'Unknown error'}`, 'warning');
+        }
+    })
+    .catch(error => showFhirStatus('Error ingesting patient data: ' + error.message, 'danger'));
+}
+
+function showFhirStatus(message, type) {
+    const statusDiv = document.getElementById('fhir-status');
+    statusDiv.className = `alert alert-${type}`;
+    statusDiv.textContent = message;
+    statusDiv.classList.remove('d-none');
+    
+    // Auto-hide success/info messages after 5 seconds
+    if (type === 'success' || type === 'info') {
+        setTimeout(() => {
+            statusDiv.classList.add('d-none');
+        }, 5000);
+    }
 }
