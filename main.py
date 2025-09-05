@@ -14,6 +14,13 @@ from app.scenarios.registry import get_active, list_scenarios
 from app.scenarios import registry
 from app.scenarios import sc_bcse, sc_clinical_trial, sc_referral_specialist, sc_prior_auth, sc_custom
 
+# Load environment variables from .env file if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not available, skip loading
+
 # Create Flask app (WSGI compatible)
 app = Flask(__name__, template_folder='app/web/templates', static_folder='app/web/static')
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")

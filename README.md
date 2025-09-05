@@ -1,179 +1,300 @@
 # Multi-Agent Interoperability Demo
 
-This project demonstrates "Language-First Interoperability" between two specialized agents (Applicant and Administrator) that can communicate using multiple protocols while sharing a common conversation state. The system showcases real-time agent interactions for healthcare benefits eligibility processing, specifically focusing on BCS-E (Breast Cancer Screening Eligibility) checking.
+A comprehensive test bench for multi-agent and FHIR interoperability, featuring dual protocol support (A2A and MCP), real-time FHIR integration, AI-powered narrative processing, and complete decision transparency.
 
-## Architecture
+## Features
 
-- **A2A Protocol**: JSON-RPC 2.0 over HTTP with Server-Sent Events for streaming
-- **MCP Protocol**: Model Context Protocol with tool-based interactions
-- **Shared Conversation Engine**: Common state management across both protocols
-- **FHIR Integration**: Healthcare data processing with proper FHIR resource generation
-- **Web UI**: Real-time demonstration interface with protocol switching
+### Core Capabilities
+- **Dual Protocol Support**: A2A (Agent-to-Agent) JSON-RPC and MCP (Model Context Protocol)
+- **Real-time FHIR Integration**: Connect to any FHIR server with full API support
+- **AI-Powered Narrative Processing**: Convert natural language to structured JSON using Claude
+- **Decision Transparency**: Complete trace and telemetry system ("Prove It" panel)
+- **Room Export/Import**: Share conversation contexts across systems for external partner interoperability
+
+### Supported Scenarios
+- **BCSE**: Benefits Coverage Support Eligibility checking
+- **Clinical Trial**: Patient enrollment and eligibility assessment
+- **Referral Specialist**: Provider referral workflows
+- **Prior Auth**: Prior authorization request processing
+- **Custom**: Configurable scenarios for specific use cases
 
 ## Quick Start
 
-### Run the Server
+### Environment Setup
 
+1. Create a `.env` file in the project root:
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Required for AI narrative processing
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+# Optional: Session security (auto-generated if not set)
+SESSION_SECRET=your_secret_key_here
 ```
 
-### Open the UI
-
-Navigate to: **http://localhost:8000/**
-
-## Testing with cURL
-
-### A2A Protocol Tests
-
-**Basic Message Send:**
+2. Start the application:
 ```bash
-curl -s http://localhost:8000/api/a2a/bridge/demo/a2a \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": "1",
-    "method": "message/send",
-    "params": {
-      "contextId": "test-context-1",
-      "parts": [{"kind": "text", "text": "Hello, please begin BCS-E eligibility check."}]
-    }
-  }'
+gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app
 ```
 
-**Streaming with Server-Sent Events:**
+3. Open your browser to `http://localhost:5000`
+
+## FHIR Connector
+
+### Setup and Configuration
+
+The FHIR connector enables real-time integration with any FHIR R4-compatible server:
+
+1. **Configure Connection**: In the left panel, enter:
+   - **Base URL**: Your FHIR server endpoint (e.g., `https://hapi.fhir.org/baseR4`)
+   - **Token**: Optional Bearer token for authentication
+
+2. **Test Connection**: Click "Test Connection" to verify:
+   - Server capabilities discovery
+   - Authentication validation
+   - API compatibility check
+
+### Quick Tests
+
+#### Server Capabilities
 ```bash
-curl -s http://localhost:8000/api/a2a/bridge/demo/a2a \
+curl -X GET "https://hapi.fhir.org/baseR4/metadata" \
+  -H "Accept: application/fhir+json"
+```
+
+#### Patient Search
+```bash
+curl -X GET "https://hapi.fhir.org/baseR4/Patient?name=John&_count=5" \
+  -H "Accept: application/fhir+json" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### Patient $everything Operation
+```bash
+curl -X GET "https://hapi.fhir.org/baseR4/Patient/123456/$everything" \
+  -H "Accept: application/fhir+json" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### FHIR Data Ingestion
+
+1. Use the patient search to find relevant records
+2. Click "Ingest" to pull complete patient data via `$everything`
+3. The system automatically maps FHIR bundles to scenario-specific payloads
+4. Toggle "Use Ingested FHIR" in the applicant payload editor
+
+## Narrative → JSON with Claude
+
+Transform natural language descriptions into structured JSON schemas using AI:
+
+### Setup
+Ensure `ANTHROPIC_API_KEY` is set in your `.env` file.
+
+### Sample Prior-Auth Narrative
+```
+Patient John Smith, age 45, requires MRI scan of lumbar spine due to chronic lower back pain persisting for 6 months. Conservative treatments including physical therapy and medication have failed. Patient has BlueCross BlueShield insurance, member ID 12345678. Requesting provider is Dr. Sarah Johnson, NPI 1234567890, at Metro Orthopedic Clinic. Procedure code 72148, estimated cost $2,800. Patient has met deductible, requires prior authorization for coverage.
+```
+
+### Usage
+1. Enter your narrative in the text area
+2. Click "Generate JSON Schema"
+3. Review and apply the generated structured data
+4. The system converts natural language into properly formatted eligibility payloads
+
+## A2A Protocol API
+
+### Message Streaming
+```bash
+curl -X POST "http://localhost:5000/api/bridge/demo/a2a" \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
   -d '{
-    "jsonrpc": "2.0", 
-    "id": "2",
+    "jsonrpc": "2.0",
     "method": "message/stream",
     "params": {
-      "contextId": "test-stream-1",
-      "parts": [{"kind": "text", "text": "Start eligibility screening process"}]
+      "contextId": "ctx_123",
+      "parts": [{"kind": "text", "text": "Begin eligibility check"}]
+    },
+    "id": 1
+  }'
+```
+
+### Task Resubscription
+Reconnect to an existing task and receive all subsequent frames:
+
+```bash
+curl -X POST "http://localhost:5000/api/bridge/demo/a2a" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tasks/resubscribe",
+    "params": {
+      "id": "task_abc123"
+    },
+    "id": 2
+  }'
+```
+
+### Task Cancellation
+```bash
+curl -X POST "http://localhost:5000/api/bridge/demo/a2a" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tasks/cancel",
+    "params": {
+      "taskId": "task_abc123"
+    },
+    "id": 3
+  }'
+```
+
+## Decision Trace & Telemetry
+
+### "Prove It" Panel
+
+Complete transparency into agent decision-making:
+
+- **Wire Protocol Traces**: See all A2A and MCP message exchanges
+- **Decision Points**: Track eligibility determinations and reasoning
+- **Performance Metrics**: Monitor response times and processing steps
+- **Error Tracking**: Detailed error logs with context
+
+### Usage
+1. Start any demo scenario
+2. Open the "Prove It" panel in the main interface
+3. View real-time trace events as they occur
+4. Download complete traces for analysis or audit
+
+### Trace Export
+```bash
+curl -X GET "http://localhost:5000/api/trace/ctx_123" \
+  -H "Accept: application/json"
+```
+
+## Room Export/Import
+
+Enable interoperability with external partner systems:
+
+### Export a Room
+1. Complete a conversation or scenario
+2. Click "Export Room" in the left panel
+3. Download the JSON file containing:
+   - Context ID and scenario configuration
+   - Last applicant payload
+   - Conversation state and artifacts metadata
+   - Configuration snapshot
+
+### Import a Room
+1. Click "Import Room" and select a JSON export file
+2. The system creates a new context with imported configuration
+3. UI automatically switches to the new imported context
+4. Continue the conversation from the imported state
+
+### API Endpoints
+
+#### Export
+```bash
+curl -X GET "http://localhost:5000/api/room/export/ctx_123" \
+  -H "Accept: application/json"
+```
+
+#### Import
+```bash
+curl -X POST "http://localhost:5000/api/room/import" \
+  -H "Content-Type: application/json" \
+  -d @exported_room.json
+```
+
+## Agent Discovery
+
+The system provides an agent card for external discovery at:
+```
+GET /.well-known/agent-card.json
+```
+
+Example response:
+```json
+{
+  "protocolVersion": "0.2.9",
+  "preferredTransport": "JSONRPC",
+  "capabilities": {"streaming": true},
+  "skills": [{
+    "id": "scenario",
+    "a2a": {
+      "config64": "eyJzY2VuYXJpbyI6ImJjc2UiLCJ0YWdzIjpbXX0="
     }
-  }'
+  }],
+  "endpoints": {
+    "jsonrpc": "https://your-domain.com/api/bridge/demo/a2a"
+  }
+}
 ```
 
-### MCP Protocol Tests
+## Development
 
-**Begin Chat Thread:**
-```bash
-curl -s http://localhost:8000/api/mcp/begin_chat_thread \
-  -H "Content-Type: application/json" \
-  -d '{}'
+### Project Structure
+```
+app/
+├── config.py              # Configuration management
+├── engine.py              # Conversation engine
+├── fhir/                  # FHIR integration
+│   ├── connector.py       # FHIR client
+│   └── service.py         # FHIR operations
+├── ingest/                # Data ingestion
+│   └── mapper.py          # FHIR to payload mapping
+├── llm/                   # AI integration
+│   └── anthropic.py       # Claude API client
+├── protocols/             # Protocol implementations
+│   ├── a2a.py            # A2A JSON-RPC
+│   └── mcp.py            # MCP protocol
+├── scenarios/             # Scenario definitions
+├── store/                 # Data storage
+│   └── memory.py         # In-memory storage
+└── web/                   # Web interface
+    ├── static/
+    └── templates/
 ```
 
-**Send Message to Chat Thread:**
-```bash
-curl -s http://localhost:8000/api/mcp/send_message_to_chat_thread \
-  -H "Content-Type: application/json" \
-  -d '{
-    "conversationId": "your-conversation-id",
-    "message": "I need to check BCS-E eligibility for a patient"
-  }'
+### Configuration
+- Runtime configuration stored in `app/config.runtime.json`
+- Environment variables loaded from `.env`
+- Scenarios and rules defined in `app/scenarios/`
+
+## Security Notes
+
+⚠️ **Important Security Considerations:**
+
+1. **Never commit `.env` files or tokens to version control**
+2. **API keys are read from environment variables only**
+3. **The agent card is hidden when no public base URL is configured**
+4. **Use proper authentication tokens for production FHIR servers**
+5. **Room exports may contain sensitive patient data - handle appropriately**
+
+### Example .gitignore entries:
+```
+.env
+*.token
+config.runtime.json
+*.key
 ```
 
-**Check Replies:**
-```bash
-curl -s http://localhost:8000/api/mcp/check_replies \
-  -H "Content-Type: application/json" \
-  -d '{
-    "conversationId": "your-conversation-id"
-  }'
-```
+## Legacy Demo (Original BCS-E)
 
-## Live Demo Script
+### BCS-E Eligibility Logic
 
-### Happy Path Demo Flow
-
-1. **Load the UI**: Go to http://localhost:8000/
-2. **Select A2A Protocol**: Choose "A2A" radio button
-3. **Start Demo**: Click "Start Demo" button
-   - ✅ **Administrator** prints requirements: "Please provide age, sex, last mammogram date"
-4. **Send Applicant Info**: Click "Send Applicant Info" button  
-   - ✅ **Applicant** processes patient data and returns QuestionnaireResponse
-   - ✅ **Administrator** evaluates eligibility and returns decision with rationale
-   - ✅ **Artifacts** appear on right: QuestionnaireResponse.json and DecisionBundle.json
-5. **Switch to MCP**: Toggle to "MCP" protocol and repeat
-   - ✅ Same business logic flows through MCP tools instead of A2A JSON-RPC
-6. **Download Artifacts**: Click artifact links to view structured FHIR resources
-
-### What to Say (Josh Demo Script)
-
-> "This demonstrates the same business logic running through two different transport protocols. We start with conversational negotiation between agents, generate structured FHIR artifacts, and reach an eligibility decision with transparent provenance. Whether using A2A's JSON-RPC with streaming or MCP's tool-based approach, the underlying conversation engine maintains consistent state and produces the same clinical artifacts."
-
-## BCS-E Eligibility Logic
-
-### Criteria
+#### Criteria
 - **Age**: Patient must be 50-74 years old
 - **Gender**: Must be female
 - **Recent Mammogram**: Must have mammogram within 27 months of evaluation date
 
-### 27-Month Window Calculation
+#### 27-Month Window Calculation
 The system uses precise date arithmetic with `dateutil.relativedelta` to subtract exactly 27 months from the measurement date (default: today). For example:
 - Measurement Date: 2024-01-15
 - Cutoff Date: 2021-10-15 (27 months prior)
 - Mammogram on 2021-11-01: ✅ Valid (within window)
 - Mammogram on 2021-09-15: ❌ Invalid (outside window)
 
-## AI Transparency
+## License
 
-When the system uses AI-powered document abstraction to extract mammogram dates from unstructured text (DocumentReference resources), it automatically adds transparency metadata:
-
-```json
-{
-  "meta": {
-    "tag": [{
-      "system": "https://example.org/ai-transparency",
-      "code": "ai-generated", 
-      "display": "AI-generated"
-    }]
-  }
-}
-```
-
-This ensures clinical decision-makers can identify when AI abstraction was used versus direct structured data.
-
-## Patient Test Cases
-
-### Positive Case (001.json)
-- 55-year-old female patient
-- Recent mammogram within 27 months
-- **Result**: ELIGIBLE with full FHIR artifacts
-
-### Negative Case (001_missing_mammo.json)  
-- Same patient demographics
-- No recent mammogram or outside 27-month window
-- **Result**: NEEDS-MORE-INFO with clinical guidance
-
-## Architecture Notes
-
-The demo simplifies real BCS-E eligibility by focusing on the three core criteria. In production, additional factors like insurance coverage, provider networks, and contraindications would be evaluated. The 27-month window reflects CMS guidelines for breast cancer screening intervals.
-
-The conversation engine maintains identical business logic across both A2A and MCP protocols, demonstrating true protocol-agnostic interoperability for healthcare agent systems.
-
-## Development
-
-```bash
-# Install dependencies
-pip install fastapi uvicorn python-dateutil
-
-# Run with auto-reload  
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# View logs
-tail -f logs/app.log
-```
-
-## API Endpoints
-
-- `GET /` - Web UI
-- `POST /api/a2a/bridge/{config}/a2a` - A2A JSON-RPC endpoint
-- `POST /api/mcp/begin_chat_thread` - Start MCP conversation  
-- `POST /api/mcp/send_message_to_chat_thread` - Send MCP message
-- `POST /api/mcp/check_replies` - Poll MCP responses
-- `GET /artifacts/{taskId}/{filename}` - Download FHIR artifacts
-- `GET /health` - Health check
+This project is designed for healthcare interoperability testing and demonstration purposes.
