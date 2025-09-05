@@ -250,8 +250,15 @@ async def handle_tasks_cancel(params: Dict[str, Any], request_id: Optional[Union
                 error=JsonRpcError(code=-32001, message="Task not found").model_dump()
             )
         
-        # Cancel the task
+        # Cancel the task and set terminal state
         task.status.state = "canceled"
+        
+        # Append trace event for cancellation
+        trace(task.contextId, "system", "task_canceled", {
+            "task_id": task_id,
+            "previous_state": task.status.state,
+            "cancellation_time": iso8601_now()
+        })
         
         return JsonRpcResponse(id=request_id, result={"taskSnapshot": task.model_dump()})
         
@@ -260,6 +267,105 @@ async def handle_tasks_cancel(params: Dict[str, Any], request_id: Optional[Union
             id=request_id,
             error=JsonRpcError(code=-32000, message="Internal error", data=str(e)).model_dump()
         )
+
+async def handle_tasks_resubscribe(params: Dict[str, Any], request_id: Optional[Union[str, int]]):
+    """Handle tasks/resubscribe JSON-RPC method with SSE"""
+    try:
+        task_id = params.get("id")
+        if not task_id:
+            # Return error as SSE event
+            async def error_generator():
+                yield {
+                    "event": "error",
+                    "data": json.dumps({
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": JsonRpcError(code=-32602, message="Invalid params", data="id required").model_dump()
+                    })
+                }
+            return EventSourceResponse(error_generator())
+        
+        task = _active_tasks.get(task_id)
+        if not task:
+            # Return error as SSE event
+            async def error_generator():
+                yield {
+                    "event": "error",
+                    "data": json.dumps({
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": JsonRpcError(code=-32001, message="Task not found").model_dump()
+                    })
+                }
+            return EventSourceResponse(error_generator())
+        
+        # Trace resubscription
+        trace(task.contextId, "system", "task_resubscribed", {
+            "task_id": task_id,
+            "current_state": task.status.state,
+            "resubscribe_time": iso8601_now()
+        })
+        
+        async def event_generator():
+            # Emit current task snapshot
+            yield {
+                "event": "snapshot",
+                "data": json.dumps({
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {"taskSnapshot": task.model_dump()}
+                })
+            }
+            
+            # If task is still working, emit status update
+            if task.status.state == "working":
+                yield {
+                    "event": "status-update",
+                    "data": json.dumps({
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "result": {"status": task.status.model_dump()}
+                    })
+                }
+            
+            # Emit message frames for existing history
+            for history_msg in task.history:
+                if history_msg.role == "agent":
+                    for part in history_msg.parts:
+                        yield {
+                            "event": "message-frame",
+                            "data": json.dumps({
+                                "jsonrpc": "2.0",
+                                "id": request_id,
+                                "result": {"messagePart": part.model_dump()}
+                            })
+                        }
+            
+            # Emit final snapshot with artifacts
+            yield {
+                "event": "snapshot-final",
+                "data": json.dumps({
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {"taskSnapshot": task.model_dump()}
+                })
+            }
+        
+        return EventSourceResponse(event_generator())
+        
+    except Exception as e:
+        # Return error as SSE event
+        async def error_generator():
+            yield {
+                "event": "error",
+                "data": json.dumps({
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": JsonRpcError(code=-32000, message="Internal error", data=str(e)).model_dump()
+                })
+            }
+        
+        return EventSourceResponse(error_generator())
 
 async def handle_message_stream(params: Dict[str, Any], request_id: Optional[Union[str, int]]):
     """Handle message/stream JSON-RPC method with SSE"""
@@ -374,16 +480,20 @@ async def a2a_jsonrpc_handler(config64: str, request: Request):
         body = await request.json()
         rpc_request = JsonRpcRequest(**body)
         
-        # Check if this is a streaming request (message/stream)
-        if rpc_request.method == "message/stream":
+        # Check for streaming requests that require SSE
+        streaming_methods = ["message/stream", "tasks/resubscribe"]
+        if rpc_request.method in streaming_methods:
             # Check Accept header for SSE
             accept_header = request.headers.get("accept", "")
             if "text/event-stream" in accept_header:
-                return await handle_message_stream(rpc_request.params or {}, rpc_request.id)
+                if rpc_request.method == "message/stream":
+                    return await handle_message_stream(rpc_request.params or {}, rpc_request.id)
+                elif rpc_request.method == "tasks/resubscribe":
+                    return await handle_tasks_resubscribe(rpc_request.params or {}, rpc_request.id)
             else:
                 return JsonRpcResponse(
                     id=rpc_request.id,
-                    error=JsonRpcError(code=-32600, message="Invalid request", data="message/stream requires Accept: text/event-stream").model_dump()
+                    error=JsonRpcError(code=-32600, message="Invalid request", data=f"{rpc_request.method} requires Accept: text/event-stream").model_dump()
                 ).model_dump()
         
         # Handle other methods

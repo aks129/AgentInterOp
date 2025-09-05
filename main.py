@@ -306,7 +306,7 @@ def selftest():
         
         return jsonify({
             "mcp_tools": ["begin_chat_thread", "send_message_to_chat_thread", "check_replies"],
-            "a2a_methods": ["message/send", "message/stream", "tasks/get", "tasks/cancel"],
+            "a2a_methods": ["message/send", "message/stream", "tasks/get", "tasks/cancel", "tasks/resubscribe"],
             "scenarios": list(scenarios.keys()),
             "mode": config.mode.role,
             "ok": True
@@ -319,36 +319,32 @@ def agent_card():
     """Agent Card derived from configuration"""
     config = load_config()
     
-    # Determine role based on operation mode
-    role = "applicant" if config.mode.role == "applicant_only" else \
-          "administrator" if config.mode.role == "administrator_only" else \
-          "composite"
+    # Return empty response if no public_base_url is configured (hide agent card)
+    if not config.protocol.public_base_url:
+        return jsonify({})
     
-    # Create agent card
+    # Create enhanced agent card structure
     card = {
         "protocolVersion": "0.2.9",
         "preferredTransport": "JSONRPC",
         "capabilities": {
             "streaming": True
         },
-        "role": role,
         "skills": [{
-            "name": "discovery",
-            "description": "Multi-scenario connectathon demo",
-            "a2a.config64": base64.b64encode(
-                json.dumps({
-                    "scenario": config.scenario.active,
-                    "tags": config.tags
-                }).encode()
-            ).decode()
-        }]
-    }
-    
-    # Add endpoints if public_base_url is set
-    if config.protocol.public_base_url:
-        card["endpoints"] = {
+            "id": "scenario",
+            "a2a": {
+                "config64": base64.b64encode(
+                    json.dumps({
+                        "scenario": config.scenario.active,
+                        "tags": config.tags if hasattr(config, 'tags') else []
+                    }).encode()
+                ).decode()
+            }
+        }],
+        "endpoints": {
             "jsonrpc": f"{config.protocol.public_base_url}/api/bridge/demo/a2a"
         }
+    }
     
     return jsonify(card)
 
