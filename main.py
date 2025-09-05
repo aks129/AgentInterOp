@@ -188,16 +188,29 @@ def activate_scenario():
 
 @app.route('/api/scenarios/options', methods=['POST'])
 def update_scenario_options():
-    """Update scenario options"""
+    """Update scenario options (supports both direct and narrative-generated)"""
     try:
         data = request.get_json()
-        options = data.get('options', {})
+        if not data:
+            return jsonify({"ok": False, "error": "No options data provided"}), 400
         
-        # Update config
+        # Handle both formats: {"options": {...}} and direct {...}
+        if 'options' in data:
+            options = data.get('options', {})
+        else:
+            options = data
+        
+        # Update config using the existing update_config function
         update_config({"scenario": {"options": options}})
-        return jsonify({"success": True, "options": options})
+        
+        return jsonify({
+            "ok": True,
+            "success": True,
+            "message": "Scenario options updated",
+            "options": options
+        })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route('/api/requirements')
 def get_requirements():
@@ -525,6 +538,47 @@ def get_latest_ingested():
             
     except Exception as e:
         return jsonify({"ok": False, "error": f"Error retrieving ingested data: {str(e)}"}), 500
+
+@app.route('/api/scenarios/narrative', methods=['POST'])
+def process_narrative():
+    """Convert narrative text to JSON scenario using Claude"""
+    try:
+        data = request.get_json()
+        if not data or not data.get('text'):
+            return jsonify({"ok": False, "error": "Missing narrative text"}), 400
+        
+        narrative_text = data.get('text')
+        
+        # Import and call the Anthropic LLM function
+        import asyncio
+        from app.llm.anthropic import narrative_to_json
+        
+        # Run the async function
+        try:
+            scenario_json = asyncio.run(narrative_to_json(narrative_text))
+        except ValueError as e:
+            if "ANTHROPIC_API_KEY not set" in str(e):
+                return jsonify({
+                    "ok": False, 
+                    "error": "ANTHROPIC_API_KEY environment variable is required",
+                    "requires_key": True
+                }), 400
+            else:
+                raise e
+        
+        # Update scenario options with the generated JSON using existing function
+        update_config({"scenario": {"options": scenario_json}})
+        
+        return jsonify({
+            "ok": True,
+            "message": "Narrative converted and applied to scenario",
+            "generated_schema": scenario_json,
+            "updated_options": scenario_json
+        })
+        
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Narrative processing error: {str(e)}"}), 500
+
 
 @app.route('/health')
 def health():

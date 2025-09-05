@@ -125,6 +125,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Check for existing ingested data on load
         updateFhirToggleState();
+        
+        // Narrative to JSON event listeners
+        const convertNarrativeBtn = document.getElementById('convert-narrative-btn');
+        const applySchemaBtn = document.getElementById('apply-schema-btn');
+        
+        if (convertNarrativeBtn) {
+            convertNarrativeBtn.addEventListener('click', convertNarrativeToJson);
+        }
+        if (applySchemaBtn) {
+            applySchemaBtn.addEventListener('click', applyGeneratedSchema);
+        }
     }, 100);
 });
 
@@ -1065,4 +1076,119 @@ function ingestPatientData(patientId) {
         }
     })
     .catch(error => showFhirStatus('Error ingesting patient data: ' + error.message, 'danger'));
+}
+
+// Narrative to JSON Functions
+let generatedSchema = null;
+
+function convertNarrativeToJson() {
+    const narrativeText = document.getElementById('narrative-text').value.trim();
+    const convertBtn = document.getElementById('convert-narrative-btn');
+    const generatedJsonTextarea = document.getElementById('generated-json');
+    const applyBtn = document.getElementById('apply-schema-btn');
+    
+    if (!narrativeText) {
+        showNarrativeStatus('Please enter a scenario narrative to convert', 'warning');
+        return;
+    }
+    
+    // Disable button and show loading
+    convertBtn.disabled = true;
+    convertBtn.innerHTML = '<i data-feather="loader" class="me-2 spinning"></i> Converting...';
+    showNarrativeStatus('Converting narrative with Claude...', 'info');
+    
+    fetch('/api/scenarios/narrative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: narrativeText })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            generatedSchema = data.generated_schema;
+            generatedJsonTextarea.value = JSON.stringify(generatedSchema, null, 2);
+            applyBtn.disabled = false;
+            showNarrativeStatus('✅ Narrative converted successfully! Review the schema and apply to scenario.', 'success');
+        } else {
+            if (data.requires_key) {
+                showNarrativeStatus('⚠️ ' + data.error + '. Please set the ANTHROPIC_API_KEY environment variable.', 'danger');
+            } else {
+                showNarrativeStatus('Error: ' + data.error, 'danger');
+            }
+            generatedJsonTextarea.value = '';
+            applyBtn.disabled = true;
+            generatedSchema = null;
+        }
+    })
+    .catch(error => {
+        showNarrativeStatus('Network error: ' + error.message, 'danger');
+        generatedJsonTextarea.value = '';
+        applyBtn.disabled = true;
+        generatedSchema = null;
+    })
+    .finally(() => {
+        // Re-enable button and reset text
+        convertBtn.disabled = false;
+        convertBtn.innerHTML = '<i data-feather="cpu" class="me-2"></i> Convert with Claude';
+        
+        // Re-initialize feather icons
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+    });
+}
+
+function applyGeneratedSchema() {
+    if (!generatedSchema) {
+        showNarrativeStatus('No schema to apply', 'warning');
+        return;
+    }
+    
+    const applyBtn = document.getElementById('apply-schema-btn');
+    applyBtn.disabled = true;
+    applyBtn.innerHTML = '<i data-feather="loader" class="me-2 spinning"></i> Applying...';
+    showNarrativeStatus('Applying schema to active scenario...', 'info');
+    
+    fetch('/api/scenarios/options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(generatedSchema)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            showNarrativeStatus('✅ Schema applied to active scenario successfully!', 'success');
+        } else {
+            showNarrativeStatus('Error applying schema: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showNarrativeStatus('Network error: ' + error.message, 'danger');
+    })
+    .finally(() => {
+        // Re-enable button and reset text
+        applyBtn.disabled = false;
+        applyBtn.innerHTML = '<i data-feather="check" class="me-2"></i> Apply to Active Scenario';
+        
+        // Re-initialize feather icons
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+    });
+}
+
+function showNarrativeStatus(message, type) {
+    const statusDiv = document.getElementById('narrative-status');
+    if (statusDiv) {
+        statusDiv.className = `alert alert-${type}`;
+        statusDiv.textContent = message;
+        statusDiv.classList.remove('d-none');
+        
+        // Auto-hide success/info messages after 5 seconds
+        if (type === 'success' || type === 'info') {
+            setTimeout(() => {
+                statusDiv.classList.add('d-none');
+            }, 5000);
+        }
+    }
 }

@@ -10,9 +10,12 @@ pyproject.toml
 ./app/protocols/a2a.py
 ./app/protocols/mcp.py
 ./app/store/memory.py
+app/config.py
+app/engine.py
 app/main.py
 app/agents/administrator.py
 app/agents/applicant.py
+app/eligibility/__init__.py
 app/eligibility/bcse.py
 app/protocols/a2a.py
 app/protocols/mcp.py

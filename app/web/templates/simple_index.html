@@ -186,6 +186,54 @@
                         <div id="patient-results" class="mt-3"></div>
                     </div>
                 </div>
+
+                <!-- Narrative to JSON (Claude) -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i data-feather="edit-3" class="me-2"></i>
+                            Narrative → JSON (Claude)
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="narrative-text" class="form-label">Scenario Narrative</label>
+                            <textarea id="narrative-text" class="form-control" rows="6" 
+                                placeholder="Describe the healthcare scenario in natural language...
+Example: 
+- Breast cancer screening eligibility for women 40-74
+- Check recent mammogram within 2 years  
+- Consider risk factors and insurance coverage"></textarea>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mb-3">
+                            <button id="convert-narrative-btn" class="btn btn-primary btn-sm">
+                                <i data-feather="cpu" class="me-2"></i>
+                                Convert with Claude
+                            </button>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="generated-json" class="form-label">Generated JSON Schema</label>
+                            <textarea id="generated-json" class="form-control" rows="8" 
+                                style="font-family: monospace; font-size: 0.85em;" 
+                                placeholder="Generated schema will appear here..." readonly></textarea>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button id="apply-schema-btn" class="btn btn-success btn-sm" disabled>
+                                <i data-feather="check" class="me-2"></i>
+                                Apply to Active Scenario
+                            </button>
+                        </div>
+                        
+                        <div id="narrative-status" class="alert alert-info d-none mt-3" role="alert"></div>
+                        <div class="small text-warning mt-2">
+                            <i data-feather="alert-triangle" width="14" height="14"></i>
+                            Requires ANTHROPIC_API_KEY environment variable
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Main Display Area -->

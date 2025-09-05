@@ -46,3 +46,4 @@ localPort = 8000
 externalPort = 8000
 
 [agent]
+integrations = ["python_anthropic==1.0.0"]
