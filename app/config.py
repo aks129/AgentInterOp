@@ -29,12 +29,12 @@ class DataSources(BaseModel):
 class Simulation(BaseModel):
     measurement_date: Optional[date] = None
     # latency/error injection to simulate "admin evaluating rules"
-    admin_processing_ms: int = 1200
+    admin_processing_ms: int = 0  # Reduced for demo efficiency
     error_injection_rate: float = 0.0  # 0..1
     capacity_limit: Optional[int] = None  # used by referral/prior-auth demos
 
 class LoggingConfig(BaseModel):
-    level: Literal["DEBUG","INFO","WARN","ERROR"] = "INFO"
+    level: Literal["DEBUG","INFO","WARN","ERROR"] = "WARN"
     persist_transcript: bool = True
 
 class ConnectathonConfig(BaseModel):

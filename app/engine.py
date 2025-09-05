@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import random
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Tuple, List
 
 from app.agents.applicant import ApplicantAgent
@@ -22,9 +23,11 @@ administrator_agent = AdministratorAgent()
 class ConversationEngine:
     """Orchestrates conversation flow between applicant and administrator agents"""
     
-    def __init__(self):
+    def __init__(self, max_conversations: int = 100, cleanup_hours: int = 1):
         self.conversations: Dict[str, Dict[str, Any]] = {}
         self.capacity_counters: Dict[str, int] = {}  # Track capacity usage per scenario
+        self.max_conversations = max_conversations
+        self.cleanup_hours = cleanup_hours
         
     def drive_turn(self, context_id: str, incoming_text: Optional[str] = None, 
                    incoming_files: Optional[List[str]] = None, role: str = "applicant") -> Dict[str, Any]:
@@ -45,6 +48,10 @@ class ConversationEngine:
         # Load current config and active scenario
         config = load_config()
         scenario_name, scenario = registry.get_active()
+        
+        # Clean up old conversations if at capacity
+        if len(self.conversations) >= self.max_conversations:
+            self._cleanup_old_conversations()
         
         # Initialize conversation state if not exists
         if context_id not in self.conversations:
@@ -365,6 +372,45 @@ class ConversationEngine:
         
         logger.info(f"📝 Extracted applicant payload: {payload}")
         return payload
+    
+    def _cleanup_old_conversations(self) -> int:
+        """Remove old conversations to free memory"""
+        cutoff_time = datetime.utcnow() - timedelta(hours=self.cleanup_hours)
+        convs_to_remove = []
+        
+        for conv_id, conv in self.conversations.items():
+            # Check if conversation has metadata with created_at
+            if "metadata" in conv and "created_at" in conv["metadata"]:
+                try:
+                    created_time = datetime.fromisoformat(conv["metadata"]["created_at"].replace('Z', '+00:00'))
+                    if created_time < cutoff_time:
+                        convs_to_remove.append(conv_id)
+                except (ValueError, TypeError):
+                    # Remove conversations with invalid timestamps
+                    convs_to_remove.append(conv_id)
+        
+        # Remove oldest conversations first if still over limit
+        if len(convs_to_remove) < len(self.conversations) - self.max_conversations // 2:
+            # Sort by created_at if available, otherwise remove arbitrary conversations
+            sortable_convs = []
+            for conv_id, conv in self.conversations.items():
+                if conv_id not in convs_to_remove:
+                    created_at = conv.get("metadata", {}).get("created_at", "")
+                    sortable_convs.append((conv_id, created_at))
+            
+            sortable_convs.sort(key=lambda x: x[1])
+            needed = len(self.conversations) - self.max_conversations // 2 - len(convs_to_remove)
+            for conv_id, _ in sortable_convs[:needed]:
+                convs_to_remove.append(conv_id)
+        
+        # Remove conversations
+        for conv_id in convs_to_remove:
+            del self.conversations[conv_id]
+        
+        if convs_to_remove:
+            logger.info(f"🧹 Cleaned up {len(convs_to_remove)} old conversations")
+        
+        return len(convs_to_remove)
 
 # Global conversation engine instance
 conversation_engine = ConversationEngine()
