@@ -53,16 +53,22 @@ class ConnectathonConfig(BaseModel):
     tags: List[str] = Field(default_factory=lambda: ["connectathon", "demo"])
 
 def load_config() -> ConnectathonConfig:
-    if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH, "r") as f:
-            return ConnectathonConfig(**json.load(f))
+    try:
+        if os.path.exists(CONFIG_PATH):
+            with open(CONFIG_PATH, "r") as f:
+                return ConnectathonConfig(**json.load(f))
+    except Exception as e:
+        print(f"[WARN] Config load failed: {e}")
     cfg = ConnectathonConfig()
     save_config(cfg)
     return cfg
 
 def save_config(cfg: ConnectathonConfig) -> None:
-    with open(CONFIG_PATH, "w") as f:
-        json.dump(json.loads(cfg.model_dump_json()), f, indent=2)
+    try:
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(json.loads(cfg.model_dump_json()), f, indent=2)
+    except Exception as e:
+        print(f"[WARN] Config save failed: {e}")
 
 def update_config(patch: Dict[str, Any]) -> ConnectathonConfig:
     current = load_config()

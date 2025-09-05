@@ -1,18 +1,30 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 import base64
 import os
+from pathlib import Path
 
 # Create FastAPI app
 app = FastAPI(title="Multi-Agent Interoperability Demo", version="1.0.0")
 
-# Mount static files (/static) - correct paths for web directory
-app.mount("/static", StaticFiles(directory="app/web/static"), name="static")
-
-# Jinja2 templates - correct path for web directory
-templates = Jinja2Templates(directory="app/web/templates")
+# Guard static/templates setup for Vercel compatibility
+templates = None
+try:
+    from fastapi.templating import Jinja2Templates
+    from fastapi.staticfiles import StaticFiles
+    base = Path(__file__).resolve().parent
+    static_dir = base / "web" / "static"
+    templates_dir = base / "web" / "templates"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    else:
+        print(f"[WARN] no static dir: {static_dir}")
+    if templates_dir.exists():
+        templates = Jinja2Templates(directory=str(templates_dir))
+    else:
+        print(f"[WARN] no templates dir: {templates_dir}")
+except Exception as e:
+    print(f"[WARN] static/templates setup skipped: {e}")
 
 # Include routers from protocols
 from app.protocols.a2a import router as a2a_router
@@ -35,10 +47,17 @@ demo_artifacts = {
     }
 }
 
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """GET / renders index.html"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    if templates:
+        return templates.TemplateResponse("index.html", {"request": request})
+    else:
+        return HTMLResponse("<h1>Multi-Agent Demo</h1><p>Templates not available in this environment</p>")
 
 @app.get("/artifacts/{task_id}/{name}")
 async def download_artifact(task_id: str, name: str):
@@ -151,5 +170,5 @@ async def health():
     return {"status": "healthy"}
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    import uvicorn, os
+    uvicorn.run("app.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")), reload=True)
