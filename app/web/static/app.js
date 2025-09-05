@@ -151,6 +151,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (traceContextInput) {
             traceContextInput.addEventListener('input', debounce(refreshTrace, 1000));
         }
+        
+        // Room export/import event listeners
+        const exportRoomBtn = document.getElementById('export-room-btn');
+        const importRoomBtn = document.getElementById('import-room-btn');
+        const importFileInput = document.getElementById('import-file');
+        
+        if (exportRoomBtn) {
+            exportRoomBtn.addEventListener('click', exportRoom);
+        }
+        if (importRoomBtn) {
+            importRoomBtn.addEventListener('click', importRoom);
+        }
+        if (importFileInput) {
+            importFileInput.addEventListener('change', handleImportFileSelection);
+        }
     }, 100);
 });
 
@@ -197,6 +212,12 @@ async function startA2ADemo() {
         
         const data = await response.json();
         
+        // Extract context ID from A2A response
+        if (data.result && data.result.taskSnapshot && data.result.taskSnapshot.contextId) {
+            conversationId = data.result.taskSnapshot.contextId;
+            updateCurrentContext(conversationId);
+        }
+        
         // Start SSE connection for real-time updates
         if (data.stream_url) {
             startSSEConnection(data.stream_url);
@@ -234,6 +255,9 @@ async function startMCPDemo() {
         
         const data = await response.json();
         conversationId = data.conversationId;
+        
+        // Update current context for room export/import
+        updateCurrentContext(conversationId);
         
         addMessage('system', `MCP conversation started (ID: ${conversationId})`);
         
@@ -503,6 +527,9 @@ function resetDemo() {
     // Reset state
     conversationId = null;
     artifacts = [];
+    
+    // Clear current context
+    updateCurrentContext(null);
     
     // Reset UI
     clearTranscript();
@@ -1424,4 +1451,169 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
+}
+
+// Room Export/Import Functions
+let currentContextId = null;
+let selectedImportFile = null;
+
+function updateCurrentContext(contextId) {
+    currentContextId = contextId;
+    const contextInput = document.getElementById('current-context-id');
+    const exportBtn = document.getElementById('export-room-btn');
+    const traceContextInput = document.getElementById('trace-context-id');
+    
+    if (contextInput) {
+        contextInput.value = contextId || '';
+    }
+    if (exportBtn) {
+        exportBtn.disabled = !contextId;
+    }
+    if (traceContextInput && contextId) {
+        traceContextInput.value = contextId;
+    }
+}
+
+function exportRoom() {
+    if (!currentContextId) {
+        showRoomStatus('No active context to export', 'warning');
+        return;
+    }
+    
+    const exportBtn = document.getElementById('export-room-btn');
+    exportBtn.disabled = true;
+    exportBtn.innerHTML = '<i data-feather="loader" class="me-2 spinning"></i> Exporting...';
+    showRoomStatus('Exporting room data...', 'info');
+    
+    fetch(`/api/room/export/${encodeURIComponent(currentContextId)}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            // Download the exported data as JSON file
+            const dataStr = JSON.stringify(data.export_data, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = `room-export-${currentContextId}-${new Date().toISOString().slice(0,10)}.json`;
+            
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            
+            URL.revokeObjectURL(url);
+            showRoomStatus('✅ Room exported successfully! Check your downloads.', 'success');
+        } else {
+            showRoomStatus('Export error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showRoomStatus('Network error: ' + error.message, 'danger');
+    })
+    .finally(() => {
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = '<i data-feather="download" class="me-2"></i> Export Room';
+        
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+    });
+}
+
+function handleImportFileSelection(event) {
+    selectedImportFile = event.target.files[0];
+    const importBtn = document.getElementById('import-room-btn');
+    
+    if (importBtn) {
+        importBtn.disabled = !selectedImportFile;
+    }
+    
+    if (selectedImportFile) {
+        showRoomStatus(`Selected: ${selectedImportFile.name}`, 'info');
+    }
+}
+
+function importRoom() {
+    if (!selectedImportFile) {
+        showRoomStatus('Please select a JSON file to import', 'warning');
+        return;
+    }
+    
+    const importBtn = document.getElementById('import-room-btn');
+    importBtn.disabled = true;
+    importBtn.innerHTML = '<i data-feather="loader" class="me-2 spinning"></i> Importing...';
+    showRoomStatus('Reading and importing room data...', 'info');
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importData = JSON.parse(e.target.result);
+            
+            // Send import data to server
+            fetch('/api/room/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ export_data: importData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok) {
+                    // Update current context to the new imported context
+                    updateCurrentContext(data.new_context_id);
+                    
+                    showRoomStatus(`✅ Room imported successfully! New context: ${data.new_context_id}`, 'success');
+                    
+                    // Reset file input
+                    const fileInput = document.getElementById('import-file');
+                    if (fileInput) {
+                        fileInput.value = '';
+                    }
+                    selectedImportFile = null;
+                } else {
+                    showRoomStatus('Import error: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showRoomStatus('Network error: ' + error.message, 'danger');
+            })
+            .finally(() => {
+                importBtn.disabled = !selectedImportFile;
+                importBtn.innerHTML = '<i data-feather="upload" class="me-2"></i> Import Room';
+                
+                if (typeof feather !== 'undefined') {
+                    feather.replace();
+                }
+            });
+            
+        } catch (parseError) {
+            showRoomStatus('Invalid JSON file: ' + parseError.message, 'danger');
+            importBtn.disabled = false;
+            importBtn.innerHTML = '<i data-feather="upload" class="me-2"></i> Import Room';
+        }
+    };
+    
+    reader.onerror = function() {
+        showRoomStatus('Error reading file', 'danger');
+        importBtn.disabled = false;
+        importBtn.innerHTML = '<i data-feather="upload" class="me-2"></i> Import Room';
+    };
+    
+    reader.readAsText(selectedImportFile);
+}
+
+function showRoomStatus(message, type) {
+    const statusDiv = document.getElementById('room-status');
+    if (statusDiv) {
+        statusDiv.className = `alert alert-${type}`;
+        statusDiv.textContent = message;
+        statusDiv.classList.remove('d-none');
+        
+        // Auto-hide success/info messages after 5 seconds
+        if (type === 'success' || type === 'info') {
+            setTimeout(() => {
+                statusDiv.classList.add('d-none');
+            }, 5000);
+        }
+    }
 }

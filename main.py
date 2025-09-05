@@ -608,6 +608,163 @@ def get_trace(context_id):
     except Exception as e:
         return jsonify({"ok": False, "error": f"Trace retrieval error: {str(e)}"}), 500
 
+@app.route('/api/room/export/<context_id>')
+def export_room(context_id):
+    """Export room data for interoperability with external partners"""
+    try:
+        from app.engine import conversation_engine
+        from app.config import load_config
+        
+        # Get conversation data from engine
+        conversation = conversation_engine.conversations.get(context_id)
+        
+        if not conversation:
+            return jsonify({"ok": False, "error": f"Context {context_id} not found"}), 404
+        
+        # Get current configuration
+        config = load_config()
+        
+        # Extract last applicant payload from conversation
+        last_applicant_payload = {}
+        if conversation.get("questionnaire_response"):
+            last_applicant_payload = conversation["questionnaire_response"]
+        
+        # Extract artifacts metadata
+        artifacts_meta = {}
+        if conversation.get("artifacts"):
+            artifacts_meta = {
+                name: {
+                    "size": len(content),
+                    "type": "base64" if content else "empty",
+                    "created": conversation.get("created_at", "unknown")
+                }
+                for name, content in conversation["artifacts"].items()
+            }
+        
+        # Create export data
+        export_data = {
+            "contextId": context_id,
+            "scenario": conversation.get("scenario", "unknown"),
+            "config_snapshot": {
+                "scenario": {
+                    "active": config.scenario.active,
+                    "options": getattr(config.scenario, 'options', {})
+                },
+                "simulation": {
+                    "delay_ms": config.simulation.delay_ms,
+                    "error_rate": config.simulation.error_rate,
+                    "capacity_limit": config.simulation.capacity_limit
+                },
+                "fhir": {
+                    "base_url": config.fhir.base_url,
+                    "has_token": bool(config.fhir.token)
+                }
+            },
+            "last_applicant_payload": last_applicant_payload,
+            "artifacts_meta": artifacts_meta,
+            "conversation_status": conversation.get("status", "unknown"),
+            "conversation_stage": conversation.get("stage", "unknown"),
+            "export_timestamp": datetime.utcnow().isoformat() + "Z",
+            "version": "1.0"
+        }
+        
+        return jsonify({
+            "ok": True,
+            "export_data": export_data
+        })
+        
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Room export error: {str(e)}"}), 500
+
+@app.route('/api/room/import', methods=['POST'])
+def import_room():
+    """Import room data to seed a new context for interoperability"""
+    try:
+        from app.engine import conversation_engine
+        from app.config import load_config, save_config
+        from app.store.memory import new_id
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({"ok": False, "error": "No import data provided"}), 400
+        
+        export_data = data.get('export_data')
+        if not export_data:
+            return jsonify({"ok": False, "error": "Missing export_data field"}), 400
+        
+        # Generate a new context ID for the imported room
+        new_context_id = new_id()
+        
+        # Extract import data
+        original_context_id = export_data.get('contextId', 'unknown')
+        scenario = export_data.get('scenario', 'bcse')
+        config_snapshot = export_data.get('config_snapshot', {})
+        last_applicant_payload = export_data.get('last_applicant_payload', {})
+        artifacts_meta = export_data.get('artifacts_meta', {})
+        conversation_status = export_data.get('conversation_status', 'ready')
+        conversation_stage = export_data.get('conversation_stage', 'initial')
+        
+        # Create new conversation in engine
+        new_conversation = {
+            "context_id": new_context_id,
+            "scenario": scenario,
+            "status": conversation_status,
+            "stage": conversation_stage,
+            "questionnaire_response": last_applicant_payload,
+            "artifacts": {},  # Metadata only, not actual artifact content
+            "messages": [],
+            "created_at": datetime.utcnow().isoformat() + "Z",
+            "imported_from": original_context_id,
+            "import_timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+        
+        # Store the new conversation
+        conversation_engine.conversations[new_context_id] = new_conversation
+        
+        # Apply configuration snapshot if provided
+        if config_snapshot:
+            current_config = load_config()
+            
+            # Update scenario configuration
+            if 'scenario' in config_snapshot:
+                scenario_config = config_snapshot['scenario']
+                if 'active' in scenario_config:
+                    current_config.scenario.active = scenario_config['active']
+                if 'options' in scenario_config:
+                    current_config.scenario.options = scenario_config['options']
+            
+            # Update simulation configuration
+            if 'simulation' in config_snapshot:
+                sim_config = config_snapshot['simulation']
+                if 'delay_ms' in sim_config:
+                    current_config.simulation.delay_ms = sim_config['delay_ms']
+                if 'error_rate' in sim_config:
+                    current_config.simulation.error_rate = sim_config['error_rate']
+                if 'capacity_limit' in sim_config:
+                    current_config.simulation.capacity_limit = sim_config['capacity_limit']
+            
+            # Update FHIR configuration (but not token for security)
+            if 'fhir' in config_snapshot:
+                fhir_config = config_snapshot['fhir']
+                if 'base_url' in fhir_config:
+                    current_config.fhir.base_url = fhir_config['base_url']
+            
+            # Save updated configuration
+            save_config(current_config)
+        
+        return jsonify({
+            "ok": True,
+            "new_context_id": new_context_id,
+            "original_context_id": original_context_id,
+            "scenario": scenario,
+            "message": f"Room imported successfully with new context ID: {new_context_id}",
+            "artifacts_meta_count": len(artifacts_meta),
+            "has_applicant_payload": bool(last_applicant_payload)
+        })
+        
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Room import error: {str(e)}"}), 500
+
 @app.route('/health')
 def health():
     """Health check endpoint"""

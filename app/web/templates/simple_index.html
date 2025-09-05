@@ -234,6 +234,49 @@ Example:
                         </div>
                     </div>
                 </div>
+
+                <!-- Room Export/Import -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i data-feather="share-2" class="me-2"></i>
+                            Room Export/Import
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="current-context-id" class="form-label">Current Context ID</label>
+                            <input type="text" id="current-context-id" class="form-control" placeholder="No active context" readonly>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mb-3">
+                            <button id="export-room-btn" class="btn btn-outline-primary btn-sm" disabled>
+                                <i data-feather="download" class="me-2"></i>
+                                Export Room
+                            </button>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="mb-3">
+                            <label for="import-file" class="form-label">Import Room Data</label>
+                            <input type="file" id="import-file" class="form-control" accept=".json">
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button id="import-room-btn" class="btn btn-outline-success btn-sm" disabled>
+                                <i data-feather="upload" class="me-2"></i>
+                                Import Room
+                            </button>
+                        </div>
+                        
+                        <div id="room-status" class="alert alert-info d-none mt-3" role="alert"></div>
+                        <div class="small text-muted mt-2">
+                            <i data-feather="info" width="14" height="14"></i>
+                            Export/import enables interoperability with external partner systems
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Main Display Area -->
