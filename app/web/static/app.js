@@ -63,35 +63,54 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // FHIR UI event listeners
-    const saveFhirBtn = document.getElementById('save-fhir-config-btn');
-    const testCapabilitiesBtn = document.getElementById('test-capabilities-btn');
-    const searchPatientBtn = document.getElementById('search-patient-btn');
-    const patientSearchInput = document.getElementById('patient-search');
-    
-    if (saveFhirBtn) {
-        console.log('FHIR: Attaching save config listener');
-        saveFhirBtn.addEventListener('click', saveFhirConfig);
-    } else {
-        console.log('FHIR: Save config button not found');
-    }
-    if (testCapabilitiesBtn) {
-        console.log('FHIR: Attaching test capabilities listener');
-        testCapabilitiesBtn.addEventListener('click', testCapabilities);
-    } else {
-        console.log('FHIR: Test capabilities button not found');
-    }
-    if (searchPatientBtn) {
-        console.log('FHIR: Attaching search patient listener');
-        searchPatientBtn.addEventListener('click', searchPatient);
-    } else {
-        console.log('FHIR: Search patient button not found');
-    }
-    if (patientSearchInput) {
-        patientSearchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') searchPatient();
-        });
-    }
+    // FHIR UI event listeners - with delay to ensure DOM is ready
+    setTimeout(function() {
+        const saveFhirBtn = document.getElementById('save-fhir-config-btn');
+        const testCapabilitiesBtn = document.getElementById('test-capabilities-btn');
+        const searchPatientBtn = document.getElementById('search-patient-btn');
+        const patientSearchInput = document.getElementById('patient-search');
+        
+        console.log('FHIR: Looking for buttons...');
+        console.log('Save button:', saveFhirBtn);
+        console.log('Test button:', testCapabilitiesBtn);
+        console.log('Search button:', searchPatientBtn);
+        
+        if (saveFhirBtn) {
+            console.log('FHIR: Attaching save config listener');
+            saveFhirBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                saveFhirConfig();
+            });
+        } else {
+            console.log('FHIR: Save config button not found');
+        }
+        if (testCapabilitiesBtn) {
+            console.log('FHIR: Attaching test capabilities listener');
+            testCapabilitiesBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                testCapabilities();
+            });
+        } else {
+            console.log('FHIR: Test capabilities button not found');
+        }
+        if (searchPatientBtn) {
+            console.log('FHIR: Attaching search patient listener');
+            searchPatientBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                searchPatient();
+            });
+        } else {
+            console.log('FHIR: Search patient button not found');
+        }
+        if (patientSearchInput) {
+            patientSearchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchPatient();
+                }
+            });
+        }
+    }, 100);
 });
 
 function initializeInterface() {

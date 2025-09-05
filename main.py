@@ -434,7 +434,8 @@ def ingest_patient_data():
             return jsonify({"ok": False, "error": "Missing patientData or patientId"}), 400
         
         # Store the patient data in the conversation engine for use in agent interactions
-        from app.engine import conversation_engine
+        from app.engine import ConversationEngine
+        conversation_engine = ConversationEngine()
         
         # Create a special conversation context for the ingested patient
         ingest_context_id = f"ingested-patient-{patient_id}"
