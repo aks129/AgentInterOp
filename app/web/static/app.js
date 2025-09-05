@@ -110,6 +110,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }
+        
+        // FHIR Payload Integration event listeners
+        const useFhirToggle = document.getElementById('use-ingested-fhir');
+        const applicantPayload = document.getElementById('applicant-payload');
+        const payloadError = document.getElementById('payload-error');
+        
+        if (useFhirToggle) {
+            useFhirToggle.addEventListener('change', handleFhirToggleChange);
+        }
+        if (applicantPayload) {
+            applicantPayload.addEventListener('input', validatePayload);
+        }
+        
+        // Check for existing ingested data on load
+        updateFhirToggleState();
     }, 100);
 });
 
@@ -910,4 +925,144 @@ function showFhirStatus(message, type) {
             statusDiv.classList.add('d-none');
         }, 5000);
     }
+}
+
+// FHIR Payload Integration Functions
+let ingestedFhirData = null;
+
+function handleFhirToggleChange() {
+    const useFhirToggle = document.getElementById('use-ingested-fhir');
+    const applicantPayload = document.getElementById('applicant-payload');
+    
+    if (useFhirToggle.checked && ingestedFhirData) {
+        // Populate textarea with ingested payload
+        applicantPayload.value = JSON.stringify(ingestedFhirData.applicant_payload, null, 2);
+        applicantPayload.placeholder = 'Ingested FHIR data (editable)';
+        showFhirSourceChip(ingestedFhirData);
+    } else {
+        // Clear or reset to default
+        applicantPayload.value = '';
+        applicantPayload.placeholder = '{"age": 56, "sex": "female", "birthDate": "1968-01-15"}';
+        hideFhirSourceChip();
+    }
+    validatePayload();
+}
+
+function showFhirSourceChip(data) {
+    const chip = document.getElementById('fhir-source-chip');
+    const text = document.getElementById('fhir-source-text');
+    
+    if (chip && text && data.ingested_at) {
+        const timestamp = new Date(data.ingested_at).toLocaleString();
+        text.textContent = `Source: FHIR $everything @ ${timestamp}`;
+        chip.classList.remove('d-none');
+        
+        // Re-initialize feather icons for the chip
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+    }
+}
+
+function hideFhirSourceChip() {
+    const chip = document.getElementById('fhir-source-chip');
+    if (chip) {
+        chip.classList.add('d-none');
+    }
+}
+
+function updateFhirToggleState() {
+    // Check if there's any ingested FHIR data available
+    fetch('/api/ingested/latest')
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok && data.data) {
+            ingestedFhirData = data.data;
+            const useFhirToggle = document.getElementById('use-ingested-fhir');
+            if (useFhirToggle) {
+                useFhirToggle.disabled = false;
+                // Show source chip if toggle is already checked
+                if (useFhirToggle.checked) {
+                    showFhirSourceChip(ingestedFhirData);
+                }
+            }
+        } else {
+            // No ingested data available
+            const useFhirToggle = document.getElementById('use-ingested-fhir');
+            if (useFhirToggle) {
+                useFhirToggle.disabled = true;
+                useFhirToggle.checked = false;
+                hideFhirSourceChip();
+            }
+        }
+    })
+    .catch(error => {
+        console.log('No ingested FHIR data available');
+        const useFhirToggle = document.getElementById('use-ingested-fhir');
+        if (useFhirToggle) {
+            useFhirToggle.disabled = true;
+            useFhirToggle.checked = false;
+            hideFhirSourceChip();
+        }
+    });
+}
+
+function validatePayload() {
+    const applicantPayload = document.getElementById('applicant-payload');
+    const payloadError = document.getElementById('payload-error');
+    
+    if (!applicantPayload || !payloadError) return true;
+    
+    const value = applicantPayload.value.trim();
+    if (!value) {
+        payloadError.style.display = 'none';
+        return true;
+    }
+    
+    try {
+        JSON.parse(value);
+        payloadError.style.display = 'none';
+        return true;
+    } catch (error) {
+        payloadError.textContent = `Invalid JSON: ${error.message}`;
+        payloadError.style.display = 'block';
+        return false;
+    }
+}
+
+// Update ingest patient function to refresh toggle state
+function ingestPatientData(patientId) {
+    showFhirStatus(`Ingesting patient data for ${patientId}...`, 'info');
+    
+    fetch(`/api/fhir/patient/${patientId}/everything`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok === false) {
+            showFhirStatus('Error: ' + data.error, 'danger');
+            return;
+        }
+        
+        // Store patient data in client variable
+        currentPatientData = data;
+        
+        // Also send to ingest endpoint
+        return fetch('/api/ingest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ patientData: data, patientId: patientId })
+        });
+    })
+    .then(response => response.json())
+    .then(ingestResult => {
+        if (ingestResult && ingestResult.ok !== false) {
+            showFhirStatus(`✅ Patient ${patientId} data ingested successfully`, 'success');
+            // Store the ingested data for the toggle
+            ingestedFhirData = ingestResult;
+            // Update toggle state
+            updateFhirToggleState();
+        } else {
+            showFhirStatus(`Patient data retrieved but ingest failed: ${ingestResult ? ingestResult.error : 'Unknown error'}`, 'warning');
+        }
+    })
+    .catch(error => showFhirStatus('Error ingesting patient data: ' + error.message, 'danger'));
 }

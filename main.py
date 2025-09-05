@@ -496,6 +496,36 @@ def ingest_patient_data():
     except Exception as e:
         return jsonify({"ok": False, "error": f"Ingestion error: {str(e)}"}), 500
 
+@app.route('/api/ingested/latest')
+def get_latest_ingested():
+    """Get the most recently ingested FHIR data"""
+    try:
+        if not hasattr(app, 'ingested_data') or not app.ingested_data:
+            return jsonify({"ok": False, "message": "No ingested data available"})
+        
+        # Find the most recent ingestion
+        latest_data = None
+        latest_time = None
+        
+        for context_id, data in app.ingested_data.items():
+            ingested_at = data.get('ingested_at')
+            if ingested_at:
+                if not latest_time or ingested_at > latest_time:
+                    latest_time = ingested_at
+                    latest_data = data
+        
+        if latest_data:
+            return jsonify({
+                "ok": True,
+                "data": latest_data,
+                "context_id": context_id
+            })
+        else:
+            return jsonify({"ok": False, "message": "No valid ingested data found"})
+            
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Error retrieving ingested data: {str(e)}"}), 500
+
 @app.route('/health')
 def health():
     """Health check endpoint"""
