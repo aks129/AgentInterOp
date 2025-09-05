@@ -7,6 +7,7 @@ import json
 import uuid
 import base64
 import asyncio
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from app.config import load_config, save_config, update_config, ConnectathonConfig
 from app.scenarios.registry import get_active, list_scenarios
@@ -421,36 +422,62 @@ def get_patient_everything(patient_id: str):
 
 @app.route('/api/ingest', methods=['POST'])
 def ingest_patient_data():
-    """Ingest patient data for use in agent conversations"""
+    """Ingest FHIR bundle and map to scenario-specific applicant payload"""
     try:
         data = request.get_json()
         if not data:
             return jsonify({"ok": False, "error": "No data provided"}), 400
         
-        patient_data = data.get('patientData')
+        # Support both legacy format and new bundle format
+        bundle = data.get('bundle') or data.get('patientData')
         patient_id = data.get('patientId')
         
-        if not patient_data or not patient_id:
-            return jsonify({"ok": False, "error": "Missing patientData or patientId"}), 400
+        if not bundle:
+            return jsonify({"ok": False, "error": "Missing bundle or patientData"}), 400
         
-        # Store the patient data in the conversation engine for use in agent interactions
-        from app.engine import ConversationEngine
-        conversation_engine = ConversationEngine()
+        # Get current scenario from config
+        from app.config import load_config
+        from app.ingest.mapper import map_for_scenario
+        from app.scenarios.registry import get_active
         
-        # Create a special conversation context for the ingested patient
-        ingest_context_id = f"ingested-patient-{patient_id}"
-        conversation_engine.conversations[ingest_context_id] = {
+        config = load_config()
+        scenario_key, scenario_data = get_active()
+        scenario_name = scenario_key if scenario_key else "bcse"
+        
+        # Map FHIR bundle to applicant payload based on scenario
+        applicant_payload = map_for_scenario(scenario_name, bundle)
+        
+        # Create context ID
+        if not patient_id:
+            # Try to extract patient ID from bundle
+            for entry in bundle.get('entry', []):
+                resource = entry.get('resource', {})
+                if resource.get('resourceType') == 'Patient':
+                    patient_id = resource.get('id', 'unknown')
+                    break
+            if not patient_id:
+                patient_id = f"patient-{hash(str(bundle)) % 100000}"
+        
+        ingest_context_id = f"ingested-{scenario_name}-{patient_id}"
+        
+        # Store the mapped data in a simple global dict for now
+        # This will be accessible to agents during conversations
+        if not hasattr(app, 'ingested_data'):
+            app.ingested_data = {}
+        
+        from datetime import datetime
+        app.ingested_data[ingest_context_id] = {
             "status": "ingested",
-            "patient_data": patient_data,
+            "scenario": scenario_name,
             "patient_id": patient_id,
-            "ingested_at": conversation_engine._get_timestamp(),
-            "messages": [],
-            "artifacts": {},
+            "raw_bundle": bundle,
+            "applicant_payload": applicant_payload,
+            "ingested_at": datetime.utcnow().isoformat() + 'Z',
             "stage": "data_available"
         }
         
         # Extract summary information for response
-        bundle_entries = patient_data.get('entry', [])
+        bundle_entries = bundle.get('entry', [])
         resource_counts = {}
         for entry in bundle_entries:
             resource_type = entry.get('resource', {}).get('resourceType', 'Unknown')
@@ -458,8 +485,10 @@ def ingest_patient_data():
         
         return jsonify({
             "ok": True,
-            "message": f"Patient {patient_id} data ingested successfully",
+            "message": f"Patient {patient_id} data ingested and mapped for {scenario_name}",
             "context_id": ingest_context_id,
+            "scenario": scenario_name,
+            "applicant_payload": applicant_payload,
             "resource_summary": resource_counts,
             "total_resources": len(bundle_entries)
         })
