@@ -1,3 +1,3 @@
 import os
 os.environ.setdefault("APP_ENV", "vercel")
-from app.main import app  # your FastAPI instance: app = FastAPI() in app/main.py
+from app.main import app  # FastAPI instance defined in app/main.py
