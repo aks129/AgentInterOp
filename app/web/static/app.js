@@ -136,6 +136,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (applySchemaBtn) {
             applySchemaBtn.addEventListener('click', applyGeneratedSchema);
         }
+        
+        // Prove It panel event listeners
+        const refreshTraceBtn = document.getElementById('refresh-trace-btn');
+        const downloadTraceBtn = document.getElementById('download-trace-btn');
+        const traceContextInput = document.getElementById('trace-context-id');
+        
+        if (refreshTraceBtn) {
+            refreshTraceBtn.addEventListener('click', refreshTrace);
+        }
+        if (downloadTraceBtn) {
+            downloadTraceBtn.addEventListener('click', downloadTrace);
+        }
+        if (traceContextInput) {
+            traceContextInput.addEventListener('input', debounce(refreshTrace, 1000));
+        }
     }, 100);
 });
 
@@ -1191,4 +1206,222 @@ function showNarrativeStatus(message, type) {
             }, 5000);
         }
     }
+}
+
+// Prove It Panel Functions
+let currentTraceData = null;
+
+function refreshTrace() {
+    const contextId = document.getElementById('trace-context-id').value.trim();
+    const refreshBtn = document.getElementById('refresh-trace-btn');
+    const traceEventsDiv = document.getElementById('trace-events');
+    
+    if (!contextId) {
+        showTraceStatus('Please enter a context ID to view trace data', 'warning');
+        return;
+    }
+    
+    // Show loading state
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<i data-feather="loader" class="me-1 spinning"></i> Loading...';
+    showTraceStatus('Loading trace data...', 'info');
+    
+    fetch(`/api/trace/${encodeURIComponent(contextId)}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            currentTraceData = data;
+            displayTraceEvents(data.events);
+            showTraceStatus(`Loaded ${data.count} trace events for context ${contextId}`, 'success');
+        } else {
+            showTraceStatus('Error: ' + data.error, 'danger');
+            traceEventsDiv.innerHTML = `
+                <div class="text-center text-muted">
+                    <i data-feather="alert-circle" size="48" class="mb-3"></i>
+                    <p>Failed to load trace data</p>
+                    <small>${data.error}</small>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        showTraceStatus('Network error: ' + error.message, 'danger');
+        traceEventsDiv.innerHTML = `
+            <div class="text-center text-muted">
+                <i data-feather="wifi-off" size="48" class="mb-3"></i>
+                <p>Network error loading trace data</p>
+            </div>
+        `;
+    })
+    .finally(() => {
+        // Reset button state
+        refreshBtn.disabled = false;
+        refreshBtn.innerHTML = '<i data-feather="refresh-cw" class="me-1"></i> Refresh';
+        
+        // Re-initialize feather icons
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+    });
+}
+
+function displayTraceEvents(events) {
+    const traceEventsDiv = document.getElementById('trace-events');
+    
+    if (!events || events.length === 0) {
+        traceEventsDiv.innerHTML = `
+            <div class="text-center text-muted">
+                <i data-feather="activity" size="48" class="mb-3"></i>
+                <p>No trace events found for this context</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="trace-timeline">';
+    
+    events.forEach((event, index) => {
+        const timestamp = new Date(event.timestamp).toLocaleTimeString();
+        const actorIcon = getActorIcon(event.actor);
+        const actionBadge = getActionBadge(event.action);
+        
+        html += `
+            <div class="trace-event mb-3 p-3 border-start border-3 ${getActorBorderColor(event.actor)}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="d-flex align-items-center">
+                        <i data-feather="${actorIcon}" class="me-2" width="16" height="16"></i>
+                        <strong class="me-2">${event.actor}</strong>
+                        ${actionBadge}
+                    </div>
+                    <small class="text-muted">${timestamp}</small>
+                </div>
+                
+                <div class="trace-details">
+                    ${formatTraceDetail(event.detail)}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    traceEventsDiv.innerHTML = html;
+    
+    // Re-initialize feather icons
+    if (typeof feather !== 'undefined') {
+        feather.replace();
+    }
+}
+
+function getActorIcon(actor) {
+    const icons = {
+        'applicant': 'user',
+        'administrator': 'shield',
+        'scenario': 'target',
+        'system': 'cpu'
+    };
+    return icons[actor] || 'circle';
+}
+
+function getActorBorderColor(actor) {
+    const colors = {
+        'applicant': 'border-primary',
+        'administrator': 'border-success', 
+        'scenario': 'border-warning',
+        'system': 'border-info'
+    };
+    return colors[actor] || 'border-secondary';
+}
+
+function getActionBadge(action) {
+    const badges = {
+        'evaluate_start': '<span class="badge bg-warning text-dark">Evaluate Start</span>',
+        'evaluate_complete': '<span class="badge bg-success">Evaluate Complete</span>',
+        'evaluate_error': '<span class="badge bg-danger">Evaluate Error</span>',
+        'wire_inbound': '<span class="badge bg-info">Wire In</span>',
+        'wire_outbound': '<span class="badge bg-secondary">Wire Out</span>',
+        'decision': '<span class="badge bg-primary">Decision</span>'
+    };
+    return badges[action] || `<span class="badge bg-light text-dark">${action}</span>`;
+}
+
+function formatTraceDetail(detail) {
+    if (!detail || typeof detail !== 'object') {
+        return '<em>No details</em>';
+    }
+    
+    let html = '<div class="trace-detail-grid">';
+    
+    for (const [key, value] of Object.entries(detail)) {
+        let displayValue = value;
+        
+        // Format different types of values
+        if (typeof value === 'object') {
+            displayValue = `<pre class="small mb-0">${JSON.stringify(value, null, 2)}</pre>`;
+        } else if (typeof value === 'boolean') {
+            displayValue = `<span class="badge ${value ? 'bg-success' : 'bg-danger'}">${value}</span>`;
+        } else if (key.includes('size') && typeof value === 'number') {
+            displayValue = `${value} bytes`;
+        }
+        
+        html += `
+            <div class="row mb-1">
+                <div class="col-4"><strong>${key}:</strong></div>
+                <div class="col-8">${displayValue}</div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+function downloadTrace() {
+    if (!currentTraceData) {
+        showTraceStatus('No trace data to download. Refresh trace first.', 'warning');
+        return;
+    }
+    
+    const dataStr = JSON.stringify(currentTraceData, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(dataBlob);
+    
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = `trace-${currentTraceData.context_id}-${new Date().toISOString().slice(0,10)}.json`;
+    
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    
+    URL.revokeObjectURL(url);
+    showTraceStatus('Trace data downloaded successfully', 'success');
+}
+
+function showTraceStatus(message, type) {
+    const statusDiv = document.getElementById('trace-status');
+    if (statusDiv) {
+        statusDiv.className = `alert alert-${type}`;
+        statusDiv.textContent = message;
+        statusDiv.classList.remove('d-none');
+        
+        // Auto-hide success/info messages after 3 seconds
+        if (type === 'success' || type === 'info') {
+            setTimeout(() => {
+                statusDiv.classList.add('d-none');
+            }, 3000);
+        }
+    }
+}
+
+// Utility function for debouncing input events
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }

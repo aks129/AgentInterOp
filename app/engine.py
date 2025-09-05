@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional, Tuple, List
 
 from app.agents.applicant import ApplicantAgent
 from app.agents.administrator import AdministratorAgent
-from app.store.memory import task_store, conversation_store, encode_base64
+from app.store.memory import task_store, conversation_store, encode_base64, trace
 from app.scenarios import registry
 from app.config import load_config
 
@@ -173,14 +173,36 @@ class ConversationEngine:
                         # Prepare patient bundle
                         patient_bundle = conv["patient_data"] or {}
                         
+                        # Trace pre-evaluation state
+                        trace(context_id, "scenario", "evaluate_start", {
+                            "scenario_name": scenario_name,
+                            "applicant_payload": applicant_payload,
+                            "patient_bundle_size": len(str(patient_bundle)),
+                            "has_patient_data": bool(patient_bundle)
+                        })
+                        
                         # Call scenario evaluation
                         decision, rationale, used_resources = scenario["evaluate"](applicant_payload, patient_bundle)
+                        
+                        # Trace post-evaluation results
+                        trace(context_id, "scenario", "evaluate_complete", {
+                            "decision": decision,
+                            "rationale": rationale,
+                            "resources_used": used_resources,
+                            "evaluation_success": True
+                        })
                         
                     except Exception as e:
                         logger.error(f"Scenario evaluation error: {e}")
                         decision = "failed"
                         rationale = f"Evaluation error: {str(e)}"
                         used_resources = []
+                        
+                        # Trace evaluation error
+                        trace(context_id, "scenario", "evaluate_error", {
+                            "error": str(e),
+                            "evaluation_success": False
+                        })
                 
                 # Create decision bundle
                 decision_bundle = administrator_agent.finalize(decision, rationale, used_resources)
@@ -247,14 +269,36 @@ class ConversationEngine:
                         # Prepare patient bundle
                         patient_bundle = conv["patient_data"] or {}
                         
+                        # Trace pre-evaluation state
+                        trace(context_id, "scenario", "evaluate_start", {
+                            "scenario_name": scenario_name,
+                            "applicant_payload": applicant_payload,
+                            "patient_bundle_size": len(str(patient_bundle)),
+                            "has_patient_data": bool(patient_bundle)
+                        })
+                        
                         # Call scenario evaluation
                         decision, rationale, used_resources = scenario["evaluate"](applicant_payload, patient_bundle)
+                        
+                        # Trace post-evaluation results
+                        trace(context_id, "scenario", "evaluate_complete", {
+                            "decision": decision,
+                            "rationale": rationale,
+                            "resources_used": used_resources,
+                            "evaluation_success": True
+                        })
                         
                     except Exception as e:
                         logger.error(f"Scenario evaluation error: {e}")
                         decision = "failed"
                         rationale = f"Evaluation error: {str(e)}"
                         used_resources = []
+                        
+                        # Trace evaluation error
+                        trace(context_id, "scenario", "evaluate_error", {
+                            "error": str(e),
+                            "evaluation_success": False
+                        })
                 
                 # Create decision bundle
                 decision_bundle = administrator_agent.finalize(decision, rationale, used_resources)

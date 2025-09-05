@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional, Literal, Union, cast
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from app.store.memory import conversation_store, new_id, iso8601_now
+from app.store.memory import conversation_store, new_id, iso8601_now, trace
 
 router = APIRouter()
 
@@ -124,6 +124,14 @@ async def send_message_to_chat_thread(request: SendMessageRequest) -> MCPToolRes
     try:
         conversation_id = request.conversationId
         
+        # Trace wire inbound for MCP
+        trace(conversation_id, "system", "wire_inbound", {
+            "protocol": "mcp",
+            "method": "send_message_to_chat_thread",
+            "message_length": len(request.message),
+            "attachments_count": len(request.attachments) if request.attachments else 0
+        })
+        
         # Check if conversation exists
         if conversation_id not in _mcp_conversations:
             error_response = {"error": "Conversation not found"}
@@ -183,12 +191,32 @@ async def send_message_to_chat_thread(request: SendMessageRequest) -> MCPToolRes
             status=cast(Literal["working", "input-required", "completed"], status)
         )
         
-        return MCPToolResponse(
+        response_obj = MCPToolResponse(
             content=[MCPTextContent(text=response_data.model_dump_json())]
         )
         
+        # Trace wire outbound for MCP
+        trace(conversation_id, "system", "wire_outbound", {
+            "protocol": "mcp",
+            "method": "send_message_to_chat_thread",
+            "status": "success",
+            "response_status": status,
+            "response_size": len(response_data.model_dump_json())
+        })
+        
+        return response_obj
+        
     except Exception as e:
         error_response = {"error": f"Failed to send message: {str(e)}"}
+        
+        # Trace wire outbound error for MCP  
+        trace(conversation_id, "system", "wire_outbound", {
+            "protocol": "mcp",
+            "method": "send_message_to_chat_thread",
+            "status": "error",
+            "error": str(e)
+        })
+        
         return MCPToolResponse(
             content=[MCPTextContent(text=str(error_response))]
         )

@@ -32,6 +32,14 @@ def decode_base64(encoded: str) -> str:
 
 # Data models
 @dataclass
+class TraceEvent:
+    """Decision trace event"""
+    timestamp: str = field(default_factory=iso8601_now)
+    actor: str = ""  # applicant, administrator, scenario, system
+    action: str = ""  # evaluate, decision, wire_inbound, wire_outbound
+    detail: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
 class A2ATask:
     """A2A Task model"""
     id: str = field(default_factory=new_id)
@@ -204,6 +212,73 @@ class ConversationStore:
         return len(convs_to_remove)
 
 
+class TraceStore:
+    """In-memory store for decision traces per context"""
+    
+    def __init__(self, max_traces_per_context: int = 100, cleanup_hours: int = 2):
+        self._traces: Dict[str, list[TraceEvent]] = {}  # context_id -> list of events
+        self.max_traces_per_context = max_traces_per_context
+        self.cleanup_hours = cleanup_hours
+    
+    def trace(self, context_id: str, actor: str, action: str, detail_dict: Dict[str, Any]) -> TraceEvent:
+        """Add a trace event for a context"""
+        if context_id not in self._traces:
+            self._traces[context_id] = []
+        
+        event = TraceEvent(actor=actor, action=action, detail=detail_dict)
+        self._traces[context_id].append(event)
+        
+        # Limit events per context
+        if len(self._traces[context_id]) > self.max_traces_per_context:
+            self._traces[context_id] = self._traces[context_id][-self.max_traces_per_context:]
+        
+        return event
+    
+    def get_trace(self, context_id: str) -> list[TraceEvent]:
+        """Get all trace events for a context"""
+        return self._traces.get(context_id, [])
+    
+    def list_contexts(self) -> list[str]:
+        """Get all context IDs with traces"""
+        return list(self._traces.keys())
+    
+    def delete_trace(self, context_id: str) -> bool:
+        """Delete all traces for a context"""
+        if context_id in self._traces:
+            del self._traces[context_id]
+            return True
+        return False
+    
+    def cleanup_old_traces(self) -> int:
+        """Remove old trace events"""
+        cutoff_time = datetime.utcnow() - timedelta(hours=self.cleanup_hours)
+        removed_count = 0
+        
+        for context_id in list(self._traces.keys()):
+            events = self._traces[context_id]
+            # Keep events newer than cutoff
+            filtered_events = []
+            for event in events:
+                event_time = datetime.fromisoformat(event.timestamp.replace('Z', '+00:00'))
+                if event_time >= cutoff_time:
+                    filtered_events.append(event)
+                else:
+                    removed_count += 1
+            
+            if filtered_events:
+                self._traces[context_id] = filtered_events
+            else:
+                del self._traces[context_id]
+        
+        return removed_count
+
+
 # Global store instances
 task_store = TaskStore()
 conversation_store = ConversationStore()
+trace_store = TraceStore()
+
+# Helper function for easy tracing
+def trace(context_id: str, actor: str, action: str, detail_dict: Dict[str, Any]) -> TraceEvent:
+    """Global helper function to add trace events"""
+    return trace_store.trace(context_id, actor, action, detail_dict)

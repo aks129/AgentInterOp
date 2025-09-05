@@ -8,7 +8,7 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
-from app.store.memory import task_store, conversation_store, new_id, iso8601_now, encode_base64, decode_base64
+from app.store.memory import task_store, conversation_store, new_id, iso8601_now, encode_base64, decode_base64, trace
 
 router = APIRouter()
 
@@ -139,6 +139,15 @@ async def handle_message_send(params: Dict[str, Any], request_id: Optional[Union
         context_id = params.get("contextId", new_id())
         parts = params.get("parts", [])
         
+        # Trace wire inbound
+        trace(context_id, "system", "wire_inbound", {
+            "protocol": "a2a",
+            "method": "message/send",
+            "task_id": task_id,
+            "parts_count": len(parts),
+            "request_size": len(str(params))
+        })
+        
         # Create or get task
         if task_id not in _active_tasks:
             _active_tasks[task_id] = TaskSnapshot(
@@ -169,13 +178,35 @@ async def handle_message_send(params: Dict[str, Any], request_id: Optional[Union
         if new_state in valid_states:
             task.status = TaskStatus(state=cast(Literal["submitted", "working", "input-required", "completed", "failed", "canceled"], new_state))
         
-        return JsonRpcResponse(id=request_id, result={"taskSnapshot": task.model_dump()})
+        response_obj = JsonRpcResponse(id=request_id, result={"taskSnapshot": task.model_dump()})
+        
+        # Trace wire outbound
+        trace(context_id, "system", "wire_outbound", {
+            "protocol": "a2a", 
+            "method": "message/send",
+            "status": "success",
+            "response_size": len(str(response_obj.model_dump())),
+            "task_state": task.status.state
+        })
+        
+        return response_obj
         
     except Exception as e:
-        return JsonRpcResponse(
+        error_response = JsonRpcResponse(
             id=request_id,
             error=JsonRpcError(code=-32000, message="Internal error", data=str(e)).model_dump()
         )
+        
+        # Trace wire outbound error
+        context_id = params.get("contextId", "unknown")
+        trace(context_id, "system", "wire_outbound", {
+            "protocol": "a2a",
+            "method": "message/send", 
+            "status": "error",
+            "error": str(e)
+        })
+        
+        return error_response
 
 async def handle_tasks_get(params: Dict[str, Any], request_id: Optional[Union[str, int]]) -> JsonRpcResponse:
     """Handle tasks/get JSON-RPC method"""

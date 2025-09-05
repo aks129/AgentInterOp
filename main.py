@@ -579,6 +579,34 @@ def process_narrative():
     except Exception as e:
         return jsonify({"ok": False, "error": f"Narrative processing error: {str(e)}"}), 500
 
+@app.route('/api/trace/<context_id>')
+def get_trace(context_id):
+    """Get decision trace for a context"""
+    try:
+        from app.store.memory import trace_store
+        
+        # Get trace events for the context
+        trace_events = trace_store.get_trace(context_id)
+        
+        # Convert TraceEvent objects to dictionaries
+        events_data = []
+        for event in trace_events:
+            events_data.append({
+                "timestamp": event.timestamp,
+                "actor": event.actor,
+                "action": event.action,
+                "detail": event.detail
+            })
+        
+        return jsonify({
+            "ok": True,
+            "context_id": context_id,
+            "events": events_data,
+            "count": len(events_data)
+        })
+        
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Trace retrieval error: {str(e)}"}), 500
 
 @app.route('/health')
 def health():
