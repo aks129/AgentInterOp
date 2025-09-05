@@ -69,9 +69,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchPatientBtn = document.getElementById('search-patient-btn');
     const patientSearchInput = document.getElementById('patient-search');
     
-    if (saveFhirBtn) saveFhirBtn.addEventListener('click', saveFhirConfig);
-    if (testCapabilitiesBtn) testCapabilitiesBtn.addEventListener('click', testCapabilities);
-    if (searchPatientBtn) searchPatientBtn.addEventListener('click', searchPatient);
+    if (saveFhirBtn) {
+        console.log('FHIR: Attaching save config listener');
+        saveFhirBtn.addEventListener('click', saveFhirConfig);
+    } else {
+        console.log('FHIR: Save config button not found');
+    }
+    if (testCapabilitiesBtn) {
+        console.log('FHIR: Attaching test capabilities listener');
+        testCapabilitiesBtn.addEventListener('click', testCapabilities);
+    } else {
+        console.log('FHIR: Test capabilities button not found');
+    }
+    if (searchPatientBtn) {
+        console.log('FHIR: Attaching search patient listener');
+        searchPatientBtn.addEventListener('click', searchPatient);
+    } else {
+        console.log('FHIR: Search patient button not found');
+    }
     if (patientSearchInput) {
         patientSearchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') searchPatient();
@@ -712,9 +727,12 @@ function downloadJson(data, filename) {
 let currentPatientData = null;
 
 function saveFhirConfig() {
+    console.log('FHIR Config: Save button clicked');
     const baseUrl = document.getElementById('fhir-base-url').value;
     const token = document.getElementById('fhir-token').value;
     const statusDiv = document.getElementById('fhir-status');
+    
+    console.log('FHIR Config: Base URL =', baseUrl);
     
     if (!baseUrl) {
         showFhirStatus('Please enter a FHIR base URL', 'danger');
@@ -741,6 +759,7 @@ function saveFhirConfig() {
 }
 
 function testCapabilities() {
+    console.log('FHIR Config: Test capabilities button clicked');
     const capabilitiesDiv = document.getElementById('capabilities-display');
     showFhirStatus('Testing FHIR server capabilities...', 'info');
     
@@ -762,8 +781,10 @@ function testCapabilities() {
 }
 
 function searchPatient() {
+    console.log('FHIR Config: Search patient button clicked');
     const searchTerm = document.getElementById('patient-search').value;
     const resultsDiv = document.getElementById('patient-results');
+    console.log('FHIR Config: Search term =', searchTerm);
     
     if (!searchTerm) {
         showFhirStatus('Please enter a name or identifier to search', 'warning');
