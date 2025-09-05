@@ -17,12 +17,12 @@
   },
   "simulation": {
     "measurement_date": null,
-    "admin_processing_ms": 1200,
+    "admin_processing_ms": 0,
     "error_injection_rate": 0.0,
     "capacity_limit": null
   },
   "logging": {
-    "level": "INFO",
+    "level": "WARN",
     "persist_transcript": true
   },
   "tags": [
