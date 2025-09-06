@@ -52,6 +52,8 @@ class ConnectathonConfig(BaseModel):
     logging: LoggingConfig = LoggingConfig()
     tags: List[str] = Field(default_factory=lambda: ["connectathon", "demo"])
 
+Config = ConnectathonConfig  # backward-compat alias for older imports
+
 def load_config() -> ConnectathonConfig:
     try:
         if os.path.exists(CONFIG_PATH):
