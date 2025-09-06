@@ -1,0 +1,42 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Partner Connect</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<h1>Partner Connect</h1>
+<p>Drive A2A/MCP against a partner endpoint and see raw frames.</p>
+<section>
+  <label>Partner A2A JSON-RPC Endpoint</label>
+  <input id="a2a" placeholder="https://partner.example.com/api/bridge/room/a2a" style="width: 100%;">
+  <div style="margin-top:8px;">
+    <button onclick="ping()">Ping (message/send)</button>
+    <button onclick="stream()">Stream (message/stream)</button>
+    <button onclick="cancel()">Cancel</button>
+  </div>
+</section>
+<section style="margin-top:16px;">
+  <h3>Frames</h3>
+  <pre id="log" style="background:#111;color:#0f0;padding:12px;white-space:pre-wrap;min-height:200px;"></pre>
+</section>
+<script>
+let lastTaskId = null;
+function log(x){ const el=document.getElementById('log'); el.textContent += x + "\n"; el.scrollTop=el.scrollHeight; }
+async function ping(){
+  const url=document.getElementById('a2a').value.trim(); if(!url) return;
+  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({"jsonrpc":"2.0","id":"1","method":"message/send","params":{"message":{"parts":[{"kind":"text","text":"Hello, please begin."}]}}})
+  });
+  const j=await res.json(); lastTaskId = j?.result?.id || null; log("SEND => " + JSON.stringify(j));
+}
+async function stream(){
+  const url=document.getElementById('a2a').value.trim(); if(!url) return;
+  const es = new EventSource(url, { withCredentials:false }); // expecting server to honor Accept: text/event-stream when POST; fallback demo
+  log("NOTE: If server requires POST-SSE, use curl on console; this viewer is illustrative.");
+}
+async function cancel(){
+  const url=document.getElementById('a2a').value.trim(); if(!url||!lastTaskId) return;
+  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({"jsonrpc":"2.0","id":"cx","method":"tasks/cancel","params":{"id":String(lastTaskId)}})
+  });
+  const j=await res.json(); log("CANCEL => " + JSON.stringify(j));
+}
+</script>
+<p style="margin-top:24px;"><a href="/">🏠 Home</a> · <a href="/test_harness">Test Harness</a> · <a href="/docs">OpenAPI Docs</a></p>
+</body></html>

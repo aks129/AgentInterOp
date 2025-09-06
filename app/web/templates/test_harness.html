@@ -1,0 +1,42 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Test Harness</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<h1>Test Harness</h1>
+<p>Run scripted scenarios to verify envelopes, states, SSE, MCP.</p>
+<div>
+  <button onclick="a2aHappy()">A2A Happy Path</button>
+  <button onclick="a2aError()">A2A Error Path</button>
+  <button onclick="mcpTriplet()">MCP Triplet</button>
+  <button onclick="sseLoop()">SSE Loopback</button>
+</div>
+<pre id="out" style="background:#111;color:#0f0;padding:12px;white-space:pre-wrap;min-height:240px;margin-top:12px;"></pre>
+<script>
+function p(s){ const el=document.getElementById('out'); el.textContent += s + "\n"; el.scrollTop=el.scrollHeight; }
+async function a2aHappy(){
+  p("A2A: message/send"); 
+  const res=await fetch("/api/bridge/demo/a2a",{method:"POST",headers:{'Content-Type':'application/json'},
+   body: JSON.stringify({"jsonrpc":"2.0","id":"1","method":"message/send","params":{"message":{"parts":[{"kind":"text","text":"Begin."}]}}})});
+  const j=await res.json(); p(JSON.stringify(j)); const tid=j?.result?.id;
+  p("A2A: tasks/get"); const g=await fetch("/api/bridge/demo/a2a",{method:"POST",headers:{'Content-Type':'application/json'},
+   body: JSON.stringify({"jsonrpc":"2.0","id":"g1","method":"tasks/get","params":{"id":tid}})}); p(JSON.stringify(await g.json()));
+}
+async function a2aError(){
+  p("A2A: bad method"); const r=await fetch("/api/bridge/demo/a2a",{method:"POST",headers:{'Content-Type':'application/json'},
+   body: JSON.stringify({"jsonrpc":"2.0","id":"x","method":"does/not/exist","params":{}})}); p(JSON.stringify(await r.json()));
+}
+async function mcpTriplet(){
+  p("MCP: begin_chat_thread"); let r=await fetch("/api/mcp/begin_chat_thread",{method:"POST"}); p(await r.text());
+  p("MCP: send_message_to_chat_thread"); r=await fetch("/api/mcp/send_message_to_chat_thread",{method:"POST",headers:{'Content-Type':'application/json'},
+   body: JSON.stringify({"conversationId":"42","message":"Hello from harness"})}); p(await r.text());
+  p("MCP: check_replies"); r=await fetch("/api/mcp/check_replies",{method:"POST",headers:{'Content-Type':'application/json'},
+   body: JSON.stringify({"conversationId":"42","waitMs":500})}); p(await r.text());
+}
+async function sseLoop(){
+  p("SSE loopback:");
+  const es = new EventSource("/api/loopback/sse");
+  es.onmessage = e => p("MSG: " + e.data);
+  es.addEventListener("status-update", e => { p("STATUS: " + e.data); es.close(); });
+  es.onerror = () => { p("ERROR/CLOSE"); es.close(); };
+}
+</script>
+<p style="margin-top:24px;"><a href="/">🏠 Home</a> · <a href="/partner_connect">Partner Connect</a> · <a href="/docs">OpenAPI Docs</a></p>
+</body></html>

@@ -51,6 +51,34 @@ demo_artifacts = {
 def healthz():
     return {"ok": True}
 
+@app.get("/.well-known/agent-card.json")
+def agent_card(request: Request):
+    base = str(request.base_url).rstrip("/")
+    return {"protocolVersion":"0.2.9","preferredTransport":"JSONRPC","capabilities":{"streaming":True},
+            "skills":[{"id":"scenario","a2a":{"config64":"ZGVtby1jb25maWc="}}],"endpoints":{"jsonrpc": f"{base}/api/bridge/demo/a2a"}}
+
+@app.get("/api/selftest")
+def selftest():
+    return {"ok":True,"a2a":["message/send","message/stream","tasks/get","tasks/cancel"],"mcp":["begin_chat_thread","send_message_to_chat_thread","check_replies"],"store":os.getenv("STORE","memory")}
+
+@app.get("/api/loopback/sse")
+def loop_sse():
+    import time
+    def gen():
+        yield "event: message\ndata: {\"kind\":\"task\",\"status\":{\"state\":\"working\"}}\n\n"
+        time.sleep(0.3)
+        yield "event: message\ndata: {\"role\":\"agent\",\"parts\":[{\"kind\":\"text\",\"text\":\"hello\"}],\"kind\":\"message\"}\n\n"
+        time.sleep(0.3)
+        yield "event: status-update\ndata: {\"final\":true,\"status\":{\"state\":\"completed\"}}\n\n"
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+@app.get("/api/trace/{contextId}/download")
+def download_trace(contextId: str):
+    from app.store.persistence import list_traces
+    from fastapi.responses import JSONResponse
+    return JSONResponse(list_traces(contextId))
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """GET / renders index.html"""
@@ -58,6 +86,22 @@ async def index(request: Request):
         return templates.TemplateResponse("index.html", {"request": request})
     else:
         return HTMLResponse("<h1>Multi-Agent Demo</h1><p>Templates not available in this environment</p>")
+
+@app.get("/partner_connect", response_class=HTMLResponse)
+async def partner_connect(request: Request):
+    """Partner Connect UI"""
+    if templates:
+        return templates.TemplateResponse("partner_connect.html", {"request": request})
+    else:
+        return HTMLResponse("<h1>Partner Connect</h1><p>Templates not available in this environment</p>")
+
+@app.get("/test_harness", response_class=HTMLResponse)
+async def test_harness(request: Request):
+    """Test Harness UI"""
+    if templates:
+        return templates.TemplateResponse("test_harness.html", {"request": request})
+    else:
+        return HTMLResponse("<h1>Test Harness</h1><p>Templates not available in this environment</p>")
 
 @app.get("/artifacts/{task_id}/{name}")
 async def download_artifact(task_id: str, name: str):
