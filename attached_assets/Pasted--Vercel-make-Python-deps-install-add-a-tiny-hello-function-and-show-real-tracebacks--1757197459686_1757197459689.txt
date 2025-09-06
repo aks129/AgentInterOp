@@ -1,0 +1,76 @@
+# === Vercel: make Python deps install, add a tiny "hello" function, and show real tracebacks ===
+
+# 1) vercel.json — legacy-compatible (works across old/new projects).
+#    Builds api/index.py and api/hello.py with the Python builder and routes all paths to index by default.
+create file vercel.json with:
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/index.py", "use": "@vercel/python" },
+    { "src": "api/hello.py", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/hello", "dest": "api/hello.py" },
+    { "src": "/(.*)", "dest": "api/index.py" }
+  ],
+  "framework": null
+}
+
+# 2) Minimal, dependency-light health function to prove the platform works
+create file api/hello.py with:
+from fastapi import FastAPI
+app = FastAPI()
+@app.get("/hello")
+def hello():
+    return {"ok": True, "msg": "vercel python function is working"}
+
+# 3) Safe-mode ASGI entrypoint for your main app that exposes a traceback at /__import_error
+create file api/index.py with:
+import os, sys, traceback
+os.environ.setdefault("APP_ENV", "vercel")
+try:
+    from app.main import app as _fastapi_app
+    app = _fastapi_app
+except Exception as e:
+    from fastapi import FastAPI, Response
+    tb = "".join(traceback.format_exception(e))
+    print("=== VERCEL IMPORT FAILURE ===", file=sys.stderr, flush=True)
+    print(tb, file=sys.stderr, flush=True)
+    app = FastAPI()
+    @app.get("/__import_error")
+    def import_error():
+        return Response(("Startup import failed in api/index.py\n\n=== Exception ===\n" + tb),
+                        media_type="text/plain", status_code=500)
+    @app.get("/{path:path}")
+    def catchall(path: str):
+        return Response(
+            "Serverless import failed. Visit /__import_error for traceback.",
+            media_type="text/plain",
+            status_code=500,
+        )
+
+# 4) Ensure app is a package so imports work
+create file app/__init__.py with:
+# intentionally empty
+
+# 5) Root requirements — pin versions so Vercel will install them
+create file requirements.txt with:
+fastapi==0.114.2
+pydantic==2.8.2
+jinja2==3.1.4
+httpx==0.27.2
+python-multipart==0.0.9
+sse-starlette==2.1.0
+
+# 6) Per-function requirements (belt & suspenders for older builders)
+create file api/requirements.txt with:
+fastapi==0.114.2
+pydantic==2.8.2
+jinja2==3.1.4
+httpx==0.27.2
+python-multipart==0.0.9
+sse-starlette==2.1.0
+
+# 7) If your config writes to disk, force /tmp on Vercel (skip if already done)
+# In app/config.py set:
+# CONFIG_PATH = os.getenv("APP_CONFIG_PATH", "/tmp/config.runtime.json" if os.getenv("APP_ENV")=="vercel" else "app/config.runtime.json")
