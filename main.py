@@ -9,6 +9,7 @@ import base64
 import asyncio
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 from app.config import load_config, save_config, update_config, ConnectathonConfig
 from app.scenarios.registry import get_active, list_scenarios
 from app.scenarios import registry
@@ -22,8 +23,11 @@ except ImportError:
     pass  # python-dotenv not available, skip loading
 
 # Create Flask app (WSGI compatible)
-app = Flask(__name__, template_folder='app/web/templates', static_folder='app/web/static')
+app = Flask(__name__, static_folder='app/web/static', static_url_path='')
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
+
+# Enable CORS for React app
+CORS(app, origins=["*"])  # Configure specific origins in production
 
 # Register scenarios
 registry.register("bcse", sc_bcse)
@@ -37,13 +41,20 @@ current_protocol = "a2a"
 
 @app.route('/')
 def index():
-    """Main application page"""
-    return render_template('simple_index.html')
+    """Serve React app"""
+    return app.send_static_file('index.html')
 
-@app.route('/config')
-def config_page():
-    """Configuration control panel"""
-    return render_template('config.html')
+@app.route('/<path:path>')
+def serve_react_app(path):
+    """Serve React app for all non-API routes"""
+    # Check if it's a static file first
+    if path and ('.' in path or path.startswith('static/')):
+        try:
+            return app.send_static_file(path)
+        except:
+            pass
+    # Otherwise serve the React app
+    return app.send_static_file('index.html')
 
 @app.route('/api/current_protocol')
 def get_current_protocol():
