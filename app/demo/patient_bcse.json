@@ -1,0 +1,7 @@
+{
+  "resourceType":"Bundle","type":"collection",
+  "entry":[
+    {"resource":{"resourceType":"Patient","id":"demo-001","gender":"female","birthDate":"1968-05-10"}},
+    {"resource":{"resourceType":"Procedure","id":"mammo-1","code":{"coding":[{"system":"http://www.ama-assn.org/go/cpt","code":"77067","display":"Screening mammography"}]},"performedDateTime":"2024-12-01"}}
+  ]
+}

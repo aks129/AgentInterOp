@@ -1,11 +1,11 @@
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, Response
-import base64
-import os
+from fastapi.responses import HTMLResponse, Response, JSONResponse, PlainTextResponse, StreamingResponse
+from datetime import datetime, timezone
 from pathlib import Path
+import os, json, time, base64
 
 # Create FastAPI app
-app = FastAPI(title="Multi-Agent Interoperability Demo", version="1.0.0")
+app = FastAPI(title="AgentInterOp", version="1.0.0-bcse")
 
 # Guard static/templates setup for Vercel compatibility
 templates = None
@@ -33,6 +33,12 @@ from app.protocols.mcp import router as mcp_router
 app.include_router(a2a_router, prefix="/api/a2a", tags=["A2A Protocol"])
 app.include_router(mcp_router, prefix="/api/mcp", tags=["MCP Protocol"])
 
+# Include BCS-specific routers
+from app.protocols.a2a_bcse import router as a2a_bcse_router
+from app.protocols.mcp_bcse import router as mcp_bcse_router
+app.include_router(a2a_bcse_router)
+app.include_router(mcp_bcse_router)
+
 # In-memory artifact storage for demo
 demo_artifacts = {
     "demo-task": {
@@ -49,17 +55,32 @@ demo_artifacts = {
 
 @app.get("/healthz")
 def healthz():
-    return {"ok": True}
+    return {"ok": True, "ts": datetime.now(timezone.utc).isoformat()}
+
+@app.get("/version")
+def version():
+    return {"name": "AgentInterOp", "version": app.version, "scenario": "bcse"}
 
 @app.get("/.well-known/agent-card.json")
 def agent_card(request: Request):
     base = str(request.base_url).rstrip("/")
-    return {"protocolVersion":"0.2.9","preferredTransport":"JSONRPC","capabilities":{"streaming":True},
-            "skills":[{"id":"scenario","a2a":{"config64":"ZGVtby1jb25maWc="}}],"endpoints":{"jsonrpc": f"{base}/api/bridge/demo/a2a"}}
+    card = {
+      "protocolVersion": "0.2.9",
+      "preferredTransport": "JSONRPC",
+      "capabilities": {"streaming": True},
+      "skills": [
+        { "id": "bcse", "a2a": { "config64": base64.b64encode(b'{"scenario":"bcse"}').decode() } }
+      ],
+      "endpoints": { "jsonrpc": f"{base}/api/bridge/bcse/a2a" }
+    }
+    return JSONResponse(card)
 
 @app.get("/api/selftest")
 def selftest():
-    return {"ok":True,"a2a":["message/send","message/stream","tasks/get","tasks/cancel"],"mcp":["begin_chat_thread","send_message_to_chat_thread","check_replies"],"store":os.getenv("STORE","memory")}
+    return {"ok": True,
+            "a2a": ["message/send","message/stream","tasks/get","tasks/cancel"],
+            "mcp": ["begin_chat_thread","send_message_to_chat_thread","check_replies"],
+            "scenario": "bcse"}
 
 @app.get("/api/loopback/sse")
 def loop_sse():
@@ -78,6 +99,23 @@ def download_trace(contextId: str):
     from app.store.persistence import list_traces
     from fastapi.responses import JSONResponse
     return JSONResponse(list_traces(contextId))
+
+# BCS REST endpoints
+from app.scenarios import bcse as BCS
+
+@app.post("/api/bcse/ingest/demo")
+def bcse_ingest_demo():
+    p = Path(__file__).resolve().parent / "demo" / "patient_bcse.json"
+    bundle = json.loads(p.read_text())
+    return {"ok": True, "applicant_payload": BCS.map_fhir_bundle(bundle), "source": "demo"}
+
+@app.post("/api/bcse/evaluate")
+def bcse_evaluate(payload: dict):
+    """
+    Body: { "sex": "...", "birthDate": "YYYY-MM-DD", "last_mammogram": "YYYY-MM-DD" }
+    """
+    decision = BCS.evaluate(payload or {})
+    return {"ok": True, "decision": decision}
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):

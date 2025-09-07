@@ -319,6 +319,80 @@ Complete end-to-end validation of all system features:
 ### 5) Export/Import room
 - Export context; Import to new context; confirm continuity
 
+## Share with Partners (BCS only)
+Base URL: `<YOUR_BASE_URL>`
+
+Discovery:
+- Health: `GET /healthz`
+- Version: `GET /version`
+- Agent Card: `GET /.well-known/agent-card.json`
+- Self-Test: `GET /api/selftest`
+- OpenAPI: `/docs`
+
+### A2A (BCS) — JSON-RPC over HTTP
+**message/send (text prompt):**
+```bash
+curl -s <BASE>/api/bridge/bcse/a2a -H 'Content-Type: application/json' -d '{
+  "jsonrpc":"2.0","id":"1","method":"message/send",
+  "params":{"message":{"parts":[{"kind":"text","text":"Hello, begin."}]}}
+}'
+```
+
+**message/send (JSON payload for evaluation):**
+```bash
+curl -s <BASE>/api/bridge/bcse/a2a -H 'Content-Type: application/json' -d '{
+  "jsonrpc":"2.0","id":"1","method":"message/send",
+  "params":{"message":{"parts":[{"kind":"text","text":"{\"sex\":\"female\",\"birthDate\":\"1968-05-10\",\"last_mammogram\":\"2024-12-01\"}"}]}}
+}'
+```
+
+**message/stream (SSE):**
+```bash
+curl -s <BASE>/api/bridge/bcse/a2a -H 'Content-Type: application/json' -d '{
+  "jsonrpc":"2.0","id":"1","method":"message/stream","params":{}
+}' -H 'Accept: text/event-stream'
+```
+
+**tasks/get:**
+```bash
+curl -s <BASE>/api/bridge/bcse/a2a -H 'Content-Type: application/json' -d '{
+  "jsonrpc":"2.0","id":"1","method":"tasks/get","params":{"id":"TASK_ID"}
+}'
+```
+
+### MCP (BCS)
+**begin_chat_thread:**
+```bash
+curl -s -X POST <BASE>/api/mcp/bcse/begin_chat_thread
+```
+
+**send_message_to_chat_thread:**
+```bash
+curl -s -X POST <BASE>/api/mcp/bcse/send_message_to_chat_thread \
+  -H 'Content-Type: application/json' \
+  -d '{"conversationId":"CONV_ID","message":"Hello from partner"}'
+```
+
+**check_replies:**
+```bash
+curl -s -X POST <BASE>/api/mcp/bcse/check_replies \
+  -H 'Content-Type: application/json' \
+  -d '{"conversationId":"CONV_ID","waitMs":500}'
+```
+
+### Direct BCS Evaluation
+**Ingest demo FHIR bundle:**
+```bash
+curl -s -X POST <BASE>/api/bcse/ingest/demo
+```
+
+**Evaluate eligibility:**
+```bash
+curl -s -X POST <BASE>/api/bcse/evaluate \
+  -H 'Content-Type: application/json' \
+  -d '{"sex":"female","birthDate":"1968-05-10","last_mammogram":"2024-12-01"}'
+```
+
 ## License
 
 This project is designed for healthcare interoperability testing and demonstration purposes.
