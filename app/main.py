@@ -31,7 +31,7 @@ app = FastAPI(
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Configure for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://localhost", "https://127.0.0.1"],  # Restrict in production
+    allow_origins=["*"],  # Allow all origins for docs to work properly
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
