@@ -1,6 +1,13 @@
 import os, httpx, json
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+def get_anthropic_api_key() -> str:
+    """Safely retrieve Anthropic API key from environment"""
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
+    if len(key) < 20 or not key.startswith("sk-"):
+        raise ValueError("Invalid ANTHROPIC_API_KEY format")
+    return key
 
 SYSTEM_NARRATIVE_TO_SCHEMA = """You are an expert health IT architect. Convert the following scenario NARRATIVE into a JSON config with keys:
 {
@@ -13,8 +20,13 @@ SYSTEM_NARRATIVE_TO_SCHEMA = """You are an expert health IT architect. Convert t
 Only output JSON."""
 
 async def narrative_to_json(narrative: str) -> dict:
-    if not ANTHROPIC_API_KEY:
-        raise ValueError("ANTHROPIC_API_KEY not set")
+    # Input validation
+    if not narrative or len(narrative.strip()) < 10:
+        raise ValueError("Narrative text too short or empty")
+    if len(narrative) > 10000:  # Prevent abuse
+        raise ValueError("Narrative text too long (max 10,000 characters)")
+    
+    api_key = get_anthropic_api_key()
     
     payload = {
         "model": "claude-3-5-sonnet-latest",
@@ -23,10 +35,10 @@ async def narrative_to_json(narrative: str) -> dict:
         "messages": [{"role": "user", "content": narrative}]
     }
     
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:  # Reduced timeout
         r = await client.post("https://api.anthropic.com/v1/messages",
             headers={
-                "x-api-key": ANTHROPIC_API_KEY, 
+                "x-api-key": api_key, 
                 "anthropic-version": "2023-06-01", 
                 "content-type": "application/json"
             },

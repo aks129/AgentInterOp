@@ -16,7 +16,7 @@
     "allow_free_text_context": true,
     "options": {
       "fhir_base": "http://hapi.fhir.org/baseR4",
-      "fhir_token": "test-token-123"
+      "fhir_token": ""
     }
   },
   "simulation": {

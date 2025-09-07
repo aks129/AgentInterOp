@@ -9,6 +9,22 @@ import base64
 import asyncio
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
+import re
+
+# Security validation functions
+def validate_json_input(data, max_size=1024*1024):
+    """Validate JSON input size and basic structure"""
+    if not data:
+        raise ValueError("Empty JSON data")
+    if len(json.dumps(data)) > max_size:
+        raise ValueError(f"JSON payload too large (max {max_size} bytes)")
+    return True
+
+def sanitize_scenario_name(name):
+    """Sanitize scenario name to prevent injection"""
+    if not isinstance(name, str) or not re.match(r'^[a-z_]{1,50}$', name):
+        raise ValueError("Invalid scenario name format")
+    return name
 from app.config import load_config, save_config, update_config, ConnectathonConfig
 from app.scenarios.registry import get_active, list_scenarios
 from app.scenarios import registry
@@ -23,7 +39,12 @@ except ImportError:
 
 # Create Flask app (WSGI compatible)
 app = Flask(__name__, template_folder='app/web/templates', static_folder='app/web/static')
-app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
+# Generate secure session secret if not provided
+import secrets
+app.secret_key = os.environ.get("SESSION_SECRET") or secrets.token_urlsafe(32)
+if app.secret_key == "dev-secret-key":
+    print("[SECURITY WARNING] Using insecure default session secret. Set SESSION_SECRET environment variable.")
+    app.secret_key = secrets.token_urlsafe(32)
 
 # Register scenarios
 registry.register("bcse", sc_bcse)
@@ -119,6 +140,11 @@ def update_config_endpoint():
         return jsonify({"success": False, "error": "No data provided"}), 400
     
     try:
+        validate_json_input(data, max_size=100*1024)  # 100KB limit
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    
+    try:
         updated_config = update_config(data)
         config_dict = json.loads(updated_config.model_dump_json())
         
@@ -206,6 +232,12 @@ def activate_scenario():
         scenario_name = data.get('name')
         if not scenario_name:
             return jsonify({"error": "Missing 'name' field"}), 400
+            
+        # Validate scenario name
+        try:
+            scenario_name = sanitize_scenario_name(scenario_name)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
         
         # Update config
         update_config({"scenario": {"active": scenario_name}})

@@ -1,11 +1,55 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response, JSONResponse, PlainTextResponse, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from datetime import datetime, timezone
 from pathlib import Path
 import os, json, time, base64
 
+# Security constants
+MAX_JSON_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
+
+def validate_json_size(content: bytes) -> None:
+    """Validate JSON content size to prevent DoS attacks"""
+    if len(content) > MAX_JSON_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Request too large. Maximum JSON size: {MAX_JSON_SIZE} bytes"
+        )
+
 # Create FastAPI app
 app = FastAPI(title="AgentInterOp", version="1.0.0-bcse")
+
+# Security middleware
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Configure for production
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://localhost", "https://127.0.0.1"],  # Restrict in production
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+    max_age=600,
+)
+
+# Security headers middleware
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    # Content length validation
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_CONTENT_LENGTH:
+        return JSONResponse(
+            status_code=413,
+            content={"error": f"Request too large. Maximum size: {MAX_CONTENT_LENGTH} bytes"}
+        )
+    
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    return response
 
 # Guard static/templates setup for Vercel compatibility
 templates = None
