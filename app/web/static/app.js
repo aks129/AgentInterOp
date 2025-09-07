@@ -192,10 +192,12 @@ async function startA2ADemo() {
     try {
         addMessage('system', 'Using A2A Protocol (JSON-RPC + SSE)');
         
+        // For message/stream, we need to handle SSE directly
         const response = await fetch('/api/bridge/bcse/a2a', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'text/event-stream'
             },
             body: JSON.stringify({
                 method: 'message/stream',
@@ -214,30 +216,81 @@ async function startA2ADemo() {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        const data = await response.json();
-        
-        // Extract context ID from A2A response
-        if (data.result && data.result.taskSnapshot && data.result.taskSnapshot.contextId) {
-            conversationId = data.result.taskSnapshot.contextId;
-            updateCurrentContext(conversationId);
-        }
-        
-        // Start SSE connection for real-time updates
-        if (data.stream_url) {
-            startSSEConnection(data.stream_url);
-        }
-        
-        // Display initial response
-        if (data.result) {
-            addMessage('applicant', JSON.stringify(data.result, null, 2));
-        }
+        // Handle SSE response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
         
         startDemoBtn.disabled = true;
         sendApplicantInfoBtn.disabled = false;
         
+        let buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || ''; // Keep incomplete line in buffer
+            
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    if (data.trim()) {
+                        try {
+                            const jsonData = JSON.parse(data);
+                            handleA2ASSEMessage(jsonData);
+                        } catch (e) {
+                            console.warn('Failed to parse SSE data:', data);
+                        }
+                    }
+                }
+            }
+        }
+        
     } catch (error) {
         console.error('A2A demo error:', error);
         addMessage('error', `A2A error: ${error.message}`);
+    }
+}
+
+function handleA2ASSEMessage(data) {
+    // Handle different SSE message types from the A2A BCS router
+    if (data.jsonrpc === "2.0" && data.result) {
+        const result = data.result;
+        
+        // Handle task status updates
+        if (result.status) {
+            const status = result.status.state;
+            addMessage('system', `Task status: ${status}`);
+            
+            // Extract task/context ID if available
+            if (result.id && !conversationId) {
+                conversationId = result.id;
+                updateCurrentContext(conversationId);
+            }
+        }
+        
+        // Handle agent messages
+        if (result.role === 'agent' && result.parts) {
+            for (const part of result.parts) {
+                if (part.kind === 'text') {
+                    addMessage('agent', part.text);
+                }
+            }
+        }
+        
+        // Handle complete task snapshot
+        if (result.kind === 'task') {
+            if (result.contextId && !conversationId) {
+                conversationId = result.contextId;
+                updateCurrentContext(conversationId);
+            }
+        }
+        
+        // Handle status updates with final flag
+        if (result.final) {
+            addMessage('system', 'Conversation completed');
+        }
     }
 }
 
@@ -415,7 +468,7 @@ async function pollMCPReplies() {
         
         if (data.messages && data.messages.length > 0) {
             data.messages.forEach(msg => {
-                addMessage(msg.role || 'agent', msg.content || msg.message);
+                addMessage(msg.from || 'agent', msg.text || msg.content || msg.message);
             });
         }
         
