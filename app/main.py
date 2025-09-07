@@ -26,6 +26,19 @@ try:
 except Exception as e:
     print(f"[WARN] static/templates setup skipped: {e}")
 
+# Register scenarios first before including routers
+from app.scenarios import registry
+from app.scenarios import sc_bcse, sc_clinical_trial, sc_referral_specialist, sc_prior_auth, sc_custom
+
+# Register scenarios - force registration at module load time
+print(f"[INIT] Registering scenarios...", flush=True)
+registry.register("bcse", sc_bcse)
+registry.register("clinical_trial", sc_clinical_trial)
+registry.register("referral_specialist", sc_referral_specialist)
+registry.register("prior_auth", sc_prior_auth)
+registry.register("custom", sc_custom)
+print(f"[INIT] Scenarios registered: {list(registry._SCENARIOS.keys())}", flush=True)
+
 # Include routers from protocols
 from app.protocols.a2a import router as a2a_router
 from app.protocols.mcp import router as mcp_router
@@ -71,16 +84,35 @@ def agent_card(request: Request):
       "skills": [
         { "id": "bcse", "a2a": { "config64": base64.b64encode(b'{"scenario":"bcse"}').decode() } }
       ],
-      "endpoints": { "jsonrpc": f"{base}/api/bridge/bcse/a2a" }
+      "endpoints": { 
+        "jsonrpc": f"{base}/api/a2a/bridge/eyJzY2VuYXJpbyI6ImJjc2UifQ==/a2a",
+        "bcse_simple": f"{base}/api/bridge/bcse/a2a"
+      }
     }
     return JSONResponse(card)
 
 @app.get("/api/selftest")
 def selftest():
+    from app.config import load_config
+    try:
+        config = load_config()
+        active_scenario = config.scenario.active
+        from app.scenarios.registry import list_scenarios
+        available_scenarios = list(list_scenarios().keys())
+    except Exception as e:
+        active_scenario = f"ERROR: {e}"
+        available_scenarios = []
+        
     return {"ok": True,
             "a2a": ["message/send","message/stream","tasks/get","tasks/cancel"],
             "mcp": ["begin_chat_thread","send_message_to_chat_thread","check_replies"],
-            "scenario": "bcse"}
+            "scenario": active_scenario,
+            "available_scenarios": available_scenarios,
+            "endpoints": {
+                "a2a_comprehensive": "/api/a2a/bridge/{config64}/a2a",
+                "a2a_bcse_simple": "/api/bridge/bcse/a2a", 
+                "mcp_bcse": "/api/mcp/bcse/"
+            }}
 
 @app.get("/api/loopback/sse")
 def loop_sse():

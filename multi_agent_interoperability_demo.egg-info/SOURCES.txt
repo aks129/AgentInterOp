@@ -1,5 +1,6 @@
 README.md
 pyproject.toml
+./app/__init__.py
 ./app/config.py
 ./app/engine.py
 ./app/main.py
@@ -8,8 +9,11 @@ pyproject.toml
 ./app/eligibility/__init__.py
 ./app/eligibility/bcse.py
 ./app/protocols/a2a.py
+./app/protocols/a2a_bcse.py
 ./app/protocols/mcp.py
+./app/protocols/mcp_bcse.py
 ./app/store/memory.py
+./app/store/persistence.py
 app/config.py
 app/engine.py
 app/main.py

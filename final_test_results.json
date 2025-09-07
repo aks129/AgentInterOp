@@ -1,0 +1,120 @@
+[
+  {
+    "test": "server_health",
+    "status": "pass",
+    "message": "Server is healthy",
+    "details": {},
+    "timestamp": 1757213583.335916
+  },
+  {
+    "test": "begin_chat_thread",
+    "status": "pass",
+    "message": "Successfully created conversation: 92d26b30-a7fa-4dfd-a082-d70ce3e04574",
+    "details": {
+      "conversation_id": "92d26b30-a7fa-4dfd-a082-d70ce3e04574",
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"conversationId\":\"92d26b30-a7fa-4dfd-a082-d70ce3e04574\"}"
+          }
+        ]
+      }
+    },
+    "timestamp": 1757213583.3409674
+  },
+  {
+    "test": "send_message_bcse",
+    "status": "pass",
+    "message": "Message processed: completed",
+    "details": {
+      "guidance": "Task completed successfully.",
+      "status": "completed",
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"guidance\":\"Task completed successfully.\",\"status\":\"completed\"}"
+          }
+        ]
+      }
+    },
+    "timestamp": 1757213583.3477323
+  },
+  {
+    "test": "check_replies",
+    "status": "pass",
+    "message": "Found 0 messages",
+    "details": {
+      "messages_count": 0,
+      "status": "completed",
+      "conversation_ended": true,
+      "response": {
+        "messages": [],
+        "guidance": "Task completed successfully.",
+        "status": "completed",
+        "conversation_ended": true
+      }
+    },
+    "timestamp": 1757213583.3527668
+  },
+  {
+    "test": "error_invalid_conversation",
+    "status": "pass",
+    "message": "Correctly handled invalid conversation ID",
+    "details": {},
+    "timestamp": 1757213583.3567836
+  },
+  {
+    "test": "error_invalid_check_replies",
+    "status": "pass",
+    "message": "Correctly handled invalid conversation ID for check_replies",
+    "details": {},
+    "timestamp": 1757213583.3616755
+  },
+  {
+    "test": "error_malformed_json",
+    "status": "pass",
+    "message": "Correctly rejected malformed JSON with HTTP 422",
+    "details": {},
+    "timestamp": 1757213583.365678
+  },
+  {
+    "test": "begin_chat_thread",
+    "status": "pass",
+    "message": "Successfully created conversation: 28a5455e-8a4e-4f5b-9aff-53221ad603a3",
+    "details": {
+      "conversation_id": "28a5455e-8a4e-4f5b-9aff-53221ad603a3",
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"conversationId\":\"28a5455e-8a4e-4f5b-9aff-53221ad603a3\"}"
+          }
+        ]
+      }
+    },
+    "timestamp": 1757213583.3686824
+  },
+  {
+    "test": "edge_empty_message",
+    "status": "pass",
+    "message": "Handled empty message gracefully",
+    "details": {},
+    "timestamp": 1757213583.3736858
+  },
+  {
+    "test": "edge_large_message",
+    "status": "pass",
+    "message": "Handled large message gracefully",
+    "details": {},
+    "timestamp": 1757213583.3803709
+  },
+  {
+    "test": "edge_wait_time",
+    "status": "pass",
+    "message": "Correctly waited 1.01 seconds",
+    "details": {},
+    "timestamp": 1757213584.393
+  }
+]
