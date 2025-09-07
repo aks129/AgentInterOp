@@ -6,12 +6,85 @@ body {
     padding: 0;
     background-color: #1a1a1a;
     color: #e0e0e0;
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
 }
 
-/* Legacy styles removed - using BCS demo styles below */
+/* Header */
+.header {
+    background-color: #2a2a2a;
+    padding: 1rem;
+    border-bottom: 1px solid #444;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #fff;
+}
+
+.protocol-toggle {
+    display: flex;
+    gap: 1rem;
+}
+
+.protocol-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.protocol-toggle label:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Main Content - Three Column Layout */
+.main-content {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+.left-pane {
+    flex: 1;
+    padding: 1rem;
+    border-right: 1px solid #444;
+    display: flex;
+    flex-direction: column;
+}
+
+.center-pane {
+    flex: 1;
+    padding: 1rem;
+    border-right: 1px solid #444;
+    display: flex;
+    flex-direction: column;
+}
+
+.right-pane {
+    width: 350px;
+    padding: 1rem;
+    background-color: #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.left-pane h2, .center-pane h2, .right-pane h2 {
+    margin: 0 0 1rem 0;
+    font-size: 1.2rem;
+    color: #fff;
+    border-bottom: 1px solid #444;
+    padding-bottom: 0.5rem;
+}
 
 /* Transcript */
 .transcript {
@@ -260,447 +333,4 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
-}
-
-/* BCSE Demo Styles */
-
-/* App Header */
-.app-header {
-    background-color: #2a2a2a;
-    padding: 1rem;
-    border-bottom: 1px solid #444;
-}
-
-.header-brand h1 {
-    font-size: 1.5rem;
-    color: #fff;
-    margin: 0;
-}
-
-.header-nav {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.header-nav .nav-link {
-    color: #e0e0e0;
-    text-decoration: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-}
-
-.header-nav .nav-link:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: #fff;
-}
-
-/* Main Container */
-.main-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    padding-bottom: 100px; /* Space for control bar */
-    overflow-x: hidden;
-}
-
-/* Stage Wizard Navigation */
-.stage-wizard-nav {
-    background-color: #2a2a2a;
-    border-bottom: 1px solid #444;
-    padding: 1rem 0;
-}
-
-.wizard-steps {
-    max-width: 900px;
-    margin: 0 auto;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.wizard-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 8px;
-    transition: all 0.2s;
-    position: relative;
-    flex: 1;
-    min-width: 120px;
-}
-
-.wizard-step:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    top: 20px;
-    right: -50%;
-    width: 100%;
-    height: 2px;
-    background: #444;
-    z-index: 1;
-}
-
-.wizard-step.active:not(:last-child)::after {
-    background: #0d6efd;
-}
-
-.wizard-step:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.step-number {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background-color: #444;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-    transition: all 0.2s;
-    position: relative;
-    z-index: 2;
-}
-
-.wizard-step.active .step-number {
-    background-color: #0d6efd;
-}
-
-.wizard-step.completed .step-number {
-    background-color: #198754;
-}
-
-.step-label {
-    font-size: 0.9rem;
-    font-weight: 500;
-    text-align: center;
-}
-
-.wizard-step.active .step-label {
-    color: #0d6efd;
-}
-
-/* Stage Panels */
-.stage-panel {
-    flex: 1;
-    padding: 2rem 0;
-    overflow-y: auto;
-}
-
-/* Chat Components */
-.chat-container {
-    background-color: #0d1117;
-    border: 1px solid #444;
-    border-radius: 8px;
-    padding: 1rem;
-    height: 500px;
-    display: flex;
-    flex-direction: column;
-}
-
-.chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    margin-bottom: 1rem;
-    padding-right: 0.5rem;
-}
-
-.no-messages {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: #666;
-}
-
-.chat-message {
-    margin-bottom: 1rem;
-}
-
-.message-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    flex-shrink: 0;
-}
-
-.message-avatar[data-role="provider"] {
-    background-color: #0d6efd;
-}
-
-.message-avatar[data-role="patient"] {
-    background-color: #198754;
-}
-
-.message-avatar[data-role="evaluator"] {
-    background-color: #ffc107;
-    color: #000;
-}
-
-.message-avatar[data-role="system"] {
-    background-color: #6c757d;
-}
-
-.message-role {
-    color: #fff;
-    font-size: 0.9rem;
-}
-
-.message-timestamp {
-    font-size: 0.8rem;
-}
-
-.message-text {
-    background-color: rgba(255, 255, 255, 0.05);
-    padding: 0.75rem;
-    border-radius: 8px;
-    border-left: 3px solid #444;
-}
-
-.message-text[data-role="provider"] {
-    border-left-color: #0d6efd;
-}
-
-.message-text[data-role="patient"] {
-    border-left-color: #198754;
-}
-
-.message-text[data-role="evaluator"] {
-    border-left-color: #ffc107;
-}
-
-.message-text[data-role="system"] {
-    border-left-color: #6c757d;
-}
-
-/* Status Chips */
-.status-chip, .message-status-chip {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 12px;
-    font-weight: 500;
-}
-
-.status-chip.ready, .message-status-chip.ready {
-    background-color: #198754;
-    color: white;
-}
-
-.status-chip.working, .message-status-chip.working {
-    background-color: #ffc107;
-    color: #000;
-}
-
-.status-chip.input-required, .message-status-chip.input-required {
-    background-color: #fd7e14;
-    color: white;
-}
-
-.status-chip.completed, .message-status-chip.completed {
-    background-color: #198754;
-    color: white;
-}
-
-.status-chip.error, .message-status-chip.error {
-    background-color: #dc3545;
-    color: white;
-}
-
-/* Outcome Cards */
-.outcome-card {
-    margin-bottom: 1rem;
-    border: 1px solid #444;
-    background-color: #1a1a1a;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.outcome-card .card-header {
-    background-color: #2a2a2a !important;
-    border-bottom: 1px solid #444;
-    padding: 0.75rem 1rem;
-}
-
-.outcome-card .card-body {
-    padding: 1rem;
-    background-color: #1a1a1a !important;
-}
-
-/* Ensure Bootstrap cards work with our theme */
-.card {
-    background-color: #1a1a1a !important;
-    border: 1px solid #444 !important;
-    color: #e0e0e0 !important;
-}
-
-.card-header {
-    background-color: #2a2a2a !important;
-    border-bottom: 1px solid #444 !important;
-    color: #fff !important;
-}
-
-.card-body {
-    background-color: #1a1a1a !important;
-    color: #e0e0e0 !important;
-}
-
-/* Eligibility Card */
-.eligibility-badge {
-    font-size: 0.8rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-weight: 500;
-}
-
-.eligibility-badge.eligible {
-    background-color: #198754;
-    color: white;
-}
-
-.eligibility-badge.needs-info {
-    background-color: #ffc107;
-    color: #000;
-}
-
-.eligibility-badge.ineligible {
-    background-color: #dc3545;
-    color: white;
-}
-
-.eligibility-badge.pending {
-    background-color: #6c757d;
-    color: white;
-}
-
-.status-icon {
-    font-size: 1.5rem;
-    display: inline-block;
-}
-
-.status-icon-large {
-    font-size: 3rem;
-    display: inline-block;
-}
-
-/* Order Form */
-#order-form {
-    background-color: #0d1117;
-    padding: 1.5rem;
-    border-radius: 8px;
-    border: 1px solid #444;
-}
-
-/* Control Bar */
-.control-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background-color: #2a2a2a;
-    border-top: 1px solid #444;
-    padding: 1rem;
-    z-index: 1000;
-}
-
-/* Notification Items */
-.notification-item {
-    background-color: rgba(255, 255, 255, 0.02);
-}
-
-.notification-icon {
-    font-size: 1.5rem;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.notification-icon.provider {
-    background-color: #0d6efd;
-    color: white;
-}
-
-.notification-icon.patient {
-    background-color: #198754;
-    color: white;
-}
-
-.notification-icon.care-manager {
-    background-color: #6f42c1;
-    color: white;
-}
-
-/* Footer */
-.app-footer {
-    background-color: #2a2a2a;
-    border-top: 1px solid #444;
-    padding: 1rem;
-    margin-top: auto;
-}
-
-.app-footer a {
-    color: #e0e0e0;
-    text-decoration: none;
-}
-
-.app-footer a:hover {
-    color: #fff;
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    .wizard-steps {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .wizard-step {
-        flex-direction: row;
-        justify-content: flex-start;
-        text-align: left;
-        min-width: auto;
-    }
-    
-    .wizard-step .step-number {
-        margin-bottom: 0;
-        margin-right: 1rem;
-        width: 30px;
-        height: 30px;
-    }
-    
-    .wizard-step::after {
-        display: none;
-    }
-    
-    .chat-container {
-        height: 350px;
-    }
-    
-    .main-container {
-        padding-bottom: 120px;
-    }
-    
-    .control-bar .d-flex {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    
-    .control-bar {
-        padding: 0.75rem;
-    }
 }

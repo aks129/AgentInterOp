@@ -19,13 +19,7 @@ def validate_json_size(content: bytes) -> None:
         )
 
 # Create FastAPI app
-app = FastAPI(
-    title="AgentInterOp", 
-    version="1.0.0-bcse",
-    docs_url="/docs",
-    redoc_url="/redoc", 
-    openapi_url="/openapi.json"
-)
+app = FastAPI(title="AgentInterOp", version="1.0.0-bcse")
 
 # Security middleware
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Configure for production
@@ -199,56 +193,6 @@ def bcse_evaluate(payload: dict):
     decision = BCS.evaluate(payload or {})
     return {"ok": True, "decision": decision}
 
-@app.post("/api/bcse/scheduler/request")
-def bcse_scheduler_request(request: dict):
-    """Mock scheduler endpoint for BCS demo"""
-    import datetime
-    import random
-    
-    facility = request.get('facility', 'downtown-imaging')
-    preferred_date = request.get('preferred_date')
-    date_window = int(request.get('date_window', 7))
-    
-    # Generate a mock response
-    if preferred_date:
-        base_date = datetime.datetime.fromisoformat(preferred_date)
-        # Add some randomness within the window
-        days_offset = random.randint(0, date_window)
-        proposed_date = base_date + datetime.timedelta(days=days_offset)
-    else:
-        proposed_date = datetime.datetime.now() + datetime.timedelta(days=random.randint(1, 14))
-    
-    # Mock time slots
-    time_slots = [
-        "09:00 AM - 09:30 AM",
-        "10:30 AM - 11:00 AM", 
-        "02:15 PM - 02:45 PM",
-        "03:30 PM - 04:00 PM"
-    ]
-    
-    facility_names = {
-        'downtown-imaging': 'Downtown Imaging Center',
-        'suburban-radiology': 'Suburban Radiology',
-        'university-hospital': 'University Hospital Radiology',
-        'community-clinic': 'Community Health Clinic'
-    }
-    
-    response = {
-        "ok": True,
-        "proposal": {
-            "facility": facility_names.get(facility, facility),
-            "proposed_date": proposed_date.strftime("%Y-%m-%d"),
-            "proposed_time": random.choice(time_slots),
-            "location": facility_names.get(facility, facility),
-            "confirmation_required": True,
-            "expires_at": (datetime.datetime.now() + datetime.timedelta(hours=24)).isoformat()
-        },
-        "request_id": f"req-{random.randint(1000, 9999)}",
-        "status": "slot_proposed"
-    }
-    
-    return response
-
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """GET / renders index.html"""
@@ -272,14 +216,6 @@ async def test_harness(request: Request):
         return templates.TemplateResponse("test_harness.html", {"request": request})
     else:
         return HTMLResponse("<h1>Test Harness</h1><p>Templates not available in this environment</p>")
-
-@app.get("/bcse", response_class=HTMLResponse)
-async def bcse_demo(request: Request):
-    """BCS Demo UI"""
-    if templates:
-        return templates.TemplateResponse("bcse_demo.html", {"request": request})
-    else:
-        return HTMLResponse("<h1>BCS Demo</h1><p>Templates not available in this environment</p>")
 
 @app.get("/artifacts/{task_id}/{name}")
 async def download_artifact(task_id: str, name: str):
