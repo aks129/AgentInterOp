@@ -297,5 +297,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="/static/bcse_demo.js"></script>
+<script defer src="{{ request.url_for('static', path='app.js') }}"></script>
 {% endblock %}

@@ -9,7 +9,7 @@
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     
     <!-- Custom styles -->
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='styles.css') }}">
     
     {% block extra_head %}{% endblock %}
 </head>
@@ -69,9 +69,6 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Custom JavaScript -->
-    <script src="/static/app.js"></script>
     
     {% block extra_scripts %}{% endblock %}
 </body>

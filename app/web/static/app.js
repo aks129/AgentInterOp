@@ -1,212 +1,570 @@
-// Multi-Agent Demo JavaScript
-console.log("Multi-Agent Demo initialized");
+// BCS Demo App Controller
+console.log("BCS Demo App initialized");
 
 // Global state
-let currentProtocol = 'A2A';
-let conversationId = null;
-let eventSource = null;
-let artifacts = [];
-let currentConfig = {};
-let scenarios = {};
+let currentStage = 'eligibility';
+let demoActive = false;
+let protocolFrames = [];
 
-// DOM elements
-const transcriptElement = document.getElementById('transcript');
-const artifactsElement = document.getElementById('artifacts');
-const startDemoBtn = document.getElementById('start-demo-btn');
-const sendApplicantInfoBtn = document.getElementById('send-applicant-info-btn');
-const resetBtn = document.getElementById('reset-btn');
+// Stage management
+const stages = ['eligibility', 'patient', 'order', 'gap-closure', 'next-steps'];
+const stageNames = {
+    'eligibility': 'Eligibility',
+    'patient': 'Patient View', 
+    'order': 'Order',
+    'gap-closure': 'Gap Closure',
+    'next-steps': 'Next Appt & Results'
+};
 
-// Settings panel elements
-const scenarioSelect = document.getElementById('scenario-select');
-const modeRadios = document.querySelectorAll('input[name="mode"]');
-const adminProcessingMs = document.getElementById('admin-processing-ms');
-const errorInjectionRate = document.getElementById('error-injection-rate');
-const capacityLimit = document.getElementById('capacity-limit');
-const protocolDefaultRadios = document.querySelectorAll('input[name="protocol-default"]');
-const saveSettingsBtn = document.getElementById('save-settings-btn');
-const resetConfigBtn = document.getElementById('reset-config-btn');
-const examplesBtn = document.getElementById('examples-btn');
-const requirementsText = document.getElementById('requirements-text');
-const applicantPayload = document.getElementById('applicant-payload');
-const payloadError = document.getElementById('payload-error');
-const selftestStatus = document.getElementById('selftest-status');
-const exportTranscriptBtn = document.getElementById('export-transcript-btn');
+// DOM Elements (cached on load)
+let elements = {};
 
-// Initialize on DOM load
+// Initialize when DOM loads
 document.addEventListener('DOMContentLoaded', function() {
-    initializeInterface();
-    loadConfig();
-    loadScenarios();
-    runSelftest();
-    loadRequirements();
+    console.log("DOM loaded, initializing BCS demo");
+    cacheElements();
+    setupEventListeners();
+    initializeUI();
+});
+
+function cacheElements() {
+    // Cache all frequently used elements
+    elements = {
+        // Stage navigation
+        wizardSteps: document.querySelectorAll('.wizard-step'),
+        stagePanels: document.querySelectorAll('.stage-panel'),
+        currentStageName: document.getElementById('current-stage-name'),
+        
+        // Control buttons  
+        btnStartDemo: document.getElementById('start-demo-btn'),
+        btnContinue: document.getElementById('continue-btn'),
+        btnReset: document.getElementById('reset-demo-btn'),
+        
+        // FHIR/Data buttons
+        btnUseCanned: document.getElementById('use-demo-patient-btn'),
+        btnTestFhir: document.getElementById('test-fhir-connection'),
+        
+        // Chat elements
+        providerChatInput: document.getElementById('provider-chat-input'),
+        providerChatSend: document.getElementById('provider-chat-send'),
+        providerChatMessages: document.getElementById('provider-chat-messages'),
+        providerChatStatus: document.getElementById('provider-chat-status'),
+        
+        patientChatInput: document.getElementById('patient-chat-input'),
+        patientChatSend: document.getElementById('patient-chat-send'),
+        patientChatMessages: document.getElementById('patient-chat-messages'),
+        patientChatStatus: document.getElementById('patient-chat-status'),
+        
+        // Cards and status elements
+        eligibilityCard: document.getElementById('eligibility-card'),
+        eligibilityStatusBadge: document.getElementById('eligibility-status-badge'),
+        eligibilityIcon: document.getElementById('eligibility-icon'),
+        eligibilityText: document.getElementById('eligibility-text'),
+        eligibilityRationale: document.getElementById('eligibility-rationale'),
+        eligibilityMetadata: document.getElementById('eligibility-metadata'),
+        
+        patientCard: document.getElementById('patient-card'),
+        patientSex: document.getElementById('patient-sex'),
+        patientAge: document.getElementById('patient-age'),
+        patientDob: document.getElementById('patient-dob'),
+        patientLastMammo: document.getElementById('patient-last-mammo'),
+        
+        // Order form
+        orderForm: document.getElementById('order-form'),
+        facilitySelect: document.getElementById('facility-select'),
+        prioritySelect: document.getElementById('priority-select'),
+        preferredDate: document.getElementById('preferred-date'),
+        dateWindow: document.getElementById('date-window'),
+        orderNotes: document.getElementById('order-notes'),
+        btnSubmitOrder: document.getElementById('submit-order-btn'),
+        
+        schedulerCard: document.getElementById('scheduler-response-card'),
+        proposedDate: document.getElementById('proposed-date'),
+        proposedTime: document.getElementById('proposed-time'),
+        proposedLocation: document.getElementById('proposed-location'),
+        
+        // Gap closure
+        btnSimulateBCS: document.getElementById('simulate-gap-closure-btn'),
+        gapClosureCard: document.getElementById('gap-closure-card'),
+        completionStatusBadge: document.getElementById('completion-status-badge'),
+        completionIcon: document.getElementById('completion-icon'),
+        completionText: document.getElementById('completion-text'),
+        
+        // Notifications
+        btnSimulateEvent: document.getElementById('simulate-notification-btn'),
+        notificationList: document.getElementById('notification-list'),
+        
+        // Advanced
+        rawPayload: document.getElementById('raw-payload'),
+        protocolFrames: document.getElementById('protocol-frames')
+    };
     
-    // Event listeners
-    startDemoBtn.addEventListener('click', startDemo);
-    sendApplicantInfoBtn.addEventListener('click', sendApplicantInfo);
-    resetBtn.addEventListener('click', resetDemo);
+    console.log("Cached elements:", Object.keys(elements).length);
+}
+
+function setupEventListeners() {
+    console.log("Setting up event listeners");
     
-    // Settings panel listeners
-    saveSettingsBtn.addEventListener('click', saveSettings);
-    resetConfigBtn.addEventListener('click', resetConfig);
-    examplesBtn.addEventListener('click', fillExamples);
-    exportTranscriptBtn.addEventListener('click', exportTranscript);
-    scenarioSelect.addEventListener('change', onScenarioChange);
-    
-    // Payload validation
-    applicantPayload.addEventListener('input', validatePayload);
-    
-    // Protocol selection
-    document.querySelectorAll('input[name="protocol"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            currentProtocol = this.value;
-            console.log(`Protocol switched to: ${currentProtocol}`);
+    // Stage navigation
+    elements.wizardSteps.forEach(step => {
+        step.addEventListener('click', (e) => {
+            const targetStage = e.currentTarget.dataset.stage;
+            if (canSwitchToStage(targetStage)) {
+                switchToStage(targetStage);
+            }
         });
     });
     
-    // FHIR UI event listeners - with delay to ensure DOM is ready
-    setTimeout(function() {
-        const saveFhirBtn = document.getElementById('save-fhir-config-btn');
-        const testCapabilitiesBtn = document.getElementById('test-capabilities-btn');
-        const searchPatientBtn = document.getElementById('search-patient-btn');
-        const patientSearchInput = document.getElementById('patient-search');
-        
-        console.log('FHIR: Looking for buttons...');
-        console.log('Save button:', saveFhirBtn);
-        console.log('Test button:', testCapabilitiesBtn);
-        console.log('Search button:', searchPatientBtn);
-        
-        if (saveFhirBtn) {
-            console.log('FHIR: Attaching save config listener');
-            saveFhirBtn.addEventListener('click', function(e) {
+    // Control buttons
+    if (elements.btnStartDemo) {
+        elements.btnStartDemo.addEventListener('click', startDemo);
+    }
+    if (elements.btnContinue) {
+        elements.btnContinue.addEventListener('click', continueToNextStage);
+    }
+    if (elements.btnReset) {
+        elements.btnReset.addEventListener('click', resetDemo);
+    }
+    
+    // FHIR buttons
+    if (elements.btnUseCanned) {
+        elements.btnUseCanned.addEventListener('click', useDemoPatient);
+    }
+    if (elements.btnTestFhir) {
+        elements.btnTestFhir.addEventListener('click', testFhirConnection);
+    }
+    
+    // Chat send buttons
+    if (elements.providerChatSend) {
+        elements.providerChatSend.addEventListener('click', () => sendProviderMessage());
+    }
+    if (elements.providerChatInput) {
+        elements.providerChatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                saveFhirConfig();
-            });
-        } else {
-            console.log('FHIR: Save config button not found');
-        }
-        if (testCapabilitiesBtn) {
-            console.log('FHIR: Attaching test capabilities listener');
-            testCapabilitiesBtn.addEventListener('click', function(e) {
+                sendProviderMessage();
+            }
+        });
+    }
+    
+    if (elements.patientChatSend) {
+        elements.patientChatSend.addEventListener('click', () => sendPatientMessage());
+    }
+    if (elements.patientChatInput) {
+        elements.patientChatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                testCapabilities();
-            });
-        } else {
-            console.log('FHIR: Test capabilities button not found');
-        }
-        if (searchPatientBtn) {
-            console.log('FHIR: Attaching search patient listener');
-            searchPatientBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                searchPatient();
-            });
-        } else {
-            console.log('FHIR: Search patient button not found');
-        }
-        if (patientSearchInput) {
-            patientSearchInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    searchPatient();
-                }
-            });
-        }
-        
-        // FHIR Payload Integration event listeners
-        const useFhirToggle = document.getElementById('use-ingested-fhir');
-        const applicantPayload = document.getElementById('applicant-payload');
-        const payloadError = document.getElementById('payload-error');
-        
-        if (useFhirToggle) {
-            useFhirToggle.addEventListener('change', handleFhirToggleChange);
-        }
-        if (applicantPayload) {
-            applicantPayload.addEventListener('input', validatePayload);
-        }
-        
-        // Check for existing ingested data on load
-        updateFhirToggleState();
-        
-        // Narrative to JSON event listeners
-        const convertNarrativeBtn = document.getElementById('convert-narrative-btn');
-        const applySchemaBtn = document.getElementById('apply-schema-btn');
-        
-        if (convertNarrativeBtn) {
-            convertNarrativeBtn.addEventListener('click', convertNarrativeToJson);
-        }
-        if (applySchemaBtn) {
-            applySchemaBtn.addEventListener('click', applyGeneratedSchema);
-        }
-        
-        // Prove It panel event listeners
-        const refreshTraceBtn = document.getElementById('refresh-trace-btn');
-        const downloadTraceBtn = document.getElementById('download-trace-btn');
-        const traceContextInput = document.getElementById('trace-context-id');
-        
-        if (refreshTraceBtn) {
-            refreshTraceBtn.addEventListener('click', refreshTrace);
-        }
-        if (downloadTraceBtn) {
-            downloadTraceBtn.addEventListener('click', downloadTrace);
-        }
-        if (traceContextInput) {
-            traceContextInput.addEventListener('input', debounce(refreshTrace, 1000));
-        }
-        
-        // Room export/import event listeners
-        const exportRoomBtn = document.getElementById('export-room-btn');
-        const importRoomBtn = document.getElementById('import-room-btn');
-        const importFileInput = document.getElementById('import-file');
-        
-        if (exportRoomBtn) {
-            exportRoomBtn.addEventListener('click', exportRoom);
-        }
-        if (importRoomBtn) {
-            importRoomBtn.addEventListener('click', importRoom);
-        }
-        if (importFileInput) {
-            importFileInput.addEventListener('change', handleImportFileSelection);
-        }
-    }, 100);
-});
-
-function initializeInterface() {
-    console.log("Initializing interface");
-    clearTranscript();
-    clearArtifacts();
+                sendPatientMessage();
+            }
+        });
+    }
+    
+    // Order form
+    if (elements.orderForm) {
+        elements.orderForm.addEventListener('submit', handleOrderSubmit);
+    }
+    
+    // Simulation buttons
+    if (elements.btnSimulateBCS) {
+        elements.btnSimulateBCS.addEventListener('click', simulateBCSCompletion);
+    }
+    if (elements.btnSimulateEvent) {
+        elements.btnSimulateEvent.addEventListener('click', simulateNotificationEvent);
+    }
+    
+    console.log("Event listeners setup complete");
 }
 
-async function startDemo() {
-    clearTranscript();
-    clearArtifacts();
+function initializeUI() {
+    console.log("Initializing UI");
     
-    addMessage('system', 'Starting BCS-E eligibility demo...');
+    // Set default date to tomorrow
+    if (elements.preferredDate) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        elements.preferredDate.value = tomorrow.toISOString().split('T')[0];
+    }
     
-    if (currentProtocol === 'A2A') {
-        await startA2ADemo();
-    } else {
-        await startMCPDemo();
+    // Initialize stage display
+    switchToStage('eligibility');
+    
+    // Disable chat inputs initially
+    disableChatInputs();
+}
+
+function canSwitchToStage(targetStage) {
+    const currentIndex = stages.indexOf(currentStage);
+    const targetIndex = stages.indexOf(targetStage);
+    
+    // Always allow going backwards or staying on current
+    if (targetIndex <= currentIndex) return true;
+    
+    // For forward navigation, check if demo is active
+    return demoActive && targetIndex <= currentIndex + 1;
+}
+
+function switchToStage(stageName) {
+    console.log("Switching to stage:", stageName);
+    
+    // Hide all panels
+    elements.stagePanels.forEach(panel => {
+        panel.classList.add('d-none');
+    });
+    
+    // Show target panel
+    const targetPanel = document.getElementById(`stage-${stageName}`);
+    if (targetPanel) {
+        targetPanel.classList.remove('d-none');
+    }
+    
+    // Update wizard steps
+    elements.wizardSteps.forEach(step => {
+        step.classList.remove('active');
+        if (step.dataset.stage === stageName) {
+            step.classList.add('active');
+        }
+    });
+    
+    currentStage = stageName;
+    
+    // Update stage name display
+    if (elements.currentStageName) {
+        elements.currentStageName.textContent = stageNames[stageName] || stageName;
+    }
+    
+    // Update continue button state
+    updateContinueButton();
+}
+
+function updateContinueButton() {
+    if (elements.btnContinue) {
+        const currentIndex = stages.indexOf(currentStage);
+        const canContinue = demoActive && currentIndex < stages.length - 1;
+        elements.btnContinue.disabled = !canContinue;
     }
 }
 
-async function startA2ADemo() {
+function continueToNextStage() {
+    const currentIndex = stages.indexOf(currentStage);
+    if (currentIndex < stages.length - 1) {
+        switchToStage(stages[currentIndex + 1]);
+    }
+}
+
+async function startDemo() {
+    console.log("Starting demo");
+    
     try {
-        addMessage('system', 'Using A2A Protocol (JSON-RPC + SSE)');
+        if (elements.btnStartDemo) {
+            elements.btnStartDemo.disabled = true;
+            elements.btnStartDemo.innerHTML = '⏳ Starting...';
+        }
         
-        // For message/stream, we need to handle SSE directly
+        demoActive = true;
+        switchToStage('eligibility');
+        enableChatInputs();
+        
+        // Add welcome message
+        addChatMessage('provider', 'system', 'Welcome to the BCS Demo! Click "Use Canned Demo Patient" to load patient data, then start conversations with the evaluator.');
+        addChatMessage('patient', 'system', 'Patient chat ready. You can interact with the evaluator using MCP protocol.');
+        
+        updateChatStatus('provider', 'ready');
+        updateChatStatus('patient', 'ready');
+        
+        updateContinueButton();
+        
+    } catch (error) {
+        console.error('Error starting demo:', error);
+        showError('Failed to start demo: ' + error.message);
+    } finally {
+        if (elements.btnStartDemo) {
+            elements.btnStartDemo.disabled = false;
+            elements.btnStartDemo.innerHTML = '▶️ Start Demo';
+        }
+    }
+}
+
+function resetDemo() {
+    console.log("Resetting demo");
+    
+    demoActive = false;
+    currentStage = 'eligibility';
+    protocolFrames = [];
+    
+    // Clear chat messages
+    clearChatMessages('provider');
+    clearChatMessages('patient');
+    
+    // Hide cards
+    hideAllCards();
+    
+    // Reset forms
+    if (elements.orderForm) {
+        elements.orderForm.reset();
+        // Reset date to tomorrow
+        if (elements.preferredDate) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            elements.preferredDate.value = tomorrow.toISOString().split('T')[0];
+        }
+    }
+    
+    // Disable chat inputs
+    disableChatInputs();
+    
+    // Reset UI
+    switchToStage('eligibility');
+    updateContinueButton();
+    
+    // Clear protocol frames
+    if (elements.protocolFrames) {
+        elements.protocolFrames.textContent = 'No protocol data yet...';
+    }
+    if (elements.rawPayload) {
+        elements.rawPayload.value = '';
+    }
+}
+
+function enableChatInputs() {
+    [elements.providerChatInput, elements.providerChatSend, elements.patientChatInput, elements.patientChatSend].forEach(el => {
+        if (el) el.disabled = false;
+    });
+}
+
+function disableChatInputs() {
+    [elements.providerChatInput, elements.providerChatSend, elements.patientChatInput, elements.patientChatSend].forEach(el => {
+        if (el) el.disabled = true;
+    });
+}
+
+function clearChatMessages(chatType) {
+    const messagesContainer = elements[`${chatType}ChatMessages`];
+    if (messagesContainer) {
+        messagesContainer.innerHTML = `
+            <div class="no-messages text-center text-muted py-4">
+                <div class="mb-2">💬</div>
+                <p class="mb-0">No messages yet</p>
+                <small>Conversation will appear here</small>
+            </div>
+        `;
+    }
+}
+
+function addChatMessage(chatType, role, message, status = null) {
+    const messagesContainer = elements[`${chatType}ChatMessages`];
+    if (!messagesContainer) return;
+    
+    // Remove "no messages" placeholder
+    const noMessages = messagesContainer.querySelector('.no-messages');
+    if (noMessages) noMessages.remove();
+    
+    // Create message element
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'chat-message mb-3';
+    
+    const roleIcons = {
+        'provider': '🩺',
+        'patient': '🙂',
+        'evaluator': '🤖',
+        'system': '⚙️',
+        'error': '❌'
+    };
+    
+    const icon = roleIcons[role] || '❓';
+    const timestamp = new Date().toLocaleTimeString();
+    
+    messageDiv.innerHTML = `
+        <div class="d-flex align-items-start">
+            <div class="message-avatar me-2" data-role="${role}">
+                <span class="avatar-icon">${icon}</span>
+            </div>
+            <div class="message-content flex-grow-1">
+                <div class="message-header d-flex justify-content-between align-items-center mb-1">
+                    <div class="d-flex align-items-center">
+                        <span class="message-role fw-bold me-2">${role.toUpperCase()}</span>
+                        <small class="message-timestamp text-muted">${timestamp}</small>
+                    </div>
+                    ${status ? `<span class="message-status-chip ${status}">${status.replace('-', ' ')}</span>` : ''}
+                </div>
+                <div class="message-text" data-role="${role}">${escapeHtml(message)}</div>
+            </div>
+        </div>
+    `;
+    
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function updateChatStatus(chatType, status) {
+    const statusElement = elements[`${chatType}ChatStatus`];
+    if (statusElement) {
+        statusElement.textContent = status.replace('-', ' ').toUpperCase();
+        statusElement.className = `status-chip ${status}`;
+    }
+}
+
+async function useDemoPatient() {
+    console.log("Loading demo patient");
+    
+    try {
+        if (elements.btnUseCanned) {
+            elements.btnUseCanned.disabled = true;
+            elements.btnUseCanned.innerHTML = '⏳ Loading Demo Patient...';
+        }
+        
+        // Call ingest demo endpoint
+        const response = await fetch('/api/bcse/ingest/demo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+            // Show patient data
+            showPatientCard(data.applicant_payload);
+            
+            // Evaluate eligibility
+            await evaluateEligibility(data.applicant_payload);
+            
+            // Show raw payload
+            if (elements.rawPayload) {
+                elements.rawPayload.value = JSON.stringify(data.applicant_payload, null, 2);
+            }
+            
+            addChatMessage('provider', 'system', 'Demo patient data loaded successfully. Patient information is now available.');
+        } else {
+            throw new Error(data.error || 'Failed to load demo patient');
+        }
+        
+    } catch (error) {
+        console.error('Error loading demo patient:', error);
+        showError('Failed to load demo patient: ' + error.message);
+        addChatMessage('provider', 'error', 'Failed to load demo patient: ' + error.message);
+    } finally {
+        if (elements.btnUseCanned) {
+            elements.btnUseCanned.disabled = false;
+            elements.btnUseCanned.innerHTML = '📋 Use Canned Demo Patient';
+        }
+    }
+}
+
+function showPatientCard(payload) {
+    if (elements.patientCard) {
+        elements.patientCard.classList.remove('d-none');
+        
+        if (elements.patientSex) elements.patientSex.textContent = payload.sex || '-';
+        if (elements.patientAge) elements.patientAge.textContent = payload.age ? `${payload.age} years` : '-';
+        if (elements.patientDob) elements.patientDob.textContent = payload.birthDate || '-';
+        if (elements.patientLastMammo) elements.patientLastMammo.textContent = payload.last_mammogram || '-';
+    }
+}
+
+async function evaluateEligibility(payload) {
+    try {
+        const response = await fetch('/api/bcse/evaluate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.ok && data.decision) {
+            showEligibilityCard(data.decision);
+        }
+        
+    } catch (error) {
+        console.error('Error evaluating eligibility:', error);
+        showError('Failed to evaluate eligibility: ' + error.message);
+    }
+}
+
+function showEligibilityCard(decision) {
+    if (!elements.eligibilityCard) return;
+    
+    elements.eligibilityCard.classList.remove('d-none');
+    
+    let status, iconText, statusText;
+    
+    if (decision.eligible === true) {
+        status = 'eligible';
+        iconText = '✅';
+        statusText = 'Eligible';
+    } else if (decision.eligible === false) {
+        status = 'ineligible';
+        iconText = '❌';
+        statusText = 'Ineligible';
+    } else {
+        status = 'needs-info';
+        iconText = '⚠️';
+        statusText = 'Needs Info';
+    }
+    
+    if (elements.eligibilityStatusBadge) {
+        elements.eligibilityStatusBadge.textContent = statusText;
+        elements.eligibilityStatusBadge.className = `eligibility-badge ${status}`;
+    }
+    
+    if (elements.eligibilityIcon) elements.eligibilityIcon.textContent = iconText;
+    if (elements.eligibilityText) elements.eligibilityText.textContent = `BCS ${statusText}`;
+    
+    // Show rationale
+    if (elements.eligibilityRationale && decision.rationale) {
+        elements.eligibilityRationale.innerHTML = '';
+        decision.rationale.forEach(reason => {
+            const li = document.createElement('li');
+            li.textContent = reason;
+            elements.eligibilityRationale.appendChild(li);
+        });
+    }
+    
+    // Show metadata
+    if (elements.eligibilityMetadata) {
+        const parts = [];
+        if (decision.last_mammogram) parts.push(`Last mammogram: ${decision.last_mammogram}`);
+        if (decision.age_band) parts.push(`Age band: ${decision.age_band}`);
+        elements.eligibilityMetadata.textContent = parts.join(' | ');
+    }
+}
+
+async function sendProviderMessage() {
+    const input = elements.providerChatInput;
+    const sendBtn = elements.providerChatSend;
+    
+    if (!input || !sendBtn) return;
+    
+    const message = input.value.trim();
+    if (!message) return;
+    
+    try {
+        input.disabled = true;
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '⏳';
+        
+        // Add user message
+        addChatMessage('provider', 'provider', message);
+        input.value = '';
+        
+        updateChatStatus('provider', 'working');
+        
+        // Call A2A endpoint
         const response = await fetch('/api/bridge/bcse/a2a', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'text/event-stream'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                method: 'message/stream',
+                method: 'message/send',
                 params: {
                     message: {
-                        parts: [{
-                            kind: 'text',
-                            text: 'Begin demo'
-                        }]
+                        parts: [{ kind: 'text', text: message }]
                     }
                 }
             })
@@ -216,220 +574,72 @@ async function startA2ADemo() {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        // Handle SSE response
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+        const data = await response.json();
         
-        startDemoBtn.disabled = true;
-        sendApplicantInfoBtn.disabled = false;
+        // Log protocol frame
+        logProtocolFrame('A2A Request', {
+            method: 'message/send',
+            message: message
+        });
+        logProtocolFrame('A2A Response', data);
         
-        let buffer = '';
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || ''; // Keep incomplete line in buffer
-            
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = line.slice(6);
-                    if (data.trim()) {
-                        try {
-                            const jsonData = JSON.parse(data);
-                            handleA2ASSEMessage(jsonData);
-                        } catch (e) {
-                            console.warn('Failed to parse SSE data:', data);
-                        }
-                    }
-                }
-            }
-        }
+        // Show response
+        const responseText = data.result?.message || 'Request processed via A2A JSON-RPC protocol.';
+        addChatMessage('provider', 'evaluator', responseText, 'completed');
+        
+        updateChatStatus('provider', 'completed');
         
     } catch (error) {
-        console.error('A2A demo error:', error);
-        addMessage('error', `A2A error: ${error.message}`);
+        console.error('Error sending provider message:', error);
+        addChatMessage('provider', 'error', 'Error: ' + error.message);
+        updateChatStatus('provider', 'error');
+    } finally {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = 'Send';
     }
 }
 
-function handleA2ASSEMessage(data) {
-    // Handle different SSE message types from the A2A BCS router
-    if (data.jsonrpc === "2.0" && data.result) {
-        const result = data.result;
-        
-        // Handle task status updates
-        if (result.status) {
-            const status = result.status.state;
-            addMessage('system', `Task status: ${status}`);
-            
-            // Extract task/context ID if available
-            if (result.id && !conversationId) {
-                conversationId = result.id;
-                updateCurrentContext(conversationId);
-            }
-        }
-        
-        // Handle agent messages
-        if (result.role === 'agent' && result.parts) {
-            for (const part of result.parts) {
-                if (part.kind === 'text') {
-                    addMessage('agent', part.text);
-                }
-            }
-        }
-        
-        // Handle complete task snapshot
-        if (result.kind === 'task') {
-            if (result.contextId && !conversationId) {
-                conversationId = result.contextId;
-                updateCurrentContext(conversationId);
-            }
-        }
-        
-        // Handle status updates with final flag
-        if (result.final) {
-            addMessage('system', 'Conversation completed');
-        }
-    }
-}
-
-async function startMCPDemo() {
+async function sendPatientMessage() {
+    const input = elements.patientChatInput;
+    const sendBtn = elements.patientChatSend;
+    
+    if (!input || !sendBtn) return;
+    
+    const message = input.value.trim();
+    if (!message) return;
+    
     try {
-        addMessage('system', 'Using MCP Protocol (Streamable HTTP)');
+        input.disabled = true;
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '⏳';
         
-        // Begin chat thread
-        const response = await fetch('/api/mcp/bcse/begin_chat_thread', {
+        // Add user message
+        addChatMessage('patient', 'patient', message);
+        input.value = '';
+        
+        updateChatStatus('patient', 'working');
+        
+        // MCP Triplet: Begin
+        const beginResponse = await fetch('/api/mcp/bcse/begin_chat_thread', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})
         });
         
-        const data = await response.json();
-        const result = JSON.parse(data.content[0].text);
-        conversationId = result.conversationId;
-        
-        // Update current context for room export/import
-        updateCurrentContext(conversationId);
-        
-        addMessage('system', `MCP conversation started (ID: ${conversationId})`);
-        
-        // Send initial message
-        await sendMCPMessage('Begin BCS-E eligibility demo');
-        
-        startDemoBtn.disabled = true;
-        sendApplicantInfoBtn.disabled = false;
-        
-    } catch (error) {
-        console.error('MCP demo error:', error);
-        addMessage('error', `MCP error: ${error.message}`);
-    }
-}
-
-function startSSEConnection(streamUrl) {
-    if (eventSource) {
-        eventSource.close();
-    }
-    
-    eventSource = new EventSource(streamUrl);
-    
-    eventSource.onmessage = function(event) {
-        try {
-            const data = JSON.parse(event.data);
-            displaySSEMessage(data);
-        } catch (error) {
-            console.error('SSE message parsing error:', error);
-            addMessage('system', event.data);
-        }
-    };
-    
-    eventSource.onerror = function(error) {
-        console.error('SSE connection error:', error);
-        addMessage('error', 'SSE connection error');
-    };
-}
-
-function displaySSEMessage(data) {
-    if (data.role && data.content) {
-        addMessage(data.role, data.content);
-    } else if (data.artifacts) {
-        handleArtifacts(data.artifacts);
-    } else {
-        addMessage('system', JSON.stringify(data, null, 2));
-    }
-}
-
-async function sendApplicantInfo() {
-    addMessage('user', 'Sending applicant information...');
-    
-    if (currentProtocol === 'A2A') {
-        await sendA2AApplicantInfo();
-    } else {
-        await sendMCPApplicantInfo();
-    }
-}
-
-async function sendA2AApplicantInfo() {
-    try {
-        const response = await fetch('/api/bridge/bcse/a2a', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                method: 'message/send',
-                params: {
-                    message: {
-                        parts: [{
-                            kind: 'text',
-                            text: 'Process patient data for BCS-E eligibility'
-                        }]
-                    }
-                }
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to send applicant info');
+        if (!beginResponse.ok) {
+            throw new Error('Failed to begin MCP chat thread');
         }
         
-        if (data.result) {
-            addMessage('administrator', JSON.stringify(data.result, null, 2));
-        }
+        const beginData = await beginResponse.json();
+        const conversationId = JSON.parse(beginData.content[0].text).conversationId;
         
-        // Check for artifacts
-        if (data.artifacts) {
-            handleArtifacts(data.artifacts);
-        }
+        logProtocolFrame('MCP Begin', { conversationId });
         
-    } catch (error) {
-        console.error('A2A applicant info error:', error);
-        addMessage('error', `A2A error: ${error.message}`);
-    }
-}
-
-async function sendMCPApplicantInfo() {
-    try {
-        await sendMCPMessage('Process patient data for BCS-E eligibility');
-        
-    } catch (error) {
-        console.error('MCP applicant info error:', error);
-        addMessage('error', `MCP error: ${error.message}`);
-    }
-}
-
-async function sendMCPMessage(message) {
-    try {
-        // Send message
+        // MCP Triplet: Send
         const sendResponse = await fetch('/api/mcp/bcse/send_message_to_chat_thread', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 conversationId: conversationId,
                 message: message
@@ -437,187 +647,224 @@ async function sendMCPMessage(message) {
         });
         
         if (!sendResponse.ok) {
-            throw new Error(`Failed to send MCP message: ${sendResponse.statusText}`);
+            throw new Error('Failed to send MCP message');
         }
         
-        // Poll for replies
-        pollMCPReplies();
+        logProtocolFrame('MCP Send', { conversationId, message });
         
-    } catch (error) {
-        console.error('MCP send message error:', error);
-        addMessage('error', `MCP send error: ${error.message}`);
-    }
-}
-
-async function pollMCPReplies() {
-    if (!conversationId) return;
-    
-    try {
-        const response = await fetch('/api/mcp/bcse/check_replies', {
+        // MCP Triplet: Check
+        const checkResponse = await fetch('/api/mcp/bcse/check_replies', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 conversationId: conversationId,
                 waitMs: 2000
             })
         });
         
+        if (checkResponse.ok) {
+            const checkData = await checkResponse.json();
+            logProtocolFrame('MCP Check', checkData);
+            
+            if (checkData.messages && checkData.messages.length > 0) {
+                checkData.messages.forEach(msg => {
+                    const msgText = msg.text || msg.content || msg.message || 'Response received via MCP protocol.';
+                    addChatMessage('patient', 'evaluator', msgText, 'completed');
+                });
+            } else {
+                addChatMessage('patient', 'evaluator', 'Request processed via MCP triplet (begin → send → check).', 'completed');
+            }
+        }
+        
+        updateChatStatus('patient', 'completed');
+        
+    } catch (error) {
+        console.error('Error sending patient message:', error);
+        addChatMessage('patient', 'error', 'Error: ' + error.message);
+        updateChatStatus('patient', 'error');
+    } finally {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = 'Send';
+    }
+}
+
+function logProtocolFrame(type, data) {
+    protocolFrames.push({
+        timestamp: new Date().toISOString(),
+        type: type,
+        data: data
+    });
+    
+    if (elements.protocolFrames) {
+        elements.protocolFrames.textContent = JSON.stringify(protocolFrames, null, 2);
+    }
+}
+
+async function handleOrderSubmit(event) {
+    event.preventDefault();
+    
+    try {
+        if (elements.btnSubmitOrder) {
+            elements.btnSubmitOrder.disabled = true;
+            elements.btnSubmitOrder.innerHTML = '⏳ Submitting Order...';
+        }
+        
+        const formData = {
+            facility: elements.facilitySelect?.value,
+            priority: elements.prioritySelect?.value,
+            preferred_date: elements.preferredDate?.value,
+            date_window: elements.dateWindow?.value,
+            notes: elements.orderNotes?.value
+        };
+        
+        // Call scheduler endpoint
+        const response = await fetch('/api/bcse/scheduler/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
         
-        if (data.messages && data.messages.length > 0) {
-            data.messages.forEach(msg => {
-                addMessage(msg.from || 'agent', msg.text || msg.content || msg.message);
-            });
-        }
-        
-        // Handle artifacts
-        if (data.artifacts) {
-            handleArtifacts(data.artifacts);
-        }
-        
-        // Continue polling if status indicates more messages might come
-        if (data.status === 'active' || data.status === 'pending') {
-            setTimeout(() => pollMCPReplies(), 2000);
+        if (data.ok && data.proposal) {
+            showSchedulerResponse(data.proposal);
         }
         
     } catch (error) {
-        console.error('MCP polling error:', error);
-        addMessage('error', `MCP polling error: ${error.message}`);
+        console.error('Error submitting order:', error);
+        showError('Failed to submit order: ' + error.message);
+    } finally {
+        if (elements.btnSubmitOrder) {
+            elements.btnSubmitOrder.disabled = false;
+            elements.btnSubmitOrder.innerHTML = '📋 Submit Service Request';
+        }
     }
 }
 
-function addMessage(role, content) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message';
-    
-    const timestamp = new Date().toLocaleTimeString();
-    
-    // Create message header
-    const messageHeader = document.createElement('div');
-    messageHeader.className = 'message-header';
-    
-    // Create role badge
-    const roleBadge = document.createElement('span');
-    roleBadge.className = `role-badge role-${CSS.escape(role)}`;
-    roleBadge.textContent = role.toUpperCase();
-    
-    // Create timestamp span
-    const timestampSpan = document.createElement('span');
-    timestampSpan.className = 'timestamp';
-    timestampSpan.textContent = timestamp;
-    
-    // Create message content
-    const messageContent = document.createElement('div');
-    messageContent.className = 'message-content';
-    messageContent.textContent = content;
-    
-    // Assemble the message
-    messageHeader.appendChild(roleBadge);
-    messageHeader.appendChild(timestampSpan);
-    messageDiv.appendChild(messageHeader);
-    messageDiv.appendChild(messageContent);
-    
-    transcriptElement.appendChild(messageDiv);
-    transcriptElement.scrollTop = transcriptElement.scrollHeight;
-}
-
-function handleArtifacts(artifactList) {
-    artifacts = artifacts.concat(artifactList);
-    displayArtifacts();
-}
-
-function displayArtifacts() {
-    if (artifacts.length === 0) {
-        artifactsElement.textContent = '';
-        const noArtifactsP = document.createElement('p');
-        noArtifactsP.className = 'no-artifacts';
-        noArtifactsP.textContent = 'No artifacts available';
-        artifactsElement.appendChild(noArtifactsP);
-        return;
+function showSchedulerResponse(proposal) {
+    if (elements.schedulerCard) {
+        elements.schedulerCard.classList.remove('d-none');
+        
+        if (elements.proposedDate) elements.proposedDate.textContent = proposal.proposed_date || '-';
+        if (elements.proposedTime) elements.proposedTime.textContent = proposal.proposed_time || '-';
+        if (elements.proposedLocation) elements.proposedLocation.textContent = proposal.location || '-';
     }
+}
+
+function simulateBCSCompletion() {
+    console.log("Simulating BCS completion");
     
-    // Clear existing content
-    artifactsElement.textContent = '';
+    try {
+        if (elements.btnSimulateBCS) {
+            elements.btnSimulateBCS.disabled = true;
+            elements.btnSimulateBCS.innerHTML = '⏳ Simulating...';
+        }
+        
+        setTimeout(() => {
+            showGapClosureCard();
+            
+            if (elements.btnSimulateBCS) {
+                elements.btnSimulateBCS.disabled = false;
+                elements.btnSimulateBCS.innerHTML = '🧪 Simulate BCS Completion';
+            }
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Error simulating BCS completion:', error);
+        showError('Error simulating BCS completion: ' + error.message);
+    }
+}
+
+function showGapClosureCard() {
+    if (elements.gapClosureCard) {
+        elements.gapClosureCard.classList.remove('d-none');
+        
+        if (elements.completionStatusBadge) {
+            elements.completionStatusBadge.textContent = 'Completed';
+            elements.completionStatusBadge.className = 'completion-badge bg-success';
+        }
+        
+        if (elements.completionIcon) elements.completionIcon.textContent = '✅';
+        if (elements.completionText) elements.completionText.textContent = `BCS completed on ${new Date().toLocaleDateString()}`;
+    }
+}
+
+function simulateNotificationEvent() {
+    console.log("Simulating notification event");
     
-    // Create heading
-    const heading = document.createElement('h3');
-    heading.textContent = 'Available Downloads:';
-    artifactsElement.appendChild(heading);
+    const notifications = [
+        {
+            type: 'provider',
+            icon: '🩺',
+            title: 'Results Ready for Review',
+            message: 'Mammogram results are available. Patient screening completed successfully.',
+            metadata: 'Priority: Normal | Next screening: 24 months'
+        },
+        {
+            type: 'patient',
+            icon: '🙂',
+            title: 'Your Results Are Available',
+            message: 'Good news! Your mammogram shows no signs of concern.',
+            metadata: 'Access via Patient Portal | Next appointment: Auto-scheduled'
+        },
+        {
+            type: 'care-manager',
+            icon: '📅',
+            title: 'Follow-up Scheduled',
+            message: 'BCS gap closed. Next screening reminder set for January 2027.',
+            metadata: 'Action: Auto-reminder created | Priority: Routine'
+        }
+    ];
     
-    // Create list
-    const list = document.createElement('ul');
-    list.className = 'artifact-list';
+    const notification = notifications[Math.floor(Math.random() * notifications.length)];
+    addNotification(notification);
+}
+
+function addNotification(notification) {
+    if (!elements.notificationList) return;
     
-    artifacts.forEach((artifact, index) => {
-        const fileName = artifact.file?.name || `artifact-${index}.json`;
-        const taskId = 'demo-task'; // Simple task ID for demo
-        
-        // Create list item
-        const listItem = document.createElement('li');
-        listItem.className = 'artifact-item';
-        
-        // Create download link
-        const link = document.createElement('a');
-        link.href = `/artifacts/${taskId}/${fileName}`;
-        link.download = fileName;
-        link.className = 'artifact-link';
-        link.textContent = `📄 ${fileName}`;
-        
-        // Create type info
-        const typeInfo = document.createElement('small');
-        typeInfo.className = 'artifact-type';
-        typeInfo.textContent = `(${artifact.file?.mimeType || 'application/json'})`;
-        
-        // Assemble list item
-        listItem.appendChild(link);
-        listItem.appendChild(typeInfo);
-        list.appendChild(listItem);
+    // Remove "no notifications" message
+    const noNotifications = elements.notificationList.querySelector('.text-center');
+    if (noNotifications) noNotifications.remove();
+    
+    const notificationDiv = document.createElement('div');
+    notificationDiv.className = 'notification-item border rounded p-3 mb-2';
+    notificationDiv.innerHTML = `
+        <div class="d-flex align-items-start">
+            <div class="notification-icon ${notification.type} me-3">${notification.icon}</div>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                    <h6 class="notification-title mb-0">${notification.title}</h6>
+                    <small class="notification-timestamp text-muted">${new Date().toLocaleTimeString()}</small>
+                </div>
+                <p class="notification-message mb-1">${notification.message}</p>
+                <div class="notification-metadata small text-muted">${notification.metadata}</div>
+            </div>
+        </div>
+    `;
+    
+    elements.notificationList.appendChild(notificationDiv);
+}
+
+function hideAllCards() {
+    [
+        elements.eligibilityCard,
+        elements.patientCard,
+        elements.schedulerCard,
+        elements.gapClosureCard
+    ].forEach(card => {
+        if (card) card.classList.add('d-none');
     });
-    
-    artifactsElement.appendChild(list);
 }
 
-function resetDemo() {
-    // Close SSE connection
-    if (eventSource) {
-        eventSource.close();
-        eventSource = null;
-    }
-    
-    // Reset state
-    conversationId = null;
-    artifacts = [];
-    
-    // Clear current context
-    updateCurrentContext(null);
-    
-    // Reset UI
-    clearTranscript();
-    clearArtifacts();
-    
-    startDemoBtn.disabled = false;
-    sendApplicantInfoBtn.disabled = true;
-    
-    addMessage('system', 'Demo reset');
-}
-
-function clearTranscript() {
-    transcriptElement.textContent = '';
-    const noMessagesP = document.createElement('p');
-    noMessagesP.className = 'no-messages';
-    noMessagesP.textContent = 'No messages yet. Click "Start Demo" to begin.';
-    transcriptElement.appendChild(noMessagesP);
-}
-
-function clearArtifacts() {
-    artifacts = [];
-    artifactsElement.textContent = '';
-    const noArtifactsP = document.createElement('p');
-    noArtifactsP.className = 'no-artifacts';
-    noArtifactsP.textContent = 'No artifacts available';
-    artifactsElement.appendChild(noArtifactsP);
+function showError(message) {
+    console.error(message);
+    // Could implement toast notifications here
 }
 
 function escapeHtml(text) {
@@ -626,1056 +873,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// New functions for connectathon features
-
-async function loadConfig() {
-    try {
-        const response = await fetch('/api/config');
-        currentConfig = await response.json();
-        populateConfigControls();
-    } catch (error) {
-        console.error('Error loading config:', error);
-    }
-}
-
-async function loadScenarios() {
-    try {
-        const response = await fetch('/api/scenarios');
-        const data = await response.json();
-        scenarios = data.scenarios;
-        populateScenarioSelect(data.active);
-    } catch (error) {
-        console.error('Error loading scenarios:', error);
-    }
-}
-
-async function runSelftest() {
-    try {
-        const response = await fetch('/api/selftest');
-        const data = await response.json();
-        updateSelftestBadge(data.ok);
-    } catch (error) {
-        updateSelftestBadge(false);
-    }
-}
-
-async function loadRequirements() {
-    try {
-        const response = await fetch('/api/requirements');
-        const data = await response.json();
-        requirementsText.textContent = data.requirements;
-    } catch (error) {
-        requirementsText.textContent = 'Error loading requirements';
-    }
-}
-
-function populateConfigControls() {
-    // Set scenario
-    scenarioSelect.value = currentConfig.scenario?.active || 'bcse';
-    
-    // Set mode
-    const mode = currentConfig.mode?.role || 'full_stack';
-    modeRadios.forEach(radio => {
-        radio.checked = radio.value === mode;
-    });
-    
-    // Set simulation
-    adminProcessingMs.value = currentConfig.simulation?.admin_processing_ms || 1200;
-    errorInjectionRate.value = currentConfig.simulation?.error_injection_rate || 0;
-    capacityLimit.value = currentConfig.simulation?.capacity_limit || '';
-    
-    // Set protocol default
-    const protocolDefault = currentConfig.protocol?.default_transport || 'a2a';
-    protocolDefaultRadios.forEach(radio => {
-        radio.checked = radio.value === protocolDefault;
-    });
-}
-
-function populateScenarioSelect(activeScenario) {
-    scenarioSelect.innerHTML = '';
-    Object.entries(scenarios).forEach(([key, scenario]) => {
-        const option = document.createElement('option');
-        option.value = key;
-        option.textContent = scenario.label;
-        option.selected = key === activeScenario;
-        scenarioSelect.appendChild(option);
-    });
-}
-
-function updateSelftestBadge(success) {
-    selftestStatus.className = `badge ${success ? 'bg-success' : 'bg-danger'}`;
-    selftestStatus.textContent = success ? '✓ OK' : '✗ Failed';
-}
-
-async function saveSettings() {
-    try {
-        saveSettingsBtn.disabled = true;
-        saveSettingsBtn.textContent = 'Saving...';
-        
-        // Get values
-        const scenario = scenarioSelect.value;
-        const mode = document.querySelector('input[name="mode"]:checked').value;
-        const adminMs = parseInt(adminProcessingMs.value) || 1200;
-        const errorRate = parseFloat(errorInjectionRate.value) || 0;
-        const capacity = capacityLimit.value ? parseInt(capacityLimit.value) : null;
-        const protocolDefault = document.querySelector('input[name="protocol-default"]:checked').value;
-        
-        // Save all settings
-        await Promise.all([
-            fetch('/api/scenarios/activate', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: scenario})
-            }),
-            fetch('/api/mode', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({role: mode})
-            }),
-            fetch('/api/simulation', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    admin_processing_ms: adminMs,
-                    error_injection_rate: errorRate,
-                    capacity_limit: capacity
-                })
-            }),
-            fetch('/api/config', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    protocol: {default_transport: protocolDefault}
-                })
-            })
-        ]);
-        
-        // Reload config and requirements
-        await loadConfig();
-        await loadRequirements();
-        
-        // Reload transcript if conversation is active
-        if (conversationId) {
-            addMessage('system', 'Settings saved. Configuration updated.');
-        }
-        
-    } catch (error) {
-        console.error('Error saving settings:', error);
-        addMessage('system', `Error saving settings: ${error.message}`);
-    } finally {
-        saveSettingsBtn.disabled = false;
-        saveSettingsBtn.textContent = 'Save Settings';
-    }
-}
-
-async function resetConfig() {
-    try {
-        resetConfigBtn.disabled = true;
-        resetConfigBtn.textContent = 'Resetting...';
-        
-        await fetch('/api/config/reset', {method: 'POST'});
-        await fetch('/api/admin/reset', {method: 'POST'});
-        
-        await loadConfig();
-        await loadRequirements();
-        
-        // Clear UI
-        clearTranscript();
-        clearArtifacts();
-        conversationId = null;
-        
-        addMessage('system', 'Configuration and stores reset to defaults.');
-    } catch (error) {
-        console.error('Error resetting config:', error);
-        addMessage('system', `Error resetting config: ${error.message}`);
-    } finally {
-        resetConfigBtn.disabled = false;
-        resetConfigBtn.textContent = 'Reset Config';
-    }
-}
-
-async function fillExamples() {
-    try {
-        const activeScenario = scenarioSelect.value;
-        const scenario = scenarios[activeScenario];
-        if (scenario && scenario.examples && scenario.examples.length > 0) {
-            applicantPayload.value = JSON.stringify(scenario.examples[0], null, 2);
-            validatePayload();
-        }
-    } catch (error) {
-        console.error('Error filling examples:', error);
-    }
-}
-
-function validatePayload() {
-    const value = applicantPayload.value.trim();
-    if (!value) {
-        payloadError.style.display = 'none';
-        return true;
-    }
-    
-    try {
-        JSON.parse(value);
-        payloadError.style.display = 'none';
-        return true;
-    } catch (error) {
-        payloadError.textContent = `Invalid JSON: ${error.message}`;
-        payloadError.style.display = 'block';
-        return false;
-    }
-}
-
-async function onScenarioChange() {
-    await loadRequirements();
-}
-
-async function exportTranscript() {
-    if (!conversationId) {
-        addMessage('system', 'No active conversation to export');
-        return;
-    }
-    
-    try {
-        exportTranscriptBtn.disabled = true;
-        exportTranscriptBtn.textContent = 'Exporting...';
-        
-        const [transcriptResponse, artifactsResponse] = await Promise.all([
-            fetch(`/api/admin/transcript/${conversationId}`),
-            fetch(`/api/admin/artifacts/${conversationId}`)
-        ]);
-        
-        const transcript = await transcriptResponse.json();
-        const artifactsList = await artifactsResponse.json();
-        
-        // Download transcript
-        downloadJson(transcript, `transcript_${conversationId}.json`);
-        
-        // Show artifact info
-        addMessage('system', `Transcript exported. Available artifacts: ${artifactsList.artifacts.map(a => a.name).join(', ')}`);
-        
-    } catch (error) {
-        console.error('Error exporting:', error);
-        addMessage('system', `Error exporting: ${error.message}`);
-    } finally {
-        exportTranscriptBtn.disabled = false;
-        exportTranscriptBtn.textContent = 'Export Transcript & Artifacts';
-    }
-}
-
-function downloadJson(data, filename) {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-// FHIR Connection Functionality
-let currentPatientData = null;
-
-function saveFhirConfig() {
-    console.log('FHIR Config: Save button clicked');
-    const baseUrl = document.getElementById('fhir-base-url').value;
-    const token = document.getElementById('fhir-token').value;
-    const statusDiv = document.getElementById('fhir-status');
-    
-    console.log('FHIR Config: Base URL =', baseUrl);
-    
-    if (!baseUrl) {
-        showFhirStatus('Please enter a FHIR base URL', 'danger');
-        return;
-    }
-    
-    const config = { base: baseUrl };
-    if (token) config.token = token;
-    
-    fetch('/api/fhir/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.ok) {
-            showFhirStatus('FHIR configuration saved successfully', 'success');
-        } else {
-            showFhirStatus('Error: ' + data.error, 'danger');
-        }
-    })
-    .catch(error => showFhirStatus('Network error: ' + error.message, 'danger'));
-}
-
-function testCapabilities() {
-    console.log('FHIR Config: Test capabilities button clicked');
-    const capabilitiesDiv = document.getElementById('capabilities-display');
-    showFhirStatus('Testing FHIR server capabilities...', 'info');
-    
-    fetch('/api/fhir/capabilities')
-    .then(response => response.json())
-    .then(data => {
-        if (data.fhirVersion) {
-            const mode = data.rest && data.rest[0] ? data.rest[0].mode : 'unknown';
-            capabilitiesDiv.innerHTML = `✅ FHIR ${data.fhirVersion} (${mode} mode)`;
-            capabilitiesDiv.classList.remove('d-none');
-            showFhirStatus('FHIR server capabilities verified', 'success');
-        } else if (data.ok === false) {
-            showFhirStatus('Error: ' + data.error, 'danger');
-        } else {
-            showFhirStatus('Capabilities received but version unclear', 'warning');
-        }
-    })
-    .catch(error => showFhirStatus('Error testing capabilities: ' + error.message, 'danger'));
-}
-
-function searchPatient() {
-    console.log('FHIR Config: Search patient button clicked');
-    const searchTerm = document.getElementById('patient-search').value;
-    const resultsDiv = document.getElementById('patient-results');
-    console.log('FHIR Config: Search term =', searchTerm);
-    
-    if (!searchTerm) {
-        showFhirStatus('Please enter a name or identifier to search', 'warning');
-        return;
-    }
-    
-    showFhirStatus('Searching for patients...', 'info');
-    
-    // Determine if search term looks like an identifier or name
-    const isIdentifier = /^[a-zA-Z0-9_-]+$/.test(searchTerm) && !/ /.test(searchTerm);
-    const searchParam = isIdentifier ? `identifier=${searchTerm}` : `name=${searchTerm}`;
-    
-    fetch(`/api/fhir/patients?${searchParam}`)
-    .then(response => response.json())
-    .then(data => {
-        if (data.ok === false) {
-            showFhirStatus('Error: ' + data.error, 'danger');
-            return;
-        }
-        
-        if (data.entry && data.entry.length > 0) {
-            displayPatientResults(data.entry);
-            showFhirStatus(`Found ${data.entry.length} patient(s)`, 'success');
-        } else {
-            resultsDiv.innerHTML = '<small class="text-muted">No patients found</small>';
-            showFhirStatus('No patients found', 'warning');
-        }
-    })
-    .catch(error => showFhirStatus('Error searching patients: ' + error.message, 'danger'));
-}
-
-function displayPatientResults(patients) {
-    const resultsDiv = document.getElementById('patient-results');
-    
-    let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr>';
-    html += '<th>ID</th><th>Display</th><th>Action</th></tr></thead><tbody>';
-    
-    patients.forEach(entry => {
-        const patient = entry.resource;
-        const id = patient.id;
-        const name = patient.name && patient.name[0] ? 
-            `${patient.name[0].given ? patient.name[0].given.join(' ') : ''} ${patient.name[0].family || ''}`.trim() :
-            'No name';
-        const birthDate = patient.birthDate || 'Unknown';
-        const display = `${name} (${birthDate})`;
-        
-        html += `<tr>
-            <td><code>${id}</code></td>
-            <td>${display}</td>
-            <td>
-                <button class="btn btn-outline-primary btn-xs" onclick="ingestPatientData('${id}')">
-                    <i data-feather="download" width="14" height="14"></i> Ingest $everything
-                </button>
-            </td>
-        </tr>`;
-    });
-    
-    html += '</tbody></table></div>';
-    resultsDiv.innerHTML = html;
-    feather.replace(); // Re-initialize feather icons
-}
-
-function ingestPatientData(patientId) {
-    showFhirStatus(`Ingesting patient data for ${patientId}...`, 'info');
-    
-    fetch(`/api/fhir/patient/${patientId}/everything`)
-    .then(response => response.json())
-    .then(data => {
-        if (data.ok === false) {
-            showFhirStatus('Error: ' + data.error, 'danger');
-            return;
-        }
-        
-        // Store patient data in client variable
-        currentPatientData = data;
-        
-        // Also send to ingest endpoint
-        return fetch('/api/ingest', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ patientData: data, patientId: patientId })
-        });
-    })
-    .then(response => response.json())
-    .then(ingestResult => {
-        if (ingestResult && ingestResult.ok !== false) {
-            showFhirStatus(`✅ Patient ${patientId} data ingested successfully`, 'success');
-        } else {
-            showFhirStatus(`Patient data retrieved but ingest failed: ${ingestResult ? ingestResult.error : 'Unknown error'}`, 'warning');
-        }
-    })
-    .catch(error => showFhirStatus('Error ingesting patient data: ' + error.message, 'danger'));
-}
-
-function showFhirStatus(message, type) {
-    const statusDiv = document.getElementById('fhir-status');
-    statusDiv.className = `alert alert-${type}`;
-    statusDiv.textContent = message;
-    statusDiv.classList.remove('d-none');
-    
-    // Auto-hide success/info messages after 5 seconds
-    if (type === 'success' || type === 'info') {
-        setTimeout(() => {
-            statusDiv.classList.add('d-none');
-        }, 5000);
-    }
-}
-
-// FHIR Payload Integration Functions
-let ingestedFhirData = null;
-
-function handleFhirToggleChange() {
-    const useFhirToggle = document.getElementById('use-ingested-fhir');
-    const applicantPayload = document.getElementById('applicant-payload');
-    
-    if (useFhirToggle.checked && ingestedFhirData) {
-        // Populate textarea with ingested payload
-        applicantPayload.value = JSON.stringify(ingestedFhirData.applicant_payload, null, 2);
-        applicantPayload.placeholder = 'Ingested FHIR data (editable)';
-        showFhirSourceChip(ingestedFhirData);
-    } else {
-        // Clear or reset to default
-        applicantPayload.value = '';
-        applicantPayload.placeholder = '{"age": 56, "sex": "female", "birthDate": "1968-01-15"}';
-        hideFhirSourceChip();
-    }
-    validatePayload();
-}
-
-function showFhirSourceChip(data) {
-    const chip = document.getElementById('fhir-source-chip');
-    const text = document.getElementById('fhir-source-text');
-    
-    if (chip && text && data.ingested_at) {
-        const timestamp = new Date(data.ingested_at).toLocaleString();
-        text.textContent = `Source: FHIR $everything @ ${timestamp}`;
-        chip.classList.remove('d-none');
-        
-        // Re-initialize feather icons for the chip
-        if (typeof feather !== 'undefined') {
-            feather.replace();
-        }
-    }
-}
-
-function hideFhirSourceChip() {
-    const chip = document.getElementById('fhir-source-chip');
-    if (chip) {
-        chip.classList.add('d-none');
-    }
-}
-
-function updateFhirToggleState() {
-    // Check if there's any ingested FHIR data available
-    fetch('/api/ingested/latest')
-    .then(response => response.json())
-    .then(data => {
-        if (data.ok && data.data) {
-            ingestedFhirData = data.data;
-            const useFhirToggle = document.getElementById('use-ingested-fhir');
-            if (useFhirToggle) {
-                useFhirToggle.disabled = false;
-                // Show source chip if toggle is already checked
-                if (useFhirToggle.checked) {
-                    showFhirSourceChip(ingestedFhirData);
-                }
-            }
-        } else {
-            // No ingested data available
-            const useFhirToggle = document.getElementById('use-ingested-fhir');
-            if (useFhirToggle) {
-                useFhirToggle.disabled = true;
-                useFhirToggle.checked = false;
-                hideFhirSourceChip();
-            }
-        }
-    })
-    .catch(error => {
-        console.log('No ingested FHIR data available');
-        const useFhirToggle = document.getElementById('use-ingested-fhir');
-        if (useFhirToggle) {
-            useFhirToggle.disabled = true;
-            useFhirToggle.checked = false;
-            hideFhirSourceChip();
-        }
-    });
-}
-
-function validatePayload() {
-    const applicantPayload = document.getElementById('applicant-payload');
-    const payloadError = document.getElementById('payload-error');
-    
-    if (!applicantPayload || !payloadError) return true;
-    
-    const value = applicantPayload.value.trim();
-    if (!value) {
-        payloadError.style.display = 'none';
-        return true;
-    }
-    
-    try {
-        JSON.parse(value);
-        payloadError.style.display = 'none';
-        return true;
-    } catch (error) {
-        payloadError.textContent = `Invalid JSON: ${error.message}`;
-        payloadError.style.display = 'block';
-        return false;
-    }
-}
-
-// Update ingest patient function to refresh toggle state
-function ingestPatientData(patientId) {
-    showFhirStatus(`Ingesting patient data for ${patientId}...`, 'info');
-    
-    fetch(`/api/fhir/patient/${patientId}/everything`)
-    .then(response => response.json())
-    .then(data => {
-        if (data.ok === false) {
-            showFhirStatus('Error: ' + data.error, 'danger');
-            return;
-        }
-        
-        // Store patient data in client variable
-        currentPatientData = data;
-        
-        // Also send to ingest endpoint
-        return fetch('/api/ingest', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ patientData: data, patientId: patientId })
-        });
-    })
-    .then(response => response.json())
-    .then(ingestResult => {
-        if (ingestResult && ingestResult.ok !== false) {
-            showFhirStatus(`✅ Patient ${patientId} data ingested successfully`, 'success');
-            // Store the ingested data for the toggle
-            ingestedFhirData = ingestResult;
-            // Update toggle state
-            updateFhirToggleState();
-        } else {
-            showFhirStatus(`Patient data retrieved but ingest failed: ${ingestResult ? ingestResult.error : 'Unknown error'}`, 'warning');
-        }
-    })
-    .catch(error => showFhirStatus('Error ingesting patient data: ' + error.message, 'danger'));
-}
-
-// Narrative to JSON Functions
-let generatedSchema = null;
-
-function convertNarrativeToJson() {
-    const narrativeText = document.getElementById('narrative-text').value.trim();
-    const convertBtn = document.getElementById('convert-narrative-btn');
-    const generatedJsonTextarea = document.getElementById('generated-json');
-    const applyBtn = document.getElementById('apply-schema-btn');
-    
-    if (!narrativeText) {
-        showNarrativeStatus('Please enter a scenario narrative to convert', 'warning');
-        return;
-    }
-    
-    // Disable button and show loading
-    convertBtn.disabled = true;
-    convertBtn.innerHTML = '<i data-feather="loader" class="me-2 spinning"></i> Converting...';
-    showNarrativeStatus('Converting narrative with Claude...', 'info');
-    
-    fetch('/api/scenarios/narrative', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: narrativeText })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.ok) {
-            generatedSchema = data.generated_schema;
-            generatedJsonTextarea.value = JSON.stringify(generatedSchema, null, 2);
-            applyBtn.disabled = false;
-            showNarrativeStatus('✅ Narrative converted successfully! Review the schema and apply to scenario.', 'success');
-        } else {
-            if (data.requires_key) {
-                showNarrativeStatus('⚠️ ' + data.error + '. Please set the ANTHROPIC_API_KEY environment variable.', 'danger');
-            } else {
-                showNarrativeStatus('Error: ' + data.error, 'danger');
-            }
-            generatedJsonTextarea.value = '';
-            applyBtn.disabled = true;
-            generatedSchema = null;
-        }
-    })
-    .catch(error => {
-        showNarrativeStatus('Network error: ' + error.message, 'danger');
-        generatedJsonTextarea.value = '';
-        applyBtn.disabled = true;
-        generatedSchema = null;
-    })
-    .finally(() => {
-        // Re-enable button and reset text
-        convertBtn.disabled = false;
-        convertBtn.innerHTML = '<i data-feather="cpu" class="me-2"></i> Convert with Claude';
-        
-        // Re-initialize feather icons
-        if (typeof feather !== 'undefined') {
-            feather.replace();
-        }
-    });
-}
-
-function applyGeneratedSchema() {
-    if (!generatedSchema) {
-        showNarrativeStatus('No schema to apply', 'warning');
-        return;
-    }
-    
-    const applyBtn = document.getElementById('apply-schema-btn');
-    applyBtn.disabled = true;
-    applyBtn.innerHTML = '<i data-feather="loader" class="me-2 spinning"></i> Applying...';
-    showNarrativeStatus('Applying schema to active scenario...', 'info');
-    
-    fetch('/api/scenarios/options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(generatedSchema)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.ok) {
-            showNarrativeStatus('✅ Schema applied to active scenario successfully!', 'success');
-        } else {
-            showNarrativeStatus('Error applying schema: ' + data.error, 'danger');
-        }
-    })
-    .catch(error => {
-        showNarrativeStatus('Network error: ' + error.message, 'danger');
-    })
-    .finally(() => {
-        // Re-enable button and reset text
-        applyBtn.disabled = false;
-        applyBtn.innerHTML = '<i data-feather="check" class="me-2"></i> Apply to Active Scenario';
-        
-        // Re-initialize feather icons
-        if (typeof feather !== 'undefined') {
-            feather.replace();
-        }
-    });
-}
-
-function showNarrativeStatus(message, type) {
-    const statusDiv = document.getElementById('narrative-status');
-    if (statusDiv) {
-        statusDiv.className = `alert alert-${type}`;
-        statusDiv.textContent = message;
-        statusDiv.classList.remove('d-none');
-        
-        // Auto-hide success/info messages after 5 seconds
-        if (type === 'success' || type === 'info') {
-            setTimeout(() => {
-                statusDiv.classList.add('d-none');
-            }, 5000);
-        }
-    }
-}
-
-// Prove It Panel Functions
-let currentTraceData = null;
-
-function refreshTrace() {
-    const contextId = document.getElementById('trace-context-id').value.trim();
-    const refreshBtn = document.getElementById('refresh-trace-btn');
-    const traceEventsDiv = document.getElementById('trace-events');
-    
-    if (!contextId) {
-        showTraceStatus('Please enter a context ID to view trace data', 'warning');
-        return;
-    }
-    
-    // Show loading state
-    refreshBtn.disabled = true;
-    refreshBtn.innerHTML = '<i data-feather="loader" class="me-1 spinning"></i> Loading...';
-    showTraceStatus('Loading trace data...', 'info');
-    
-    fetch(`/api/trace/${encodeURIComponent(contextId)}`)
-    .then(response => response.json())
-    .then(data => {
-        if (data.ok) {
-            currentTraceData = data;
-            displayTraceEvents(data.events);
-            showTraceStatus(`Loaded ${data.count} trace events for context ${contextId}`, 'success');
-        } else {
-            showTraceStatus('Error: ' + data.error, 'danger');
-            traceEventsDiv.innerHTML = `
-                <div class="text-center text-muted">
-                    <i data-feather="alert-circle" size="48" class="mb-3"></i>
-                    <p>Failed to load trace data</p>
-                    <small>${data.error}</small>
-                </div>
-            `;
-        }
-    })
-    .catch(error => {
-        showTraceStatus('Network error: ' + error.message, 'danger');
-        traceEventsDiv.innerHTML = `
-            <div class="text-center text-muted">
-                <i data-feather="wifi-off" size="48" class="mb-3"></i>
-                <p>Network error loading trace data</p>
-            </div>
-        `;
-    })
-    .finally(() => {
-        // Reset button state
-        refreshBtn.disabled = false;
-        refreshBtn.innerHTML = '<i data-feather="refresh-cw" class="me-1"></i> Refresh';
-        
-        // Re-initialize feather icons
-        if (typeof feather !== 'undefined') {
-            feather.replace();
-        }
-    });
-}
-
-function displayTraceEvents(events) {
-    const traceEventsDiv = document.getElementById('trace-events');
-    
-    if (!events || events.length === 0) {
-        traceEventsDiv.innerHTML = `
-            <div class="text-center text-muted">
-                <i data-feather="activity" size="48" class="mb-3"></i>
-                <p>No trace events found for this context</p>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '<div class="trace-timeline">';
-    
-    events.forEach((event, index) => {
-        const timestamp = new Date(event.timestamp).toLocaleTimeString();
-        const actorIcon = getActorIcon(event.actor);
-        const actionBadge = getActionBadge(event.action);
-        
-        html += `
-            <div class="trace-event mb-3 p-3 border-start border-3 ${getActorBorderColor(event.actor)}">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="d-flex align-items-center">
-                        <i data-feather="${actorIcon}" class="me-2" width="16" height="16"></i>
-                        <strong class="me-2">${event.actor}</strong>
-                        ${actionBadge}
-                    </div>
-                    <small class="text-muted">${timestamp}</small>
-                </div>
-                
-                <div class="trace-details">
-                    ${formatTraceDetail(event.detail)}
-                </div>
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    traceEventsDiv.innerHTML = html;
-    
-    // Re-initialize feather icons
-    if (typeof feather !== 'undefined') {
-        feather.replace();
-    }
-}
-
-function getActorIcon(actor) {
-    const icons = {
-        'applicant': 'user',
-        'administrator': 'shield',
-        'scenario': 'target',
-        'system': 'cpu'
-    };
-    return icons[actor] || 'circle';
-}
-
-function getActorBorderColor(actor) {
-    const colors = {
-        'applicant': 'border-primary',
-        'administrator': 'border-success', 
-        'scenario': 'border-warning',
-        'system': 'border-info'
-    };
-    return colors[actor] || 'border-secondary';
-}
-
-function getActionBadge(action) {
-    const badges = {
-        'evaluate_start': '<span class="badge bg-warning text-dark">Evaluate Start</span>',
-        'evaluate_complete': '<span class="badge bg-success">Evaluate Complete</span>',
-        'evaluate_error': '<span class="badge bg-danger">Evaluate Error</span>',
-        'wire_inbound': '<span class="badge bg-info">Wire In</span>',
-        'wire_outbound': '<span class="badge bg-secondary">Wire Out</span>',
-        'decision': '<span class="badge bg-primary">Decision</span>'
-    };
-    return badges[action] || `<span class="badge bg-light text-dark">${action}</span>`;
-}
-
-function formatTraceDetail(detail) {
-    if (!detail || typeof detail !== 'object') {
-        return '<em>No details</em>';
-    }
-    
-    let html = '<div class="trace-detail-grid">';
-    
-    for (const [key, value] of Object.entries(detail)) {
-        let displayValue = value;
-        
-        // Format different types of values
-        if (typeof value === 'object') {
-            displayValue = `<pre class="small mb-0">${JSON.stringify(value, null, 2)}</pre>`;
-        } else if (typeof value === 'boolean') {
-            displayValue = `<span class="badge ${value ? 'bg-success' : 'bg-danger'}">${value}</span>`;
-        } else if (key.includes('size') && typeof value === 'number') {
-            displayValue = `${value} bytes`;
-        }
-        
-        html += `
-            <div class="row mb-1">
-                <div class="col-4"><strong>${key}:</strong></div>
-                <div class="col-8">${displayValue}</div>
-            </div>
-        `;
-    }
-    
-    html += '</div>';
-    return html;
-}
-
-function downloadTrace() {
-    if (!currentTraceData) {
-        showTraceStatus('No trace data to download. Refresh trace first.', 'warning');
-        return;
-    }
-    
-    const dataStr = JSON.stringify(currentTraceData, null, 2);
-    const dataBlob = new Blob([dataStr], {type: 'application/json'});
-    const url = URL.createObjectURL(dataBlob);
-    
-    const downloadLink = document.createElement('a');
-    downloadLink.href = url;
-    downloadLink.download = `trace-${currentTraceData.context_id}-${new Date().toISOString().slice(0,10)}.json`;
-    
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    
-    URL.revokeObjectURL(url);
-    showTraceStatus('Trace data downloaded successfully', 'success');
-}
-
-function showTraceStatus(message, type) {
-    const statusDiv = document.getElementById('trace-status');
-    if (statusDiv) {
-        statusDiv.className = `alert alert-${type}`;
-        statusDiv.textContent = message;
-        statusDiv.classList.remove('d-none');
-        
-        // Auto-hide success/info messages after 3 seconds
-        if (type === 'success' || type === 'info') {
-            setTimeout(() => {
-                statusDiv.classList.add('d-none');
-            }, 3000);
-        }
-    }
-}
-
-// Utility function for debouncing input events
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// Room Export/Import Functions
-let currentContextId = null;
-let selectedImportFile = null;
-
-function updateCurrentContext(contextId) {
-    currentContextId = contextId;
-    const contextInput = document.getElementById('current-context-id');
-    const exportBtn = document.getElementById('export-room-btn');
-    const traceContextInput = document.getElementById('trace-context-id');
-    
-    if (contextInput) {
-        contextInput.value = contextId || '';
-    }
-    if (exportBtn) {
-        exportBtn.disabled = !contextId;
-    }
-    if (traceContextInput && contextId) {
-        traceContextInput.value = contextId;
-    }
-}
-
-function exportRoom() {
-    if (!currentContextId) {
-        showRoomStatus('No active context to export', 'warning');
-        return;
-    }
-    
-    const exportBtn = document.getElementById('export-room-btn');
-    exportBtn.disabled = true;
-    exportBtn.innerHTML = '<i data-feather="loader" class="me-2 spinning"></i> Exporting...';
-    showRoomStatus('Exporting room data...', 'info');
-    
-    fetch(`/api/room/export/${encodeURIComponent(currentContextId)}`)
-    .then(response => response.json())
-    .then(data => {
-        if (data.ok) {
-            // Download the exported data as JSON file
-            const dataStr = JSON.stringify(data.export_data, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(dataBlob);
-            
-            const downloadLink = document.createElement('a');
-            downloadLink.href = url;
-            downloadLink.download = `room-export-${currentContextId}-${new Date().toISOString().slice(0,10)}.json`;
-            
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
-            
-            URL.revokeObjectURL(url);
-            showRoomStatus('✅ Room exported successfully! Check your downloads.', 'success');
-        } else {
-            showRoomStatus('Export error: ' + data.error, 'danger');
-        }
-    })
-    .catch(error => {
-        showRoomStatus('Network error: ' + error.message, 'danger');
-    })
-    .finally(() => {
-        exportBtn.disabled = false;
-        exportBtn.innerHTML = '<i data-feather="download" class="me-2"></i> Export Room';
-        
-        if (typeof feather !== 'undefined') {
-            feather.replace();
-        }
-    });
-}
-
-function handleImportFileSelection(event) {
-    selectedImportFile = event.target.files[0];
-    const importBtn = document.getElementById('import-room-btn');
-    
-    if (importBtn) {
-        importBtn.disabled = !selectedImportFile;
-    }
-    
-    if (selectedImportFile) {
-        showRoomStatus(`Selected: ${selectedImportFile.name}`, 'info');
-    }
-}
-
-function importRoom() {
-    if (!selectedImportFile) {
-        showRoomStatus('Please select a JSON file to import', 'warning');
-        return;
-    }
-    
-    const importBtn = document.getElementById('import-room-btn');
-    importBtn.disabled = true;
-    importBtn.innerHTML = '<i data-feather="loader" class="me-2 spinning"></i> Importing...';
-    showRoomStatus('Reading and importing room data...', 'info');
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const importData = JSON.parse(e.target.result);
-            
-            // Send import data to server
-            fetch('/api/room/import', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ export_data: importData })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.ok) {
-                    // Update current context to the new imported context
-                    updateCurrentContext(data.new_context_id);
-                    
-                    showRoomStatus(`✅ Room imported successfully! New context: ${data.new_context_id}`, 'success');
-                    
-                    // Reset file input
-                    const fileInput = document.getElementById('import-file');
-                    if (fileInput) {
-                        fileInput.value = '';
-                    }
-                    selectedImportFile = null;
-                } else {
-                    showRoomStatus('Import error: ' + data.error, 'danger');
-                }
-            })
-            .catch(error => {
-                showRoomStatus('Network error: ' + error.message, 'danger');
-            })
-            .finally(() => {
-                importBtn.disabled = !selectedImportFile;
-                importBtn.innerHTML = '<i data-feather="upload" class="me-2"></i> Import Room';
-                
-                if (typeof feather !== 'undefined') {
-                    feather.replace();
-                }
-            });
-            
-        } catch (parseError) {
-            showRoomStatus('Invalid JSON file: ' + parseError.message, 'danger');
-            importBtn.disabled = false;
-            importBtn.innerHTML = '<i data-feather="upload" class="me-2"></i> Import Room';
-        }
-    };
-    
-    reader.onerror = function() {
-        showRoomStatus('Error reading file', 'danger');
-        importBtn.disabled = false;
-        importBtn.innerHTML = '<i data-feather="upload" class="me-2"></i> Import Room';
-    };
-    
-    reader.readAsText(selectedImportFile);
-}
-
-function showRoomStatus(message, type) {
-    const statusDiv = document.getElementById('room-status');
-    if (statusDiv) {
-        statusDiv.className = `alert alert-${type}`;
-        statusDiv.textContent = message;
-        statusDiv.classList.remove('d-none');
-        
-        // Auto-hide success/info messages after 5 seconds
-        if (type === 'success' || type === 'info') {
-            setTimeout(() => {
-                statusDiv.classList.add('d-none');
-            }, 5000);
-        }
-    }
+async function testFhirConnection() {
+    console.log("Testing FHIR connection - placeholder");
+    showError("FHIR connection testing not yet implemented");
 }
