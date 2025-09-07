@@ -6,85 +6,12 @@ body {
     padding: 0;
     background-color: #1a1a1a;
     color: #e0e0e0;
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
 
-/* Header */
-.header {
-    background-color: #2a2a2a;
-    padding: 1rem;
-    border-bottom: 1px solid #444;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.header h1 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: #fff;
-}
-
-.protocol-toggle {
-    display: flex;
-    gap: 1rem;
-}
-
-.protocol-toggle label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-}
-
-.protocol-toggle label:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Main Content - Three Column Layout */
-.main-content {
-    flex: 1;
-    display: flex;
-    min-height: 0;
-}
-
-.left-pane {
-    flex: 1;
-    padding: 1rem;
-    border-right: 1px solid #444;
-    display: flex;
-    flex-direction: column;
-}
-
-.center-pane {
-    flex: 1;
-    padding: 1rem;
-    border-right: 1px solid #444;
-    display: flex;
-    flex-direction: column;
-}
-
-.right-pane {
-    width: 350px;
-    padding: 1rem;
-    background-color: #2a2a2a;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-}
-
-.left-pane h2, .center-pane h2, .right-pane h2 {
-    margin: 0 0 1rem 0;
-    font-size: 1.2rem;
-    color: #fff;
-    border-bottom: 1px solid #444;
-    padding-bottom: 0.5rem;
-}
+/* Legacy styles removed - using BCS demo styles below */
 
 /* Transcript */
 .transcript {
@@ -375,7 +302,8 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    padding-bottom: 80px; /* Space for control bar */
+    padding-bottom: 100px; /* Space for control bar */
+    overflow-x: hidden;
 }
 
 /* Stage Wizard Navigation */
@@ -386,8 +314,11 @@ body {
 }
 
 .wizard-steps {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .wizard-step {
@@ -399,6 +330,8 @@ body {
     border-radius: 8px;
     transition: all 0.2s;
     position: relative;
+    flex: 1;
+    min-width: 120px;
 }
 
 .wizard-step:not(:last-child)::after {
@@ -590,11 +523,37 @@ body {
     margin-bottom: 1rem;
     border: 1px solid #444;
     background-color: #1a1a1a;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .outcome-card .card-header {
-    background-color: #2a2a2a;
+    background-color: #2a2a2a !important;
     border-bottom: 1px solid #444;
+    padding: 0.75rem 1rem;
+}
+
+.outcome-card .card-body {
+    padding: 1rem;
+    background-color: #1a1a1a !important;
+}
+
+/* Ensure Bootstrap cards work with our theme */
+.card {
+    background-color: #1a1a1a !important;
+    border: 1px solid #444 !important;
+    color: #e0e0e0 !important;
+}
+
+.card-header {
+    background-color: #2a2a2a !important;
+    border-bottom: 1px solid #444 !important;
+    color: #fff !important;
+}
+
+.card-body {
+    background-color: #1a1a1a !important;
+    color: #e0e0e0 !important;
 }
 
 /* Eligibility Card */
@@ -707,7 +666,21 @@ body {
 @media (max-width: 768px) {
     .wizard-steps {
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.5rem;
+    }
+    
+    .wizard-step {
+        flex-direction: row;
+        justify-content: flex-start;
+        text-align: left;
+        min-width: auto;
+    }
+    
+    .wizard-step .step-number {
+        margin-bottom: 0;
+        margin-right: 1rem;
+        width: 30px;
+        height: 30px;
     }
     
     .wizard-step::after {
@@ -715,15 +688,19 @@ body {
     }
     
     .chat-container {
-        height: 400px;
+        height: 350px;
     }
     
     .main-container {
-        padding-bottom: 100px;
+        padding-bottom: 120px;
     }
     
     .control-bar .d-flex {
         flex-direction: column;
         gap: 1rem;
+    }
+    
+    .control-bar {
+        padding: 0.75rem;
     }
 }
