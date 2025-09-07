@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AgentInterOp - Language-First Healthcare Interoperability{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="/static/styles.css">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="header-brand">
+                    <h1 class="mb-0">AgentInterOp</h1>
+                    <small class="text-muted">Language-First Healthcare Interoperability</small>
+                </div>
+                
+                <!-- Navigation links -->
+                <nav class="header-nav">
+                    <a href="/" class="nav-link">Home</a>
+                    <a href="/bcse" class="nav-link">BCS Demo</a>
+                    <a href="/partner_connect" class="nav-link">Partner Connect</a>
+                    <a href="/test_harness" class="nav-link">Test Harness</a>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="helpDropdown" data-bs-toggle="dropdown">
+                            Help
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/healthz" target="_blank">Health Check</a></li>
+                            <li><a class="dropdown-item" href="/version" target="_blank">Version</a></li>
+                            <li><a class="dropdown-item" href="/.well-known/agent-card.json" target="_blank">Agent Card</a></li>
+                            <li><a class="dropdown-item" href="/api/selftest" target="_blank">Self Test</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/docs" target="_blank">API Docs</a></li>
+                        </ul>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    Multi-Agent Interoperability Platform | 
+                    <a href="https://github.com/aks129/AgentInterOp" target="_blank" class="text-muted">GitHub</a>
+                </small>
+                <small class="text-muted">
+                    Protocols: A2A JSON-RPC + MCP
+                </small>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script src="/static/app.js"></script>
+    
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

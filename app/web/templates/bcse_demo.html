@@ -1,0 +1,301 @@
+{% extends "layout.html" %}
+
+{% block title %}BCS Demo - AgentInterOp{% endblock %}
+
+{% block content %}
+<!-- 5-Stage Wizard Navigation -->
+<div class="stage-wizard-nav mb-4">
+    <div class="container-fluid">
+        <div class="wizard-steps d-flex justify-content-between">
+            <div class="wizard-step active" data-stage="eligibility">
+                <div class="step-number">1</div>
+                <div class="step-label">Eligibility</div>
+            </div>
+            <div class="wizard-step" data-stage="patient">
+                <div class="step-number">2</div>
+                <div class="step-label">Patient</div>
+            </div>
+            <div class="wizard-step" data-stage="order">
+                <div class="step-number">3</div>
+                <div class="step-label">Order</div>
+            </div>
+            <div class="wizard-step" data-stage="gap-closure">
+                <div class="step-number">4</div>
+                <div class="step-label">Gap Closure</div>
+            </div>
+            <div class="wizard-step" data-stage="next-steps">
+                <div class="step-number">5</div>
+                <div class="step-label">Next Appt & Results</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stage 1: Eligibility -->
+<div class="stage-panel" id="stage-eligibility">
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Left Column: Chat -->
+            <div class="col-lg-8">
+                <div class="conversation-tabs mb-3">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="provider-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#provider-conversation" type="button" role="tab">
+                                🩺 Provider ↔ Evaluator (A2A)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="patient-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#patient-conversation" type="button" role="tab">
+                                🙂 Patient ↔ Evaluator (A2A/MCP)
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="provider-conversation" role="tabpanel">
+                        {% set chat_id = "provider-chat" %}
+                        {% set title = "Provider Agent Conversation" %}
+                        {% include "partials/chat.html" %}
+                    </div>
+                    <div class="tab-pane fade" id="patient-conversation" role="tabpanel">
+                        {% set chat_id = "patient-chat" %}
+                        {% set title = "Patient Agent Conversation" %}
+                        {% include "partials/chat.html" %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Cards -->
+            <div class="col-lg-4">
+                {% include "partials/cards.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stage 2: Patient View -->
+<div class="stage-panel d-none" id="stage-patient">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Patient Data Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="patient-summary" id="patient-summary">
+                            <!-- Patient data will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Protocol Frames</h6>
+                    </div>
+                    <div class="card-body">
+                        <pre class="small text-muted" id="protocol-frames">No protocol data yet...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stage 3: Order -->
+<div class="stage-panel d-none" id="stage-order">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Create Service Request</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="order-form">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="facility-select" class="form-label">Facility</label>
+                                    <select class="form-select" id="facility-select" required>
+                                        <option value="">Choose facility...</option>
+                                        <option value="downtown-imaging">Downtown Imaging Center</option>
+                                        <option value="suburban-radiology">Suburban Radiology</option>
+                                        <option value="university-hospital">University Hospital</option>
+                                        <option value="community-clinic">Community Health Clinic</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="priority-select" class="form-label">Priority</label>
+                                    <select class="form-select" id="priority-select" required>
+                                        <option value="routine">Routine</option>
+                                        <option value="urgent">Urgent</option>
+                                        <option value="stat">STAT</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="preferred-date" class="form-label">Preferred Date</label>
+                                    <input type="date" class="form-control" id="preferred-date" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="date-window" class="form-label">Date Window (days)</label>
+                                    <select class="form-select" id="date-window">
+                                        <option value="7">Within 1 week</option>
+                                        <option value="14">Within 2 weeks</option>
+                                        <option value="30">Within 1 month</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="order-notes" class="form-label">Notes</label>
+                                <textarea class="form-control" id="order-notes" rows="3" 
+                                          placeholder="Any special instructions or notes..."></textarea>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary" id="submit-order-btn">
+                                    📋 Submit Service Request
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <!-- Service request and scheduler response cards will show here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stage 4: Gap Closure -->
+<div class="stage-panel d-none" id="stage-gap-closure">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">BCS Gap Closure Dashboard</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="gap-closure-status" id="gap-closure-status">
+                            <div class="text-center py-4">
+                                <div class="mb-3">
+                                    <div class="status-icon-large">⏳</div>
+                                </div>
+                                <h6>Waiting for BCS Completion</h6>
+                                <p class="text-muted">Once the mammogram procedure (CPT 77067) is completed, 
+                                   the gap closure will be automatically detected.</p>
+                                <div class="mt-3">
+                                    <button class="btn btn-success" id="simulate-gap-closure-btn">
+                                        🧪 Simulate BCS Completion
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <!-- Gap closure card will show here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stage 5: Next Steps & Results -->
+<div class="stage-panel d-none" id="stage-next-steps">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="results-cards">
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">📋 Provider Notification</h6>
+                            <span class="badge bg-primary">Ready</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="notification-preview">
+                                <p class="mb-2"><strong>BCS Results Available</strong></p>
+                                <p class="text-muted small">Mammogram results are ready for review. 
+                                   Patient screening completed successfully.</p>
+                                <div class="mt-2">
+                                    <small class="text-muted">Result: Normal | Next screening: 24 months</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">🙂 Patient Notification</h6>
+                            <span class="badge bg-success">Ready</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="notification-preview">
+                                <p class="mb-2"><strong>Your mammogram results are available</strong></p>
+                                <p class="text-muted small">Good news! Your mammogram shows no signs of concern. 
+                                   Your next screening is recommended in 2 years.</p>
+                                <div class="mt-2">
+                                    <small class="text-muted">Access: Patient Portal | Next appt: Auto-scheduled</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">📅 Care Manager Notification</h6>
+                            <span class="badge bg-info">Ready</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="notification-preview">
+                                <p class="mb-2"><strong>BCS Gap Closed - Schedule Follow-up</strong></p>
+                                <p class="text-muted small">Patient completed breast cancer screening. 
+                                   Next appointment recommended: January 2027.</p>
+                                <div class="mt-2">
+                                    <small class="text-muted">Action: Auto-schedule reminder | Priority: Routine</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                {% include "partials/cards.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Control Bar -->
+<div class="control-bar">
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="demo-controls">
+                <button class="btn btn-primary" id="start-demo-btn">
+                    ▶️ Start Demo
+                </button>
+                <button class="btn btn-success" id="continue-btn" disabled>
+                    ➡️ Continue
+                </button>
+                <button class="btn btn-outline-danger" id="reset-demo-btn">
+                    🔄 Reset
+                </button>
+            </div>
+            
+            <div class="stage-progress">
+                <small class="text-muted">Stage: <span id="current-stage-name">Eligibility</span></small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/bcse_demo.js"></script>
+{% endblock %}
