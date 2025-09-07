@@ -192,17 +192,21 @@ async function startA2ADemo() {
     try {
         addMessage('system', 'Using A2A Protocol (JSON-RPC + SSE)');
         
-        const response = await fetch('/api/bridge/demo/a2a', {
+        const response = await fetch('/api/bridge/bcse/a2a', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 method: 'message/stream',
-                parts: [{
-                    kind: 'text',
-                    text: 'Begin demo'
-                }]
+                params: {
+                    message: {
+                        parts: [{
+                            kind: 'text',
+                            text: 'Begin demo'
+                        }]
+                    }
+                }
             })
         });
         
@@ -242,19 +246,17 @@ async function startMCPDemo() {
         addMessage('system', 'Using MCP Protocol (Streamable HTTP)');
         
         // Begin chat thread
-        const response = await fetch('/api/mcp/begin_chat_thread', {
+        const response = await fetch('/api/mcp/bcse/begin_chat_thread', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                scenario: 'bcse_eligibility',
-                agent: 'applicant'
-            })
+            body: JSON.stringify({})
         });
         
         const data = await response.json();
-        conversationId = data.conversationId;
+        const result = JSON.parse(data.content[0].text);
+        conversationId = result.conversationId;
         
         // Update current context for room export/import
         updateCurrentContext(conversationId);
@@ -318,14 +320,21 @@ async function sendApplicantInfo() {
 
 async function sendA2AApplicantInfo() {
     try {
-        const response = await fetch('/api/bridge/demo/a2a', {
+        const response = await fetch('/api/bridge/bcse/a2a', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 method: 'message/send',
-                content: 'Process patient data for BCS-E eligibility'
+                params: {
+                    message: {
+                        parts: [{
+                            kind: 'text',
+                            text: 'Process patient data for BCS-E eligibility'
+                        }]
+                    }
+                }
             })
         });
         
@@ -363,7 +372,7 @@ async function sendMCPApplicantInfo() {
 async function sendMCPMessage(message) {
     try {
         // Send message
-        const sendResponse = await fetch('/api/mcp/send_message_to_chat_thread', {
+        const sendResponse = await fetch('/api/mcp/bcse/send_message_to_chat_thread', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -391,7 +400,7 @@ async function pollMCPReplies() {
     if (!conversationId) return;
     
     try {
-        const response = await fetch('/api/mcp/check_replies', {
+        const response = await fetch('/api/mcp/bcse/check_replies', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
