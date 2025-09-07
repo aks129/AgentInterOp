@@ -1,879 +1,728 @@
-// BCS Demo App Controller
-console.log("BCS Demo App initialized");
+// BCS Demo - Vanilla JS Controller
+(function() {
+    'use strict';
+    
+    // Global state
+    let currentStage = 'eligibility';
+    let patientData = null;
+    let protocolFrames = [];
+    let mcpConversationId = null;
 
-// Global state
-let currentStage = 'eligibility';
-let demoActive = false;
-let protocolFrames = [];
+    // Initialize when DOM loads
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('BCS Demo initialized');
+        setupEventListeners();
+        initializeChatTabs();
+    });
 
-// Stage management
-const stages = ['eligibility', 'patient', 'order', 'gap-closure', 'next-steps'];
-const stageNames = {
-    'eligibility': 'Eligibility',
-    'patient': 'Patient View', 
-    'order': 'Order',
-    'gap-closure': 'Gap Closure',
-    'next-steps': 'Next Appt & Results'
-};
-
-// DOM Elements (cached on load)
-let elements = {};
-
-// Initialize when DOM loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("DOM loaded, initializing BCS demo");
-    cacheElements();
-    setupEventListeners();
-    initializeUI();
-});
-
-function cacheElements() {
-    // Cache all frequently used elements
-    elements = {
+    function setupEventListeners() {
         // Stage navigation
-        wizardSteps: document.querySelectorAll('.wizard-step'),
-        stagePanels: document.querySelectorAll('.stage-panel'),
-        currentStageName: document.getElementById('current-stage-name'),
-        
-        // Control buttons  
-        btnStartDemo: document.getElementById('start-demo-btn'),
-        btnContinue: document.getElementById('continue-btn'),
-        btnReset: document.getElementById('reset-demo-btn'),
-        
-        // FHIR/Data buttons
-        btnUseCanned: document.getElementById('use-demo-patient-btn'),
-        btnTestFhir: document.getElementById('test-fhir-connection'),
-        
-        // Chat elements
-        providerChatInput: document.getElementById('provider-chat-input'),
-        providerChatSend: document.getElementById('provider-chat-send'),
-        providerChatMessages: document.getElementById('provider-chat-messages'),
-        providerChatStatus: document.getElementById('provider-chat-status'),
-        
-        patientChatInput: document.getElementById('patient-chat-input'),
-        patientChatSend: document.getElementById('patient-chat-send'),
-        patientChatMessages: document.getElementById('patient-chat-messages'),
-        patientChatStatus: document.getElementById('patient-chat-status'),
-        
-        // Cards and status elements
-        eligibilityCard: document.getElementById('eligibility-card'),
-        eligibilityStatusBadge: document.getElementById('eligibility-status-badge'),
-        eligibilityIcon: document.getElementById('eligibility-icon'),
-        eligibilityText: document.getElementById('eligibility-text'),
-        eligibilityRationale: document.getElementById('eligibility-rationale'),
-        eligibilityMetadata: document.getElementById('eligibility-metadata'),
-        
-        patientCard: document.getElementById('patient-card'),
-        patientSex: document.getElementById('patient-sex'),
-        patientAge: document.getElementById('patient-age'),
-        patientDob: document.getElementById('patient-dob'),
-        patientLastMammo: document.getElementById('patient-last-mammo'),
-        
+        document.querySelectorAll('.step').forEach(step => {
+            step.addEventListener('click', function() {
+                switchToStage(this.dataset.stage);
+            });
+        });
+
+        // Use Demo Patient button
+        const useDemoBtn = document.getElementById('use-demo-patient');
+        if (useDemoBtn) {
+            useDemoBtn.addEventListener('click', useDemoPatient);
+        }
+
+        // Chat tabs
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                switchChatTab(this.dataset.chat);
+            });
+        });
+
+        // Provider chat
+        const providerSend = document.getElementById('provider-send');
+        const providerInput = document.getElementById('provider-input');
+        if (providerSend) {
+            providerSend.addEventListener('click', sendProviderMessage);
+        }
+        if (providerInput) {
+            providerInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendProviderMessage();
+                }
+            });
+        }
+
+        // MCP controls
+        const mcpBegin = document.getElementById('mcp-begin');
+        const mcpSend = document.getElementById('mcp-send');
+        const mcpCheck = document.getElementById('mcp-check');
+        if (mcpBegin) mcpBegin.addEventListener('click', mcpBeginChat);
+        if (mcpSend) mcpSend.addEventListener('click', mcpSendMessage);
+        if (mcpCheck) mcpCheck.addEventListener('click', mcpCheckReplies);
+
         // Order form
-        orderForm: document.getElementById('order-form'),
-        facilitySelect: document.getElementById('facility-select'),
-        prioritySelect: document.getElementById('priority-select'),
-        preferredDate: document.getElementById('preferred-date'),
-        dateWindow: document.getElementById('date-window'),
-        orderNotes: document.getElementById('order-notes'),
-        btnSubmitOrder: document.getElementById('submit-order-btn'),
-        
-        schedulerCard: document.getElementById('scheduler-response-card'),
-        proposedDate: document.getElementById('proposed-date'),
-        proposedTime: document.getElementById('proposed-time'),
-        proposedLocation: document.getElementById('proposed-location'),
-        
-        // Gap closure
-        btnSimulateBCS: document.getElementById('simulate-gap-closure-btn'),
-        gapClosureCard: document.getElementById('gap-closure-card'),
-        completionStatusBadge: document.getElementById('completion-status-badge'),
-        completionIcon: document.getElementById('completion-icon'),
-        completionText: document.getElementById('completion-text'),
-        
-        // Notifications
-        btnSimulateEvent: document.getElementById('simulate-notification-btn'),
-        notificationList: document.getElementById('notification-list'),
-        
-        // Advanced
-        rawPayload: document.getElementById('raw-payload'),
-        protocolFrames: document.getElementById('protocol-frames')
-    };
-    
-    console.log("Cached elements:", Object.keys(elements).length);
-}
+        const orderForm = document.getElementById('order-form');
+        if (orderForm) {
+            orderForm.addEventListener('submit', submitOrder);
+        }
 
-function setupEventListeners() {
-    console.log("Setting up event listeners");
-    
-    // Stage navigation
-    elements.wizardSteps.forEach(step => {
-        step.addEventListener('click', (e) => {
-            const targetStage = e.currentTarget.dataset.stage;
-            if (canSwitchToStage(targetStage)) {
-                switchToStage(targetStage);
-            }
+        // Gap closure simulation
+        const simulateCompletion = document.getElementById('simulate-completion');
+        if (simulateCompletion) {
+            simulateCompletion.addEventListener('click', simulateGapClosure);
+        }
+
+        // Notification simulation
+        const simulateNotification = document.getElementById('simulate-notification');
+        if (simulateNotification) {
+            simulateNotification.addEventListener('click', simulateNotificationEvent);
+        }
+
+        // Advanced toggle
+        const advancedToggle = document.getElementById('advanced-toggle');
+        if (advancedToggle) {
+            advancedToggle.addEventListener('click', toggleAdvancedPanel);
+        }
+    }
+
+    function switchToStage(stageName) {
+        console.log('Switching to stage:', stageName);
+        
+        // Update stepper
+        document.querySelectorAll('.step').forEach(step => {
+            step.classList.remove('active');
         });
-    });
-    
-    // Control buttons
-    if (elements.btnStartDemo) {
-        elements.btnStartDemo.addEventListener('click', startDemo);
-    }
-    if (elements.btnContinue) {
-        elements.btnContinue.addEventListener('click', continueToNextStage);
-    }
-    if (elements.btnReset) {
-        elements.btnReset.addEventListener('click', resetDemo);
-    }
-    
-    // FHIR buttons
-    if (elements.btnUseCanned) {
-        elements.btnUseCanned.addEventListener('click', useDemoPatient);
-    }
-    if (elements.btnTestFhir) {
-        elements.btnTestFhir.addEventListener('click', testFhirConnection);
-    }
-    
-    // Chat send buttons
-    if (elements.providerChatSend) {
-        elements.providerChatSend.addEventListener('click', () => sendProviderMessage());
-    }
-    if (elements.providerChatInput) {
-        elements.providerChatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendProviderMessage();
-            }
+        document.querySelector(`[data-stage="${stageName}"]`).classList.add('active');
+        
+        // Update stage content
+        document.querySelectorAll('.stage').forEach(stage => {
+            stage.classList.remove('active');
         });
+        document.getElementById(`stage-${stageName}`).classList.add('active');
+        
+        currentStage = stageName;
+        
+        // Populate patient view if needed
+        if (stageName === 'patient' && patientData) {
+            populatePatientSummary();
+        }
     }
-    
-    if (elements.patientChatSend) {
-        elements.patientChatSend.addEventListener('click', () => sendPatientMessage());
+
+    function initializeChatTabs() {
+        switchChatTab('provider');
     }
-    if (elements.patientChatInput) {
-        elements.patientChatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendPatientMessage();
-            }
+
+    function switchChatTab(chatType) {
+        // Update tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
         });
-    }
-    
-    // Order form
-    if (elements.orderForm) {
-        elements.orderForm.addEventListener('submit', handleOrderSubmit);
-    }
-    
-    // Simulation buttons
-    if (elements.btnSimulateBCS) {
-        elements.btnSimulateBCS.addEventListener('click', simulateBCSCompletion);
-    }
-    if (elements.btnSimulateEvent) {
-        elements.btnSimulateEvent.addEventListener('click', simulateNotificationEvent);
-    }
-    
-    console.log("Event listeners setup complete");
-}
-
-function initializeUI() {
-    console.log("Initializing UI");
-    
-    // Set default date to tomorrow
-    if (elements.preferredDate) {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        elements.preferredDate.value = tomorrow.toISOString().split('T')[0];
-    }
-    
-    // Initialize stage display
-    switchToStage('eligibility');
-    
-    // Disable chat inputs initially
-    disableChatInputs();
-}
-
-function canSwitchToStage(targetStage) {
-    const currentIndex = stages.indexOf(currentStage);
-    const targetIndex = stages.indexOf(targetStage);
-    
-    // Always allow going backwards or staying on current
-    if (targetIndex <= currentIndex) return true;
-    
-    // For forward navigation, check if demo is active
-    return demoActive && targetIndex <= currentIndex + 1;
-}
-
-function switchToStage(stageName) {
-    console.log("Switching to stage:", stageName);
-    
-    // Hide all panels
-    elements.stagePanels.forEach(panel => {
-        panel.classList.add('d-none');
-    });
-    
-    // Show target panel
-    const targetPanel = document.getElementById(`stage-${stageName}`);
-    if (targetPanel) {
-        targetPanel.classList.remove('d-none');
-    }
-    
-    // Update wizard steps
-    elements.wizardSteps.forEach(step => {
-        step.classList.remove('active');
-        if (step.dataset.stage === stageName) {
-            step.classList.add('active');
-        }
-    });
-    
-    currentStage = stageName;
-    
-    // Update stage name display
-    if (elements.currentStageName) {
-        elements.currentStageName.textContent = stageNames[stageName] || stageName;
-    }
-    
-    // Update continue button state
-    updateContinueButton();
-}
-
-function updateContinueButton() {
-    if (elements.btnContinue) {
-        const currentIndex = stages.indexOf(currentStage);
-        const canContinue = demoActive && currentIndex < stages.length - 1;
-        elements.btnContinue.disabled = !canContinue;
-    }
-}
-
-function continueToNextStage() {
-    const currentIndex = stages.indexOf(currentStage);
-    if (currentIndex < stages.length - 1) {
-        switchToStage(stages[currentIndex + 1]);
-    }
-}
-
-async function startDemo() {
-    console.log("Starting demo");
-    
-    try {
-        if (elements.btnStartDemo) {
-            elements.btnStartDemo.disabled = true;
-            elements.btnStartDemo.innerHTML = '⏳ Starting...';
-        }
+        document.querySelector(`[data-chat="${chatType}"]`).classList.add('active');
         
-        demoActive = true;
-        switchToStage('eligibility');
-        enableChatInputs();
+        // Update chat panels
+        document.querySelectorAll('.chat-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        document.getElementById(`${chatType}-chat`).classList.add('active');
+    }
+
+    async function useDemoPatient() {
+        const btn = document.getElementById('use-demo-patient');
+        const loading = document.getElementById('loading');
         
-        // Add welcome message
-        addChatMessage('provider', 'system', 'Welcome to the BCS Demo! Click "Use Canned Demo Patient" to load patient data, then start conversations with the evaluator.');
-        addChatMessage('patient', 'system', 'Patient chat ready. You can interact with the evaluator using MCP protocol.');
-        
-        updateChatStatus('provider', 'ready');
-        updateChatStatus('patient', 'ready');
-        
-        updateContinueButton();
-        
-    } catch (error) {
-        console.error('Error starting demo:', error);
-        showError('Failed to start demo: ' + error.message);
-    } finally {
-        if (elements.btnStartDemo) {
-            elements.btnStartDemo.disabled = false;
-            elements.btnStartDemo.innerHTML = '▶️ Start Demo';
+        try {
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            loading.classList.remove('hidden');
+
+            // Call ingest demo endpoint
+            const response = await fetch('/api/bcse/ingest/demo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.ok && data.applicant_payload) {
+                patientData = data.applicant_payload;
+                
+                // Show patient snapshot
+                showPatientSnapshot(patientData);
+                
+                // Evaluate eligibility
+                await evaluateEligibility(patientData);
+                
+                addMessage('provider-messages', 'system', 
+                    '✅ Demo patient loaded successfully. Patient data is now available.');
+                
+                logProtocolFrame('FHIR Ingest', data);
+            } else {
+                throw new Error(data.error || 'Failed to load demo patient');
+            }
+
+        } catch (error) {
+            console.error('Error loading demo patient:', error);
+            addMessage('provider-messages', 'system', 
+                `❌ Error loading demo patient: ${error.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '📋 Use Canned Demo Patient';
+            loading.classList.add('hidden');
         }
     }
-}
 
-function resetDemo() {
-    console.log("Resetting demo");
-    
-    demoActive = false;
-    currentStage = 'eligibility';
-    protocolFrames = [];
-    
-    // Clear chat messages
-    clearChatMessages('provider');
-    clearChatMessages('patient');
-    
-    // Hide cards
-    hideAllCards();
-    
-    // Reset forms
-    if (elements.orderForm) {
-        elements.orderForm.reset();
-        // Reset date to tomorrow
-        if (elements.preferredDate) {
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            elements.preferredDate.value = tomorrow.toISOString().split('T')[0];
+    function showPatientSnapshot(data) {
+        const card = document.getElementById('patient-snapshot');
+        if (!card) return;
+
+        document.getElementById('patient-sex').textContent = data.sex || '-';
+        document.getElementById('patient-age').textContent = 
+            data.age ? `${data.age} years` : (data.birthDate ? calculateAge(data.birthDate) + ' years' : '-');
+        document.getElementById('patient-last-mammo').textContent = data.last_mammogram || '-';
+        
+        card.style.display = 'block';
+    }
+
+    function calculateAge(birthDate) {
+        if (!birthDate) return '-';
+        const today = new Date();
+        const birth = new Date(birthDate);
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+            age--;
+        }
+        return age;
+    }
+
+    async function evaluateEligibility(payload) {
+        try {
+            const response = await fetch('/api/bcse/evaluate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.ok && data.decision) {
+                showEligibilityResult(data.decision);
+                logProtocolFrame('BCS Evaluation', data);
+            }
+
+        } catch (error) {
+            console.error('Error evaluating eligibility:', error);
+            showEligibilityResult({
+                status: 'error',
+                rationale: [`Error evaluating eligibility: ${error.message}`]
+            });
         }
     }
-    
-    // Disable chat inputs
-    disableChatInputs();
-    
-    // Reset UI
-    switchToStage('eligibility');
-    updateContinueButton();
-    
-    // Clear protocol frames
-    if (elements.protocolFrames) {
-        elements.protocolFrames.textContent = 'No protocol data yet...';
+
+    function showEligibilityResult(decision) {
+        const card = document.getElementById('eligibility-card');
+        const icon = document.getElementById('eligibility-icon');
+        const text = document.getElementById('eligibility-text');
+        const rationale = document.getElementById('eligibility-rationale');
+
+        if (!card) return;
+
+        let statusIcon, statusText, statusClass;
+        
+        if (decision.eligible === true) {
+            statusIcon = '✅';
+            statusText = 'Eligible';
+            statusClass = 'eligible';
+        } else if (decision.eligible === false) {
+            statusIcon = '❌';
+            statusText = 'Ineligible';
+            statusClass = 'ineligible';
+        } else {
+            statusIcon = '⚠️';
+            statusText = 'Needs Info';
+            statusClass = 'needs-info';
+        }
+
+        icon.textContent = statusIcon;
+        text.textContent = statusText;
+        
+        // Show rationale
+        if (decision.rationale && Array.isArray(decision.rationale)) {
+            const ul = document.createElement('ul');
+            decision.rationale.forEach(reason => {
+                const li = document.createElement('li');
+                li.textContent = reason;
+                ul.appendChild(li);
+            });
+            rationale.innerHTML = '';
+            rationale.appendChild(ul);
+        }
+
+        card.style.display = 'block';
+        
+        // Mark step as completed
+        document.querySelector('[data-stage="eligibility"]').classList.add('completed');
     }
-    if (elements.rawPayload) {
-        elements.rawPayload.value = '';
+
+    async function sendProviderMessage() {
+        const input = document.getElementById('provider-input');
+        const message = input.value.trim();
+        
+        if (!message) return;
+
+        const btn = document.getElementById('provider-send');
+        
+        try {
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            
+            // Add user message
+            addMessage('provider-messages', 'user', message, '🩺');
+            input.value = '';
+            
+            updateChatStatus('provider-status', 'working');
+
+            // Call A2A endpoint
+            const response = await fetch('/api/bridge/bcse/a2a', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    method: 'message/send',
+                    params: {
+                        message: {
+                            parts: [{ kind: 'text', text: message }]
+                        }
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            logProtocolFrame('A2A Request/Response', data);
+            
+            // Show evaluator response
+            const responseText = data.result?.message || 'Message processed via A2A JSON-RPC protocol.';
+            addMessage('provider-messages', 'evaluator', responseText, '🤖');
+            
+            updateChatStatus('provider-status', 'completed');
+
+        } catch (error) {
+            console.error('Error sending provider message:', error);
+            addMessage('provider-messages', 'system', 
+                `❌ Error: ${error.message}`);
+            updateChatStatus('provider-status', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Send';
+        }
     }
-}
 
-function enableChatInputs() {
-    [elements.providerChatInput, elements.providerChatSend, elements.patientChatInput, elements.patientChatSend].forEach(el => {
-        if (el) el.disabled = false;
-    });
-}
+    async function mcpBeginChat() {
+        try {
+            const btn = document.getElementById('mcp-begin');
+            btn.disabled = true;
+            btn.textContent = 'Beginning...';
 
-function disableChatInputs() {
-    [elements.providerChatInput, elements.providerChatSend, elements.patientChatInput, elements.patientChatSend].forEach(el => {
-        if (el) el.disabled = true;
-    });
-}
+            const response = await fetch('/api/mcp/bcse/begin_chat_thread', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
 
-function clearChatMessages(chatType) {
-    const messagesContainer = elements[`${chatType}ChatMessages`];
-    if (messagesContainer) {
-        messagesContainer.innerHTML = `
-            <div class="no-messages text-center text-muted py-4">
-                <div class="mb-2">💬</div>
-                <p class="mb-0">No messages yet</p>
-                <small>Conversation will appear here</small>
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.content && data.content[0] && data.content[0].text) {
+                const result = JSON.parse(data.content[0].text);
+                mcpConversationId = result.conversationId;
+                
+                // Enable other MCP controls
+                document.getElementById('mcp-send').disabled = false;
+                document.getElementById('mcp-message').disabled = false;
+                
+                addMessage('patient-messages', 'system', 
+                    `✅ MCP chat thread started: ${mcpConversationId}`);
+                
+                logProtocolFrame('MCP Begin', data);
+            }
+
+        } catch (error) {
+            console.error('Error beginning MCP chat:', error);
+            addMessage('patient-messages', 'system', 
+                `❌ Error beginning MCP chat: ${error.message}`);
+        } finally {
+            const btn = document.getElementById('mcp-begin');
+            btn.disabled = false;
+            btn.textContent = 'Begin';
+        }
+    }
+
+    async function mcpSendMessage() {
+        if (!mcpConversationId) {
+            addMessage('patient-messages', 'system', '❌ No active conversation. Begin first.');
+            return;
+        }
+
+        const input = document.getElementById('mcp-message');
+        const message = input.value.trim();
+        
+        if (!message) return;
+
+        try {
+            const btn = document.getElementById('mcp-send');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            
+            addMessage('patient-messages', 'user', message, '🙂');
+            input.value = '';
+
+            const response = await fetch('/api/mcp/bcse/send_message_to_chat_thread', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    conversationId: mcpConversationId,
+                    message: message
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            logProtocolFrame('MCP Send', data);
+            
+            addMessage('patient-messages', 'system', 
+                '✅ Message sent via MCP. Use "Check Replies" to see responses.');
+            
+            // Enable check button
+            document.getElementById('mcp-check').disabled = false;
+
+        } catch (error) {
+            console.error('Error sending MCP message:', error);
+            addMessage('patient-messages', 'system', 
+                `❌ Error sending message: ${error.message}`);
+        } finally {
+            const btn = document.getElementById('mcp-send');
+            btn.disabled = false;
+            btn.textContent = 'Send Message';
+        }
+    }
+
+    async function mcpCheckReplies() {
+        if (!mcpConversationId) {
+            addMessage('patient-messages', 'system', '❌ No active conversation.');
+            return;
+        }
+
+        try {
+            const btn = document.getElementById('mcp-check');
+            btn.disabled = true;
+            btn.textContent = 'Checking...';
+
+            const response = await fetch('/api/mcp/bcse/check_replies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    conversationId: mcpConversationId,
+                    waitMs: 2000
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            logProtocolFrame('MCP Check', data);
+
+            if (data.messages && data.messages.length > 0) {
+                data.messages.forEach(msg => {
+                    const text = msg.text || msg.content || msg.message || 'Response received';
+                    addMessage('patient-messages', 'evaluator', text, '🤖');
+                });
+            } else {
+                addMessage('patient-messages', 'evaluator', 
+                    'MCP triplet completed successfully.', '🤖');
+            }
+
+        } catch (error) {
+            console.error('Error checking MCP replies:', error);
+            addMessage('patient-messages', 'system', 
+                `❌ Error checking replies: ${error.message}`);
+        } finally {
+            const btn = document.getElementById('mcp-check');
+            btn.disabled = false;
+            btn.textContent = 'Check Replies';
+        }
+    }
+
+    async function submitOrder(event) {
+        event.preventDefault();
+        
+        const btn = document.querySelector('#order-form button[type="submit"]');
+        const formData = new FormData(event.target);
+        
+        try {
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+
+            // Get form data
+            const orderData = {
+                facility: document.getElementById('facility').value,
+                date_window: document.getElementById('date-window').value,
+                priority: document.getElementById('priority').value
+            };
+
+            // Mock scheduler response (since we may not have the real endpoint)
+            const mockResponse = await mockSchedulerRequest(orderData);
+            
+            showSchedulerResponse(mockResponse);
+            
+            // Mark order stage as completed
+            document.querySelector('[data-stage="order"]').classList.add('completed');
+
+        } catch (error) {
+            console.error('Error submitting order:', error);
+            alert('Error submitting order: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '📋 Submit Order';
+        }
+    }
+
+    async function mockSchedulerRequest(orderData) {
+        // Try real endpoint first, fallback to mock
+        try {
+            const response = await fetch('/api/bcse/scheduler/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderData)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.ok && data.proposal) {
+                    return data.proposal;
+                }
+            }
+        } catch (error) {
+            console.log('Real scheduler not available, using mock');
+        }
+
+        // Mock response
+        const facilities = {
+            'downtown-imaging': 'Downtown Imaging Center',
+            'suburban-radiology': 'Suburban Radiology',
+            'university-hospital': 'University Hospital'
+        };
+
+        const times = [
+            '9:00 AM - 9:30 AM',
+            '10:30 AM - 11:00 AM',
+            '2:15 PM - 2:45 PM',
+            '3:30 PM - 4:00 PM'
+        ];
+
+        // Generate a date within the window
+        const today = new Date();
+        const daysAhead = Math.floor(Math.random() * parseInt(orderData.date_window)) + 1;
+        const proposedDate = new Date(today.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+
+        return {
+            facility: facilities[orderData.facility] || orderData.facility,
+            proposed_date: proposedDate.toISOString().split('T')[0],
+            proposed_time: times[Math.floor(Math.random() * times.length)]
+        };
+    }
+
+    function showSchedulerResponse(proposal) {
+        const card = document.getElementById('scheduler-response');
+        if (!card) return;
+
+        document.getElementById('proposed-facility').textContent = proposal.facility || '-';
+        document.getElementById('proposed-date').textContent = proposal.proposed_date || '-';
+        document.getElementById('proposed-time').textContent = proposal.proposed_time || '-';
+        
+        card.style.display = 'block';
+        
+        logProtocolFrame('Scheduler Response', proposal);
+    }
+
+    function simulateGapClosure() {
+        const btn = document.getElementById('simulate-completion');
+        const icon = document.getElementById('gap-closure-icon');
+        const text = document.getElementById('gap-closure-text');
+        
+        try {
+            btn.disabled = true;
+            btn.textContent = 'Simulating...';
+            
+            setTimeout(() => {
+                // Update main display
+                icon.textContent = '✅';
+                text.textContent = 'BCS Completed Successfully';
+                
+                // Show completion card
+                const card = document.getElementById('completion-card');
+                if (card) {
+                    const today = new Date().toLocaleDateString();
+                    document.getElementById('completion-date').textContent = today;
+                    document.getElementById('trace-link').href = `#trace-${Date.now()}`;
+                    card.style.display = 'block';
+                }
+                
+                // Mark stage as completed
+                document.querySelector('[data-stage="gap-closure"]').classList.add('completed');
+                
+                logProtocolFrame('Gap Closure Simulation', {
+                    status: 'completed',
+                    cpt_code: '77067',
+                    date: new Date().toISOString(),
+                    source: 'demo-simulation'
+                });
+                
+            }, 2000);
+
+        } finally {
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = '🧪 Simulate BCS Completion';
+            }, 2000);
+        }
+    }
+
+    function simulateNotificationEvent() {
+        const notifications = [
+            {
+                type: 'provider',
+                icon: '🩺',
+                title: 'Results Ready for Review',
+                message: 'Mammogram results are available. Patient screening completed successfully.',
+                timestamp: new Date().toLocaleString()
+            },
+            {
+                type: 'patient',
+                icon: '🙂',
+                title: 'Your Results Are Available',
+                message: 'Good news! Your mammogram shows no signs of concern. Next screening in 2 years.',
+                timestamp: new Date().toLocaleString()
+            },
+            {
+                type: 'care-manager',
+                icon: '📅',
+                title: 'Follow-up Scheduled',
+                message: 'BCS gap closed. Next screening reminder set for January 2027.',
+                timestamp: new Date().toLocaleString()
+            }
+        ];
+
+        const notification = notifications[Math.floor(Math.random() * notifications.length)];
+        addNotification(notification);
+        
+        // Mark stage as completed
+        document.querySelector('[data-stage="next-steps"]').classList.add('completed');
+        
+        logProtocolFrame('Notification Event', notification);
+    }
+
+    function addNotification(notification) {
+        const feed = document.getElementById('notification-feed');
+        if (!feed) return;
+
+        const div = document.createElement('div');
+        div.className = 'notification';
+        div.innerHTML = `
+            <h5>${notification.icon} ${notification.title}</h5>
+            <p>${notification.message}</p>
+            <div class="timestamp">${notification.timestamp}</div>
+        `;
+
+        feed.appendChild(div);
+    }
+
+    function populatePatientSummary() {
+        const summary = document.getElementById('patient-summary');
+        if (!summary || !patientData) return;
+
+        summary.innerHTML = `
+            <div class="patient-info">
+                <div class="info-row">
+                    <span class="label">Sex:</span>
+                    <span>${patientData.sex || '-'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Birth Date:</span>
+                    <span>${patientData.birthDate || '-'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Age:</span>
+                    <span>${patientData.age || (patientData.birthDate ? calculateAge(patientData.birthDate) : '-')}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Last Mammogram:</span>
+                    <span>${patientData.last_mammogram || '-'}</span>
+                </div>
             </div>
         `;
     }
-}
 
-function addChatMessage(chatType, role, message, status = null) {
-    const messagesContainer = elements[`${chatType}ChatMessages`];
-    if (!messagesContainer) return;
-    
-    // Remove "no messages" placeholder
-    const noMessages = messagesContainer.querySelector('.no-messages');
-    if (noMessages) noMessages.remove();
-    
-    // Create message element
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'chat-message mb-3';
-    
-    const roleIcons = {
-        'provider': '🩺',
-        'patient': '🙂',
-        'evaluator': '🤖',
-        'system': '⚙️',
-        'error': '❌'
-    };
-    
-    const icon = roleIcons[role] || '❓';
-    const timestamp = new Date().toLocaleTimeString();
-    
-    messageDiv.innerHTML = `
-        <div class="d-flex align-items-start">
-            <div class="message-avatar me-2" data-role="${role}">
-                <span class="avatar-icon">${icon}</span>
-            </div>
-            <div class="message-content flex-grow-1">
-                <div class="message-header d-flex justify-content-between align-items-center mb-1">
-                    <div class="d-flex align-items-center">
-                        <span class="message-role fw-bold me-2">${role.toUpperCase()}</span>
-                        <small class="message-timestamp text-muted">${timestamp}</small>
-                    </div>
-                    ${status ? `<span class="message-status-chip ${status}">${status.replace('-', ' ')}</span>` : ''}
-                </div>
-                <div class="message-text" data-role="${role}">${escapeHtml(message)}</div>
-            </div>
-        </div>
-    `;
-    
-    messagesContainer.appendChild(messageDiv);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
+    function addMessage(containerId, role, message, avatar = '') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
 
-function updateChatStatus(chatType, status) {
-    const statusElement = elements[`${chatType}ChatStatus`];
-    if (statusElement) {
-        statusElement.textContent = status.replace('-', ' ').toUpperCase();
-        statusElement.className = `status-chip ${status}`;
-    }
-}
-
-async function useDemoPatient() {
-    console.log("Loading demo patient");
-    
-    try {
-        if (elements.btnUseCanned) {
-            elements.btnUseCanned.disabled = true;
-            elements.btnUseCanned.innerHTML = '⏳ Loading Demo Patient...';
-        }
+        const div = document.createElement('div');
+        div.className = `message ${role}`;
+        div.innerHTML = `${avatar} ${message}`;
         
-        // Call ingest demo endpoint
-        const response = await fetch('/api/bcse/ingest/demo', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function updateChatStatus(statusId, status) {
+        const statusEl = document.getElementById(statusId);
+        if (statusEl) {
+            statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            statusEl.className = `chat-status ${status}`;
+        }
+    }
+
+    function logProtocolFrame(type, data) {
+        protocolFrames.push({
+            timestamp: new Date().toISOString(),
+            type: type,
+            data: data
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const framesEl = document.getElementById('protocol-frames');
+        if (framesEl) {
+            framesEl.textContent = JSON.stringify(protocolFrames, null, 2);
         }
+    }
+
+    function toggleAdvancedPanel() {
+        const panel = document.getElementById('advanced-panel');
+        const btn = document.getElementById('advanced-toggle');
         
-        const data = await response.json();
-        
-        if (data.ok) {
-            // Show patient data
-            showPatientCard(data.applicant_payload);
-            
-            // Evaluate eligibility
-            await evaluateEligibility(data.applicant_payload);
-            
-            // Show raw payload
-            if (elements.rawPayload) {
-                elements.rawPayload.value = JSON.stringify(data.applicant_payload, null, 2);
-            }
-            
-            addChatMessage('provider', 'system', 'Demo patient data loaded successfully. Patient information is now available.');
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            btn.textContent = 'Advanced ↑';
         } else {
-            throw new Error(data.error || 'Failed to load demo patient');
-        }
-        
-    } catch (error) {
-        console.error('Error loading demo patient:', error);
-        showError('Failed to load demo patient: ' + error.message);
-        addChatMessage('provider', 'error', 'Failed to load demo patient: ' + error.message);
-    } finally {
-        if (elements.btnUseCanned) {
-            elements.btnUseCanned.disabled = false;
-            elements.btnUseCanned.innerHTML = '📋 Use Canned Demo Patient';
+            panel.style.display = 'none';
+            btn.textContent = 'Advanced ↕';
         }
     }
-}
 
-function showPatientCard(payload) {
-    if (elements.patientCard) {
-        elements.patientCard.classList.remove('d-none');
-        
-        if (elements.patientSex) elements.patientSex.textContent = payload.sex || '-';
-        if (elements.patientAge) elements.patientAge.textContent = payload.age ? `${payload.age} years` : '-';
-        if (elements.patientDob) elements.patientDob.textContent = payload.birthDate || '-';
-        if (elements.patientLastMammo) elements.patientLastMammo.textContent = payload.last_mammogram || '-';
-    }
-}
-
-async function evaluateEligibility(payload) {
-    try {
-        const response = await fetch('/api/bcse/evaluate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.ok && data.decision) {
-            showEligibilityCard(data.decision);
-        }
-        
-    } catch (error) {
-        console.error('Error evaluating eligibility:', error);
-        showError('Failed to evaluate eligibility: ' + error.message);
-    }
-}
-
-function showEligibilityCard(decision) {
-    if (!elements.eligibilityCard) return;
-    
-    elements.eligibilityCard.classList.remove('d-none');
-    
-    let status, iconText, statusText;
-    
-    if (decision.eligible === true) {
-        status = 'eligible';
-        iconText = '✅';
-        statusText = 'Eligible';
-    } else if (decision.eligible === false) {
-        status = 'ineligible';
-        iconText = '❌';
-        statusText = 'Ineligible';
-    } else {
-        status = 'needs-info';
-        iconText = '⚠️';
-        statusText = 'Needs Info';
-    }
-    
-    if (elements.eligibilityStatusBadge) {
-        elements.eligibilityStatusBadge.textContent = statusText;
-        elements.eligibilityStatusBadge.className = `eligibility-badge ${status}`;
-    }
-    
-    if (elements.eligibilityIcon) elements.eligibilityIcon.textContent = iconText;
-    if (elements.eligibilityText) elements.eligibilityText.textContent = `BCS ${statusText}`;
-    
-    // Show rationale
-    if (elements.eligibilityRationale && decision.rationale) {
-        elements.eligibilityRationale.innerHTML = '';
-        decision.rationale.forEach(reason => {
-            const li = document.createElement('li');
-            li.textContent = reason;
-            elements.eligibilityRationale.appendChild(li);
-        });
-    }
-    
-    // Show metadata
-    if (elements.eligibilityMetadata) {
-        const parts = [];
-        if (decision.last_mammogram) parts.push(`Last mammogram: ${decision.last_mammogram}`);
-        if (decision.age_band) parts.push(`Age band: ${decision.age_band}`);
-        elements.eligibilityMetadata.textContent = parts.join(' | ');
-    }
-}
-
-async function sendProviderMessage() {
-    const input = elements.providerChatInput;
-    const sendBtn = elements.providerChatSend;
-    
-    if (!input || !sendBtn) return;
-    
-    const message = input.value.trim();
-    if (!message) return;
-    
-    try {
-        input.disabled = true;
-        sendBtn.disabled = true;
-        sendBtn.innerHTML = '⏳';
-        
-        // Add user message
-        addChatMessage('provider', 'provider', message);
-        input.value = '';
-        
-        updateChatStatus('provider', 'working');
-        
-        // Call A2A endpoint
-        const response = await fetch('/api/bridge/bcse/a2a', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                method: 'message/send',
-                params: {
-                    message: {
-                        parts: [{ kind: 'text', text: message }]
-                    }
-                }
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        // Log protocol frame
-        logProtocolFrame('A2A Request', {
-            method: 'message/send',
-            message: message
-        });
-        logProtocolFrame('A2A Response', data);
-        
-        // Show response
-        const responseText = data.result?.message || 'Request processed via A2A JSON-RPC protocol.';
-        addChatMessage('provider', 'evaluator', responseText, 'completed');
-        
-        updateChatStatus('provider', 'completed');
-        
-    } catch (error) {
-        console.error('Error sending provider message:', error);
-        addChatMessage('provider', 'error', 'Error: ' + error.message);
-        updateChatStatus('provider', 'error');
-    } finally {
-        input.disabled = false;
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = 'Send';
-    }
-}
-
-async function sendPatientMessage() {
-    const input = elements.patientChatInput;
-    const sendBtn = elements.patientChatSend;
-    
-    if (!input || !sendBtn) return;
-    
-    const message = input.value.trim();
-    if (!message) return;
-    
-    try {
-        input.disabled = true;
-        sendBtn.disabled = true;
-        sendBtn.innerHTML = '⏳';
-        
-        // Add user message
-        addChatMessage('patient', 'patient', message);
-        input.value = '';
-        
-        updateChatStatus('patient', 'working');
-        
-        // MCP Triplet: Begin
-        const beginResponse = await fetch('/api/mcp/bcse/begin_chat_thread', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-        
-        if (!beginResponse.ok) {
-            throw new Error('Failed to begin MCP chat thread');
-        }
-        
-        const beginData = await beginResponse.json();
-        const conversationId = JSON.parse(beginData.content[0].text).conversationId;
-        
-        logProtocolFrame('MCP Begin', { conversationId });
-        
-        // MCP Triplet: Send
-        const sendResponse = await fetch('/api/mcp/bcse/send_message_to_chat_thread', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                conversationId: conversationId,
-                message: message
-            })
-        });
-        
-        if (!sendResponse.ok) {
-            throw new Error('Failed to send MCP message');
-        }
-        
-        logProtocolFrame('MCP Send', { conversationId, message });
-        
-        // MCP Triplet: Check
-        const checkResponse = await fetch('/api/mcp/bcse/check_replies', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                conversationId: conversationId,
-                waitMs: 2000
-            })
-        });
-        
-        if (checkResponse.ok) {
-            const checkData = await checkResponse.json();
-            logProtocolFrame('MCP Check', checkData);
-            
-            if (checkData.messages && checkData.messages.length > 0) {
-                checkData.messages.forEach(msg => {
-                    const msgText = msg.text || msg.content || msg.message || 'Response received via MCP protocol.';
-                    addChatMessage('patient', 'evaluator', msgText, 'completed');
-                });
-            } else {
-                addChatMessage('patient', 'evaluator', 'Request processed via MCP triplet (begin → send → check).', 'completed');
-            }
-        }
-        
-        updateChatStatus('patient', 'completed');
-        
-    } catch (error) {
-        console.error('Error sending patient message:', error);
-        addChatMessage('patient', 'error', 'Error: ' + error.message);
-        updateChatStatus('patient', 'error');
-    } finally {
-        input.disabled = false;
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = 'Send';
-    }
-}
-
-function logProtocolFrame(type, data) {
-    protocolFrames.push({
-        timestamp: new Date().toISOString(),
-        type: type,
-        data: data
-    });
-    
-    if (elements.protocolFrames) {
-        elements.protocolFrames.textContent = JSON.stringify(protocolFrames, null, 2);
-    }
-}
-
-async function handleOrderSubmit(event) {
-    event.preventDefault();
-    
-    try {
-        if (elements.btnSubmitOrder) {
-            elements.btnSubmitOrder.disabled = true;
-            elements.btnSubmitOrder.innerHTML = '⏳ Submitting Order...';
-        }
-        
-        const formData = {
-            facility: elements.facilitySelect?.value,
-            priority: elements.prioritySelect?.value,
-            preferred_date: elements.preferredDate?.value,
-            date_window: elements.dateWindow?.value,
-            notes: elements.orderNotes?.value
-        };
-        
-        // Call scheduler endpoint
-        const response = await fetch('/api/bcse/scheduler/request', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.ok && data.proposal) {
-            showSchedulerResponse(data.proposal);
-        }
-        
-    } catch (error) {
-        console.error('Error submitting order:', error);
-        showError('Failed to submit order: ' + error.message);
-    } finally {
-        if (elements.btnSubmitOrder) {
-            elements.btnSubmitOrder.disabled = false;
-            elements.btnSubmitOrder.innerHTML = '📋 Submit Service Request';
-        }
-    }
-}
-
-function showSchedulerResponse(proposal) {
-    if (elements.schedulerCard) {
-        elements.schedulerCard.classList.remove('d-none');
-        
-        if (elements.proposedDate) elements.proposedDate.textContent = proposal.proposed_date || '-';
-        if (elements.proposedTime) elements.proposedTime.textContent = proposal.proposed_time || '-';
-        if (elements.proposedLocation) elements.proposedLocation.textContent = proposal.location || '-';
-    }
-}
-
-function simulateBCSCompletion() {
-    console.log("Simulating BCS completion");
-    
-    try {
-        if (elements.btnSimulateBCS) {
-            elements.btnSimulateBCS.disabled = true;
-            elements.btnSimulateBCS.innerHTML = '⏳ Simulating...';
-        }
-        
-        setTimeout(() => {
-            showGapClosureCard();
-            
-            if (elements.btnSimulateBCS) {
-                elements.btnSimulateBCS.disabled = false;
-                elements.btnSimulateBCS.innerHTML = '🧪 Simulate BCS Completion';
-            }
-        }, 2000);
-        
-    } catch (error) {
-        console.error('Error simulating BCS completion:', error);
-        showError('Error simulating BCS completion: ' + error.message);
-    }
-}
-
-function showGapClosureCard() {
-    if (elements.gapClosureCard) {
-        elements.gapClosureCard.classList.remove('d-none');
-        
-        if (elements.completionStatusBadge) {
-            elements.completionStatusBadge.textContent = 'Completed';
-            elements.completionStatusBadge.className = 'completion-badge bg-success';
-        }
-        
-        if (elements.completionIcon) elements.completionIcon.textContent = '✅';
-        if (elements.completionText) elements.completionText.textContent = `BCS completed on ${new Date().toLocaleDateString()}`;
-    }
-}
-
-function simulateNotificationEvent() {
-    console.log("Simulating notification event");
-    
-    const notifications = [
-        {
-            type: 'provider',
-            icon: '🩺',
-            title: 'Results Ready for Review',
-            message: 'Mammogram results are available. Patient screening completed successfully.',
-            metadata: 'Priority: Normal | Next screening: 24 months'
-        },
-        {
-            type: 'patient',
-            icon: '🙂',
-            title: 'Your Results Are Available',
-            message: 'Good news! Your mammogram shows no signs of concern.',
-            metadata: 'Access via Patient Portal | Next appointment: Auto-scheduled'
-        },
-        {
-            type: 'care-manager',
-            icon: '📅',
-            title: 'Follow-up Scheduled',
-            message: 'BCS gap closed. Next screening reminder set for January 2027.',
-            metadata: 'Action: Auto-reminder created | Priority: Routine'
-        }
-    ];
-    
-    const notification = notifications[Math.floor(Math.random() * notifications.length)];
-    addNotification(notification);
-}
-
-function addNotification(notification) {
-    if (!elements.notificationList) return;
-    
-    // Remove "no notifications" message
-    const noNotifications = elements.notificationList.querySelector('.text-center');
-    if (noNotifications) noNotifications.remove();
-    
-    const notificationDiv = document.createElement('div');
-    notificationDiv.className = 'notification-item border rounded p-3 mb-2';
-    notificationDiv.innerHTML = `
-        <div class="d-flex align-items-start">
-            <div class="notification-icon ${notification.type} me-3">${notification.icon}</div>
-            <div class="flex-grow-1">
-                <div class="d-flex justify-content-between align-items-start mb-1">
-                    <h6 class="notification-title mb-0">${notification.title}</h6>
-                    <small class="notification-timestamp text-muted">${new Date().toLocaleTimeString()}</small>
-                </div>
-                <p class="notification-message mb-1">${notification.message}</p>
-                <div class="notification-metadata small text-muted">${notification.metadata}</div>
-            </div>
-        </div>
-    `;
-    
-    elements.notificationList.appendChild(notificationDiv);
-}
-
-function hideAllCards() {
-    [
-        elements.eligibilityCard,
-        elements.patientCard,
-        elements.schedulerCard,
-        elements.gapClosureCard
-    ].forEach(card => {
-        if (card) card.classList.add('d-none');
-    });
-}
-
-function showError(message) {
-    console.error(message);
-    // Could implement toast notifications here
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-async function testFhirConnection() {
-    console.log("Testing FHIR connection - placeholder");
-    showError("FHIR connection testing not yet implemented");
-}
+})();

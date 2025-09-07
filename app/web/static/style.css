@@ -1,0 +1,639 @@
+/* BCS Demo - Simple Utility CSS */
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    line-height: 1.5;
+}
+
+/* Layout */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+/* Header */
+.header {
+    background: #2a2a2a;
+    border-bottom: 1px solid #444;
+    padding: 1rem 0;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.brand h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #fff;
+}
+
+.brand p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+.nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.nav-link {
+    color: #e0e0e0;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.nav-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Dropdown */
+.dropdown {
+    position: relative;
+}
+
+.dropdown-btn {
+    background: none;
+    border: 1px solid #666;
+    color: #e0e0e0;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    min-width: 180px;
+    z-index: 1000;
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+.dropdown-content a {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: #e0e0e0;
+    text-decoration: none;
+    border-bottom: 1px solid #444;
+}
+
+.dropdown-content a:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.dropdown-content a:last-child {
+    border-bottom: none;
+}
+
+/* Main */
+.main {
+    min-height: 80vh;
+    padding: 2rem 0;
+}
+
+/* Footer */
+.footer {
+    background: #2a2a2a;
+    border-top: 1px solid #444;
+    padding: 1rem 0;
+    margin-top: auto;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.footer-links {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.footer-links a {
+    color: #ccc;
+    text-decoration: none;
+}
+
+/* Demo Container */
+.demo-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Stepper */
+.stepper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: #2a2a2a;
+    border-radius: 8px;
+    overflow-x: auto;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    margin: 0 0.5rem;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+    position: relative;
+    min-width: 100px;
+}
+
+.step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    right: -25px;
+    width: 50px;
+    height: 2px;
+    background: #666;
+}
+
+.step.active::after,
+.step.completed::after {
+    background: #4CAF50;
+}
+
+.step:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.step.active {
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.step-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #666;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.step.active .step-number,
+.step.completed .step-number {
+    background: #4CAF50;
+}
+
+.step-label {
+    font-size: 0.85rem;
+    text-align: center;
+    color: #ccc;
+}
+
+.step.active .step-label {
+    color: #fff;
+}
+
+/* Stage Content */
+.stage-content {
+    background: #1a1a1a;
+}
+
+.stage {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.stage.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.stage h2 {
+    color: #fff;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #4CAF50;
+}
+
+/* Layout */
+.stage-layout {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 2rem;
+}
+
+.main-panel {
+    min-width: 0;
+}
+
+.side-panel {
+    min-width: 0;
+}
+
+/* Cards */
+.card {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.card h3,
+.card h4 {
+    color: #fff;
+    margin: 0 0 1rem 0;
+}
+
+/* Buttons */
+.btn {
+    background: #666;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn:hover {
+    background: #777;
+}
+
+.btn:disabled {
+    background: #444;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-primary {
+    background: #2196F3;
+}
+
+.btn-primary:hover {
+    background: #1976D2;
+}
+
+.btn-secondary {
+    background: #666;
+}
+
+.btn-success {
+    background: #4CAF50;
+}
+
+.btn-success:hover {
+    background: #45a049;
+}
+
+.btn-link {
+    background: none;
+    color: #2196F3;
+    text-decoration: underline;
+    padding: 0.25rem;
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #fff;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #666;
+    border-radius: 4px;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+/* Chat */
+.chat-tabs {
+    display: flex;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #444;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    color: #ccc;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover,
+.tab-btn.active {
+    color: #fff;
+    border-bottom-color: #4CAF50;
+}
+
+.chat-panel {
+    display: none;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 1rem;
+    height: 400px;
+    overflow-y: auto;
+}
+
+.chat-panel.active {
+    display: block;
+}
+
+.chat-messages {
+    height: 280px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+}
+
+.chat-input {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid #666;
+    border-radius: 4px;
+    background: #2a2a2a;
+    color: #e0e0e0;
+}
+
+.mcp-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.mcp-controls input {
+    flex: 1;
+    min-width: 200px;
+}
+
+.chat-status {
+    font-size: 0.8rem;
+    color: #ccc;
+    text-align: center;
+    padding: 0.25rem;
+}
+
+/* Message */
+.message {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 6px;
+    word-wrap: break-word;
+}
+
+.message.user {
+    background: #2196F3;
+    color: white;
+    margin-left: 2rem;
+}
+
+.message.system {
+    background: #666;
+    color: white;
+}
+
+.message.evaluator {
+    background: #4CAF50;
+    color: white;
+    margin-right: 2rem;
+}
+
+/* Status Display */
+.status-display {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.status-icon {
+    font-size: 2rem;
+}
+
+.status-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* Info Rows */
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #444;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.label {
+    font-weight: 500;
+    color: #ccc;
+}
+
+/* Patient Info */
+.patient-info {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 1rem;
+    border-radius: 6px;
+}
+
+/* Rationale */
+.rationale {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 1rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+}
+
+.rationale ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: #ccc;
+}
+
+/* Notifications */
+.notifications {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notification {
+    background: rgba(33, 150, 243, 0.1);
+    border-left: 3px solid #2196F3;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+}
+
+.notification h5 {
+    margin: 0 0 0.5rem 0;
+    color: #fff;
+}
+
+.notification p {
+    margin: 0;
+    color: #ccc;
+}
+
+.notification .timestamp {
+    font-size: 0.8rem;
+    color: #999;
+    margin-top: 0.5rem;
+}
+
+/* Advanced Panel */
+.advanced-panel {
+    margin-top: 2rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.advanced-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #666;
+    color: white;
+    border: none;
+    padding: 0.75rem 1rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+}
+
+#protocol-frames {
+    background: #0a0a0a;
+    color: #0f0;
+    padding: 1rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+/* Utilities */
+.hidden { display: none !important; }
+.loading {
+    color: #2196F3;
+    font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .header-content,
+    .footer-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .stepper {
+        overflow-x: auto;
+        padding: 0.5rem;
+    }
+    
+    .step {
+        min-width: 80px;
+        margin: 0 0.25rem;
+    }
+    
+    .step:not(:last-child)::after {
+        display: none;
+    }
+    
+    .stage-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .chat-panel {
+        height: 300px;
+    }
+    
+    .chat-messages {
+        height: 180px;
+    }
+    
+    .mcp-controls {
+        flex-direction: column;
+    }
+    
+    .advanced-toggle {
+        bottom: 10px;
+        right: 10px;
+        padding: 0.5rem 0.75rem;
+    }
+}

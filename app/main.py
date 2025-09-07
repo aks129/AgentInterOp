@@ -19,7 +19,13 @@ def validate_json_size(content: bytes) -> None:
         )
 
 # Create FastAPI app
-app = FastAPI(title="AgentInterOp", version="1.0.0-bcse")
+app = FastAPI(
+    title="AgentInterOp", 
+    version="1.0.0-bcse",
+    docs_url="/docs",
+    redoc_url="/redoc", 
+    openapi_url="/openapi.json"
+)
 
 # Security middleware
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Configure for production
