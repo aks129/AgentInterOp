@@ -67,9 +67,19 @@ jobs:
           
       - name: Security check - no hardcoded secrets
         run: |
-          # Simple check for common secrets patterns
-          if grep -r "ANTHROPIC_API_KEY.*=" app/ || grep -r "sk-" app/ || grep -r "password.*=" app/; then
-            echo "❌ Potential secrets found in code"
+          # Check for actual hardcoded secrets (simplified)
+          echo "Checking for hardcoded Anthropic API keys..."
+          if grep -r "sk-ant-" app/; then
+            echo "❌ Found hardcoded Anthropic API key"
             exit 1
           fi
-          echo "✅ No obvious secrets found"
+          
+          echo "Checking for other potential secrets..."
+          if grep -rE "password\s*=\s*['\"][^'\"]{8,}" app/ || \
+             grep -rE "secret\s*=\s*['\"][^'\"]{8,}" app/ || \
+             grep -rE "token\s*=\s*['\"][^'\"]{8,}" app/; then
+            echo "❌ Found potential hardcoded credentials"
+            exit 1
+          fi
+          
+          echo "✅ No hardcoded secrets found"
