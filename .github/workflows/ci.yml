@@ -19,15 +19,51 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r api/requirements.txt
-          pip install pytest httpx pytest-asyncio ruff
+          pip install ruff
           
       - name: Lint with ruff (warn-only)
         run: |
           ruff check app/ || true  # warn-only; don't block you
           
       - name: Run smoke tests
+        env:
+          ANTHROPIC_API_KEY: test-key-for-ci
+          SESSION_SECRET: test-session-secret
         run: |
-          pytest tests/test_smoke.py -q || true  # warn-only; flip to hard-fail later
+          # Simple smoke test - just verify critical endpoints work
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from fastapi.testclient import TestClient
+          from app.main import app
+          
+          client = TestClient(app)
+          
+          # Test health
+          r = client.get('/healthz')
+          assert r.status_code == 200, 'Health check failed'
+          print('✅ Health check passed')
+          
+          # Test OpenAPI
+          r = client.get('/openapi.json') 
+          assert r.status_code == 200, 'OpenAPI failed'
+          print('✅ OpenAPI schema passed')
+          
+          # Test docs
+          r = client.get('/docs')
+          assert r.status_code == 200, 'Docs failed'
+          print('✅ Swagger docs passed')
+          
+          # Test agent card
+          r = client.get('/.well-known/agent-card.json')
+          assert r.status_code == 200, 'Agent card failed' 
+          data = r.json()
+          assert 'name' in data, 'Agent card missing name'
+          assert 'skills' in data, 'Agent card missing skills'
+          print('✅ Agent card passed')
+          
+          print('🎉 All critical endpoints working!')
+          " || echo "⚠️ Some smoke tests failed but continuing (warn-only mode)"
           
       - name: Security check - no hardcoded secrets
         run: |
