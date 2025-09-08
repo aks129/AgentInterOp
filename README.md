@@ -100,6 +100,44 @@ Patient John Smith, age 45, requires MRI scan of lumbar spine due to chronic low
 3. Review and apply the generated structured data
 4. The system converts natural language into properly formatted eligibility payloads
 
+## Agent Discovery & A2A Agent Card
+
+The platform exposes an A2A-compliant Agent Card for agent discovery and interoperability:
+
+### Fetch Agent Card
+```bash
+# Get the A2A-compliant agent card
+curl -s https://agent-inter-op.vercel.app/.well-known/agent-card.json | jq .
+
+# Example response structure:
+{
+  "name": "AgentInterOp Healthcare Platform",
+  "description": "A healthcare interoperability platform supporting dual protocols...",
+  "url": "https://agent-inter-op.vercel.app",
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "stateTransitionHistory": true
+  },
+  "skills": [
+    {
+      "id": "bcse",
+      "name": "Breast Cancer Screening Evaluator",
+      "description": "Evaluates BCS eligibility using FHIR data...",
+      "a2a.config64": "eyJzY2VuYXJpbyI6ImJjc2UifQ=="
+    }
+  ]
+}
+```
+
+### Inspect Base64 Configuration
+```bash
+# Decode the binding configuration
+curl -s https://agent-inter-op.vercel.app/.well-known/agent-card.json | \
+  jq -r '.skills[0]["a2a.config64"]' | \
+  base64 -d | jq .
+```
+
 ## A2A Protocol API
 
 ### Message Streaming
