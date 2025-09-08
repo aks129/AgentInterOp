@@ -199,6 +199,89 @@ alias new-fix='git checkout main && git pull && git checkout -b fix/'
 alias cleanup-branches='git branch --merged main | grep -v main | xargs -n 1 git branch -d'
 ```
 
+## 7) Lightweight Versioning & "Good Build" Bookmarking
+
+### Tag Demo-Ready Releases
+When a stable build hits production, tag it for easy reference:
+
+```bash
+git checkout main
+git pull origin main
+git tag -a v0.3.0 -m "BCSE demo – stable"
+git push origin v0.3.0
+
+# List recent tags
+git tag -l --sort=-version:refname | head -5
+```
+
+### Semantic Versioning (Simple)
+- `v0.1.0` - Major milestone (new scenario support)
+- `v0.1.1` - Minor features (UI improvements, new endpoints)
+- `v0.1.2` - Bug fixes and patches
+
+### Quick Rollback to Last Good Version
+```bash
+# If current prod is broken, quickly roll back
+git checkout v0.2.0  # last known good tag
+git checkout -b hotfix/rollback-to-v0.2.0
+git push origin hotfix/rollback-to-v0.2.0
+# PR → merge → promote to production
+```
+
+### Compare Against Last Stable
+```bash
+# See what changed since last stable release
+git diff v0.2.0..HEAD --stat
+git log v0.2.0..HEAD --oneline
+```
+
+## 8) Environment-Specific Configuration
+
+### Vercel Environment Variables
+Set different configs per environment in Vercel Dashboard → Settings → Environment Variables:
+
+**Production:**
+```
+ANTHROPIC_API_KEY=sk-prod-key-here
+STORE=memory
+LOG_LEVEL=info  
+UI_EXPERIMENTAL=false
+```
+
+**Preview (all branches):**
+```
+ANTHROPIC_API_KEY=sk-test-key-here  
+STORE=memory
+LOG_LEVEL=debug
+UI_EXPERIMENTAL=true
+```
+
+**Development (local):**
+```env
+# .env file
+ANTHROPIC_API_KEY=sk-dev-key-here
+SESSION_SECRET=dev-session-secret
+LOG_LEVEL=debug
+UI_EXPERIMENTAL=true
+```
+
+### Feature Flags Example
+In your app code, use environment-based feature flags:
+
+```python
+import os
+UI_EXPERIMENTAL = os.getenv("UI_EXPERIMENTAL", "false").lower() == "true"
+LOG_LEVEL = os.getenv("LOG_LEVEL", "info")
+
+# In templates or API responses
+if UI_EXPERIMENTAL:
+    # Show new experimental UI components
+    # Enable debug endpoints
+    # Add verbose logging
+```
+
+This lets you test experimental features only on Preview deployments, not in Production.
+
 This strategy gives you:
 - ✅ Safe main branch (never broken)
 - ✅ Preview deployments for testing
@@ -206,3 +289,5 @@ This strategy gives you:
 - ✅ Clean git history
 - ✅ CI validation
 - ✅ Easy rollbacks
+- ✅ Version tracking
+- ✅ Environment isolation
