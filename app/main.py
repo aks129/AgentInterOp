@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 import os, json, time, base64
 
+# Feature flags
+UI_EXPERIMENTAL = os.getenv("UI_EXPERIMENTAL", "false").lower() == "true"
+
 # Security constants
 MAX_JSON_SIZE = 10 * 1024 * 1024  # 10MB
 MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
@@ -101,6 +104,10 @@ from app.protocols.a2a_bcse import router as a2a_bcse_router
 from app.protocols.mcp_bcse import router as mcp_bcse_router
 app.include_router(a2a_bcse_router)
 app.include_router(mcp_bcse_router)
+
+# Include scheduling router
+from app.routers.scheduling import router as scheduling_router
+app.include_router(scheduling_router)
 
 # In-memory artifact storage for demo
 demo_artifacts = {
@@ -230,7 +237,10 @@ def bcse_evaluate(payload: dict):
 async def index(request: Request):
     """GET / renders index.html"""
     if templates:
-        return templates.TemplateResponse("index.html", {"request": request})
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "UI_EXPERIMENTAL": UI_EXPERIMENTAL
+        })
     else:
         return HTMLResponse("<h1>Multi-Agent Demo</h1><p>Templates not available in this environment</p>")
 

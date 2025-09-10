@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from datetime import datetime, timezone
-import json, time, uuid
+import json, time, uuid, asyncio
 from app.scenarios import bcse as BCS
+from app.scheduling.discovery import discover_slots, SlotQuery
+from app.scheduling.config import get_scheduling_config
 
 router = APIRouter(prefix="/api/bridge/bcse/a2a", tags=["A2A-BCSE"])
 
@@ -43,8 +45,70 @@ async def rpc(req: Request):
             pass
         snap = _task_snapshot(tid, "working", history=history, context={"scenario":"bcse"})
         if decision:
+            # Add BCS decision to history
             snap["history"].append({"role":"agent","parts":[{"kind":"text","text":json.dumps(decision)}],"kind":"message"})
-            snap["status"] = {"state":"completed"}
+            
+            # If eligible, add scheduling guidance and artifacts
+            if decision.get("eligible", False):
+                try:
+                    # Search for available slots asynchronously
+                    config = get_scheduling_config()
+                    if config.publishers:
+                        query = SlotQuery(
+                            specialty=config.default_specialty,
+                            radius_km=config.default_radius_km,
+                            start=datetime.now(),
+                            end=datetime.now().replace(hour=23, minute=59, second=59) + timezone.utc,
+                            limit=5
+                        )
+                        
+                        # Run slot discovery in background
+                        slots_result = await discover_slots(query)
+                        slots = slots_result.get("slots", [])
+                        
+                        if slots:
+                            # Add scheduling artifact
+                            scheduling_artifact = {
+                                "kind": "ProposedAppointments",
+                                "slots": slots[:5],  # First 5 slots
+                                "searched_at": datetime.now(timezone.utc).isoformat(),
+                                "specialty": query.specialty,
+                                "radius_km": query.radius_km
+                            }
+                            
+                            snap["artifacts"].append({
+                                "name": "ProposedAppointments.json",
+                                "content": json.dumps(scheduling_artifact, indent=2),
+                                "mimeType": "application/json"
+                            })
+                            
+                            # Add guidance message
+                            guidance_text = f"Eligible for screening. Found {len(slots)} available appointment slots."
+                            snap["history"].append({
+                                "role": "agent",
+                                "parts": [{"kind": "text", "text": guidance_text}],
+                                "kind": "message"
+                            })
+                        else:
+                            # No slots found
+                            guidance_text = "Eligible for screening. Searching for available appointment slots..."
+                            snap["history"].append({
+                                "role": "agent", 
+                                "parts": [{"kind": "text", "text": guidance_text}],
+                                "kind": "message"
+                            })
+                            
+                except Exception as e:
+                    print(f"[WARN] Scheduling integration failed: {e}")
+                    # Fallback guidance without slots
+                    guidance_text = "Eligible for screening. Please contact your provider to schedule an appointment."
+                    snap["history"].append({
+                        "role": "agent",
+                        "parts": [{"kind": "text", "text": guidance_text}], 
+                        "kind": "message"
+                    })
+            
+            snap["status"] = {"state": "completed"}
         _TASKS[tid]=snap
         return _ok(snap)
     elif method == "message/stream":
