@@ -47,7 +47,7 @@
 
         <!-- Right Pane: Connectathon Settings -->
         <div class="right-pane">
-            <div class="settings-panel">
+            <div class="settings-panel"{% if not UI_EXPERIMENTAL %} hidden{% endif %}>
                 <h2>Connectathon Settings</h2>
                 
                 <!-- Self-test Badge -->
@@ -161,5 +161,10 @@
 
     <!-- Custom JavaScript -->
     <script src="/static/app.js"></script>
+    
+    <!-- Experimental UI Controller (feature-flagged) -->
+    {% if UI_EXPERIMENTAL %}
+    <script src="/static/app.experimental.js"></script>
+    {% endif %}
 </body>
 </html>
