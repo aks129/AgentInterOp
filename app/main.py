@@ -105,6 +105,10 @@ from app.protocols.mcp_bcse import router as mcp_bcse_router
 app.include_router(a2a_bcse_router)
 app.include_router(mcp_bcse_router)
 
+# Include scheduling router
+from app.routers.scheduling import router as scheduling_router
+app.include_router(scheduling_router)
+
 # In-memory artifact storage for demo
 demo_artifacts = {
     "demo-task": {

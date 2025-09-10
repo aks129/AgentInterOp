@@ -55,6 +55,9 @@ function setupExperimentalEventListeners() {
             }
         }, true); // Use capture phase to intercept before main handler
     }
+    
+    // Scheduling Links functionality
+    setupSchedulingEventListeners();
 }
 
 async function runSelftestCheck() {
@@ -413,10 +416,430 @@ function validatePayloadForScenario(payload, scenario) {
     return { isValid: true };
 }
 
+// Scheduling Links functionality
+function setupSchedulingEventListeners() {
+    // Load scheduling config on init
+    loadSchedulingConfig();
+    
+    // Save scheduling config
+    const saveSchedulingBtn = document.getElementById('save-scheduling-btn');
+    if (saveSchedulingBtn) {
+        saveSchedulingBtn.addEventListener('click', saveSchedulingConfig);
+    }
+    
+    // Test publishers
+    const testPublishersBtn = document.getElementById('test-publishers-btn');
+    if (testPublishersBtn) {
+        testPublishersBtn.addEventListener('click', testPublishers);
+    }
+    
+    // Schedule screening search
+    const searchSlotsBtn = document.getElementById('search-slots-btn');
+    if (searchSlotsBtn) {
+        searchSlotsBtn.addEventListener('click', searchSlots);
+    }
+    
+    // Try scheduling button
+    const trySchedulingBtn = document.getElementById('try-scheduling-btn');
+    if (trySchedulingBtn) {
+        trySchedulingBtn.addEventListener('click', showScheduleScreeningPanel);
+    }
+    
+    // Initialize date inputs with default range (next 14 days)
+    initializeDateInputs();
+    
+    // Monitor for BCS eligibility to auto-show scheduling
+    monitorBCSEligibility();
+}
+
+async function loadSchedulingConfig() {
+    try {
+        const response = await fetch('/api/scheduling/config');
+        if (response.ok) {
+            const config = await response.json();
+            populateSchedulingConfig(config);
+        }
+    } catch (error) {
+        console.warn('Failed to load scheduling config:', error);
+    }
+}
+
+function populateSchedulingConfig(config) {
+    const publishersTextarea = document.getElementById('scheduling-publishers');
+    const cacheTtlInput = document.getElementById('scheduling-cache-ttl');
+    const specialtyInput = document.getElementById('scheduling-specialty');
+    const radiusInput = document.getElementById('scheduling-radius');
+    const timezoneInput = document.getElementById('scheduling-timezone');
+    
+    if (publishersTextarea) {
+        publishersTextarea.value = config.publishers ? config.publishers.join('\n') : '';
+    }
+    if (cacheTtlInput) {
+        cacheTtlInput.value = config.cache_ttl_seconds || 300;
+    }
+    if (specialtyInput) {
+        specialtyInput.value = config.default_specialty || 'mammography';
+    }
+    if (radiusInput) {
+        radiusInput.value = config.default_radius_km || 50;
+    }
+    if (timezoneInput) {
+        timezoneInput.value = config.default_timezone || 'America/New_York';
+    }
+}
+
+async function saveSchedulingConfig() {
+    const publishersTextarea = document.getElementById('scheduling-publishers');
+    const cacheTtlInput = document.getElementById('scheduling-cache-ttl');
+    const specialtyInput = document.getElementById('scheduling-specialty');
+    const radiusInput = document.getElementById('scheduling-radius');
+    const timezoneInput = document.getElementById('scheduling-timezone');
+    
+    const config = {
+        publishers: publishersTextarea.value.split('\n').filter(url => url.trim()),
+        cache_ttl_seconds: parseInt(cacheTtlInput.value) || 300,
+        default_specialty: specialtyInput.value.trim() || null,
+        default_radius_km: parseInt(radiusInput.value) || null,
+        default_timezone: timezoneInput.value.trim() || null
+    };
+    
+    try {
+        const response = await fetch('/api/scheduling/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        
+        if (response.ok) {
+            showTemporaryFeedback('Scheduling configuration saved successfully', 'success');
+        } else {
+            const error = await response.json();
+            showTemporaryFeedback(`Failed to save config: ${error.detail}`, 'danger');
+        }
+    } catch (error) {
+        showTemporaryFeedback(`Save failed: ${error.message}`, 'danger');
+    }
+}
+
+async function testPublishers() {
+    const testBtn = document.getElementById('test-publishers-btn');
+    const resultsDiv = document.getElementById('publisher-test-results');
+    const resultsContent = document.getElementById('publisher-results-content');
+    
+    if (testBtn) {
+        testBtn.disabled = true;
+        testBtn.textContent = 'Testing...';
+    }
+    
+    try {
+        const response = await fetch('/api/scheduling/publishers/test', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (resultsDiv && resultsContent) {
+            resultsDiv.style.display = 'block';
+            
+            if (response.ok && data.success) {
+                let html = '<div class="text-success mb-2">✓ Test completed</div>';
+                
+                Object.entries(data.publishers).forEach(([url, result]) => {
+                    if (result.status === 'success') {
+                        html += `<div class="border-start border-success ps-2 mb-2">
+                            <strong class="text-success">${url}</strong><br>
+                            <small>Response: ${result.elapsed_ms}ms | Slots: ${result.counts.slots} | Cache age: ${result.cache_age_seconds}s</small>
+                        </div>`;
+                    } else {
+                        html += `<div class="border-start border-danger ps-2 mb-2">
+                            <strong class="text-danger">${url}</strong><br>
+                            <small class="text-danger">Error: ${result.error}</small>
+                        </div>`;
+                    }
+                });
+                
+                resultsContent.innerHTML = html;
+            } else {
+                resultsContent.innerHTML = '<div class="text-danger">Test failed</div>';
+            }
+        }
+        
+    } catch (error) {
+        if (resultsContent) {
+            resultsContent.innerHTML = `<div class="text-danger">Test failed: ${error.message}</div>`;
+        }
+    } finally {
+        if (testBtn) {
+            testBtn.disabled = false;
+            testBtn.textContent = 'Test Publishers';
+        }
+    }
+}
+
+function initializeDateInputs() {
+    const startDateInput = document.getElementById('search-start-date');
+    const endDateInput = document.getElementById('search-end-date');
+    
+    if (startDateInput && endDateInput) {
+        const today = new Date();
+        const twoWeeksLater = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+        
+        startDateInput.value = today.toISOString().split('T')[0];
+        endDateInput.value = twoWeeksLater.toISOString().split('T')[0];
+    }
+}
+
+function showScheduleScreeningPanel() {
+    const panel = document.getElementById('schedule-screening-panel');
+    if (panel) {
+        panel.style.display = 'block';
+        panel.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+function monitorBCSEligibility() {
+    // Monitor transcript for BCS eligibility results
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE && 
+                        node.textContent && 
+                        node.textContent.toLowerCase().includes('eligible')) {
+                        
+                        // Check if this is a BCS eligibility result
+                        const isEligible = node.textContent.toLowerCase().includes('eligible') && 
+                                         !node.textContent.toLowerCase().includes('not eligible');
+                        
+                        if (isEligible) {
+                            setTimeout(() => {
+                                showScheduleScreeningPanel();
+                                showTemporaryFeedback('Patient is eligible! Schedule screening now.', 'info');
+                            }, 1000);
+                        }
+                    }
+                });
+            }
+        });
+    });
+    
+    const transcript = document.getElementById('transcript');
+    if (transcript) {
+        observer.observe(transcript, { childList: true, subtree: true });
+    }
+}
+
+async function searchSlots() {
+    const statusDiv = document.getElementById('slot-search-status');
+    const resultsDiv = document.getElementById('slot-search-results');
+    const emptyDiv = document.getElementById('slot-empty-results');
+    const errorDiv = document.getElementById('slot-error-results');
+    const resultsListDiv = document.getElementById('slot-results-list');
+    
+    // Hide all result states
+    [resultsDiv, emptyDiv, errorDiv].forEach(div => {
+        if (div) div.style.display = 'none';
+    });
+    
+    // Show loading status
+    if (statusDiv) statusDiv.style.display = 'block';
+    
+    // Collect search parameters
+    const specialty = document.getElementById('search-specialty')?.value.trim();
+    const radius = document.getElementById('search-radius')?.value;
+    const startDate = document.getElementById('search-start-date')?.value;
+    const endDate = document.getElementById('search-end-date')?.value;
+    const org = document.getElementById('search-org')?.value.trim();
+    const location = document.getElementById('search-location')?.value.trim();
+    
+    const searchQuery = {
+        specialty: specialty || null,
+        radius_km: radius ? parseInt(radius) : null,
+        start: startDate ? `${startDate}T00:00:00Z` : null,
+        end: endDate ? `${endDate}T23:59:59Z` : null,
+        org: org || null,
+        location_text: location || null,
+        limit: 50
+    };
+    
+    try {
+        const response = await fetch('/api/scheduling/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(searchQuery)
+        });
+        
+        const data = await response.json();
+        
+        // Hide loading status
+        if (statusDiv) statusDiv.style.display = 'none';
+        
+        if (response.ok && data.success) {
+            if (data.slots && data.slots.length > 0) {
+                displaySlotResults(data.slots);
+                if (resultsDiv) resultsDiv.style.display = 'block';
+            } else {
+                if (emptyDiv) emptyDiv.style.display = 'block';
+            }
+        } else {
+            if (errorDiv) {
+                errorDiv.style.display = 'block';
+                const errorMsg = document.getElementById('slot-error-message');
+                if (errorMsg) {
+                    errorMsg.textContent = data.detail || 'Search failed';
+                }
+            }
+        }
+        
+    } catch (error) {
+        // Hide loading status
+        if (statusDiv) statusDiv.style.display = 'none';
+        
+        if (errorDiv) {
+            errorDiv.style.display = 'block';
+            const errorMsg = document.getElementById('slot-error-message');
+            if (errorMsg) {
+                errorMsg.textContent = error.message;
+            }
+        }
+    }
+}
+
+function displaySlotResults(slots) {
+    const resultsListDiv = document.getElementById('slot-results-list');
+    if (!resultsListDiv) return;
+    
+    resultsListDiv.innerHTML = '';
+    
+    slots.forEach((slot, index) => {
+        const slotCard = document.createElement('div');
+        slotCard.className = 'card mb-2';
+        slotCard.innerHTML = `
+            <div class="card-body p-3">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h6 class="card-title mb-1">${formatSlotDateTime(slot.start)} - ${formatSlotTime(slot.end)}</h6>
+                        <p class="card-text mb-1">
+                            <strong>${slot.org}</strong><br>
+                            <small class="text-muted">${slot.service}</small>
+                        </p>
+                        <p class="card-text">
+                            <small class="text-muted">
+                                ${slot.location.name}${slot.location.address ? ', ' + slot.location.address : ''}
+                                ${slot.distance_km ? ` (${slot.distance_km.toFixed(1)} km away)` : ''}
+                            </small>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-success btn-sm book-slot-btn" 
+                                data-slot-id="${slot.slot_id}" 
+                                data-publisher="${slot.source_publisher}"
+                                data-slot-info="${encodeURIComponent(JSON.stringify(slot))}">
+                            Book
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        resultsListDiv.appendChild(slotCard);
+    });
+    
+    // Add click handlers for booking buttons
+    resultsListDiv.querySelectorAll('.book-slot-btn').forEach(btn => {
+        btn.addEventListener('click', bookSlot);
+    });
+}
+
+function formatSlotDateTime(isoString) {
+    try {
+        const date = new Date(isoString);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    } catch (error) {
+        return isoString;
+    }
+}
+
+function formatSlotTime(isoString) {
+    try {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    } catch (error) {
+        return isoString;
+    }
+}
+
+async function bookSlot(event) {
+    const btn = event.target;
+    const slotId = btn.dataset.slotId;
+    const publisher = btn.dataset.publisher;
+    const slotInfo = JSON.parse(decodeURIComponent(btn.dataset.slotInfo));
+    
+    btn.disabled = true;
+    btn.textContent = 'Booking...';
+    
+    try {
+        const response = await fetch('/api/scheduling/choose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                slot_id: slotId,
+                publisher_url: publisher,
+                note: 'Booked from web UI'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            // Show confirmation
+            showTemporaryFeedback(data.confirmation, 'success');
+            
+            // Open booking link if available
+            if (data.booking_link) {
+                if (data.is_simulation) {
+                    showTemporaryFeedback('Opening simulated booking portal...', 'info');
+                }
+                window.open(data.booking_link, '_blank');
+            }
+            
+            // Log to trace
+            logSchedulingTrace('slot_chosen', data.trace_data);
+            
+        } else {
+            showTemporaryFeedback(`Booking failed: ${data.error || 'Unknown error'}`, 'danger');
+        }
+        
+    } catch (error) {
+        showTemporaryFeedback(`Booking failed: ${error.message}`, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Book';
+    }
+}
+
+function logSchedulingTrace(event, data) {
+    // Add scheduling events to the transcript for traceability
+    const transcript = document.getElementById('transcript');
+    if (transcript) {
+        const traceEntry = document.createElement('div');
+        traceEntry.className = 'trace-entry scheduling-trace p-2 mb-2 border-start border-info';
+        traceEntry.innerHTML = `
+            <small class="text-muted">[SCHEDULING TRACE]</small><br>
+            <strong>${event}:</strong> ${JSON.stringify(data, null, 2)}
+        `;
+        transcript.appendChild(traceEntry);
+        transcript.scrollTop = transcript.scrollHeight;
+    }
+}
+
 // Export functions for use by main app if needed
 window.ExperimentalUI = {
     validatePayloadEnhanced,
     fillEnhancedExamples,
     validateAllSettings,
-    showTemporaryFeedback
+    showTemporaryFeedback,
+    showScheduleScreeningPanel,
+    searchSlots,
+    loadSchedulingConfig
 };

@@ -18,6 +18,12 @@ A comprehensive test bench for multi-agent and FHIR interoperability, featuring 
 - **Prior Auth**: Prior authorization request processing
 - **Custom**: Configurable scenarios for specific use cases
 
+### Scheduling Links (Experimental)
+- **SMART Scheduling Links**: Specialist slot discovery via bulk publishers
+- **Deep-link Hand-off**: Provider booking portal integration
+- **A2A/MCP Compatible**: Works with both protocol flows
+- **Trace Integration**: Complete scheduling audit trail
+
 ## Quick Start
 
 ### Environment Setup
@@ -316,6 +322,247 @@ app/
 config.runtime.json
 *.key
 ```
+
+## Scheduling Links (Experimental)
+
+### Overview
+
+The Scheduling Links feature implements SMART Scheduling Links specification for specialist slot discovery and booking. When a patient is eligible for screening (e.g., BCS-E), the system automatically discovers available appointment slots from configured publishers and provides deep-link hand-off to provider booking portals.
+
+### Features
+
+- **Bulk Publisher Integration**: Connects to SMART Scheduling Links publishers via `/$bulk-publish` endpoints
+- **Real-time Slot Discovery**: Searches available slots with filtering by specialty, time window, location, and organization
+- **Deep-link Hand-off**: Opens provider booking portals or provides simulated booking for demo purposes
+- **A2A/MCP Integration**: Works seamlessly with both protocol flows
+- **Caching & Performance**: Intelligent caching with configurable TTL for optimal performance
+- **Trace & Audit**: Complete scheduling events logged in the Trace/Prove-It panel
+
+### Configuration
+
+#### UI Configuration (Experimental Mode)
+
+1. Set `UI_EXPERIMENTAL=true` environment variable
+2. In the Settings panel, configure "Scheduling Links":
+   - **Publishers**: One URL per line (e.g., `https://zocdoc-smartscheduling.netlify.app`)
+   - **Cache TTL**: Time-to-live for cached publisher data (300 seconds default)
+   - **Default Specialty**: Default specialty for searches (e.g., "mammography")
+   - **Default Radius**: Search radius in kilometers (50 km default)
+   - **Default Timezone**: Timezone for slot display (America/New_York default)
+
+#### API Configuration
+
+```bash
+# Get current configuration
+curl -X GET "http://localhost:5000/api/scheduling/config"
+
+# Update configuration
+curl -X POST "http://localhost:5000/api/scheduling/config" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "publishers": ["https://zocdoc-smartscheduling.netlify.app"],
+    "cache_ttl_seconds": 300,
+    "default_specialty": "mammography",
+    "default_radius_km": 50,
+    "default_timezone": "America/New_York"
+  }'
+
+# Test publishers
+curl -X POST "http://localhost:5000/api/scheduling/publishers/test"
+```
+
+### Usage Workflow
+
+#### 1. BCS Eligibility → Automatic Scheduling
+
+When a patient is determined eligible through BCS-E evaluation:
+1. The system automatically triggers slot discovery using configured defaults
+2. A "Schedule Screening" panel appears in the UI
+3. Available slots are displayed with booking options
+
+#### 2. Manual Scheduling Search
+
+Use the "Schedule Screening" panel to manually search for slots:
+- **Specialty**: Filter by service type (e.g., "mammography", "cardiology")
+- **Date Range**: Start and end dates for appointment availability
+- **Location**: Geographic filters (city/state text or lat/lng with radius)
+- **Organization**: Filter by provider name (contains match)
+
+#### 3. Slot Booking
+
+Click "Book" on any slot to:
+- Record the selection in the audit trace
+- Open the provider's booking portal (if available)
+- Show simulated booking page for demo publishers
+
+### API Endpoints
+
+#### Slot Discovery
+
+```bash
+curl -X POST "http://localhost:5000/api/scheduling/search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "specialty": "mammography",
+    "start": "2024-12-15T00:00:00Z",
+    "end": "2024-12-29T23:59:59Z",
+    "radius_km": 50,
+    "lat": 40.7128,
+    "lng": -74.0060,
+    "limit": 25
+  }'
+```
+
+#### Slot Selection
+
+```bash
+curl -X POST "http://localhost:5000/api/scheduling/choose" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "slot_id": "slot_12345",
+    "publisher_url": "https://publisher.example.com",
+    "note": "Booked from API"
+  }'
+```
+
+### A2A Protocol Integration
+
+When BCS eligibility is determined as "eligible", A2A responses automatically include:
+
+- **ProposedAppointments Artifact**: JSON containing discovered slots
+- **Guidance Messages**: Text guidance about available appointments
+- **Trace Events**: Complete audit trail in the task history
+
+Example A2A response with scheduling:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "result": {
+    "id": "task_123",
+    "status": {"state": "completed"},
+    "history": [
+      {"role": "user", "parts": [{"kind": "text", "text": "{...eligibility_data...}"}]},
+      {"role": "agent", "parts": [{"kind": "text", "text": "{\"eligible\": true, \"reason\": \"...\""}]},
+      {"role": "agent", "parts": [{"kind": "text", "text": "Eligible for screening. Found 5 available appointment slots."}]}
+    ],
+    "artifacts": [
+      {
+        "name": "ProposedAppointments.json",
+        "content": "{\"kind\": \"ProposedAppointments\", \"slots\": [...], \"searched_at\": \"2024-12-15T10:00:00Z\"}",
+        "mimeType": "application/json"
+      }
+    ]
+  }
+}
+```
+
+### MCP Protocol Integration
+
+Two new MCP tools are available:
+
+#### find_specialist_slots
+
+```bash
+curl -X POST "http://localhost:5000/api/mcp/bcse/find_specialist_slots" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "specialty": "mammography",
+    "start_date": "2024-12-15T00:00:00Z",
+    "end_date": "2024-12-29T23:59:59Z",
+    "radius_km": 50,
+    "limit": 10
+  }'
+```
+
+#### choose_slot
+
+```bash
+curl -X POST "http://localhost:5000/api/mcp/bcse/choose_slot" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "slot_id": "slot_12345",
+    "publisher_url": "https://publisher.example.com",
+    "note": "MCP booking"
+  }'
+```
+
+### Demo Instructions
+
+#### Setup for Connectathon Demo
+
+1. **Enable Experimental UI**:
+   ```bash
+   export UI_EXPERIMENTAL=true
+   ```
+
+2. **Configure Test Publisher**:
+   - In Settings → Scheduling Links
+   - Add publisher: `https://zocdoc-smartscheduling.netlify.app`
+   - Set specialty: `mammography`
+   - Set radius: `50` km
+   - Click "Save Scheduling Config"
+
+3. **Test Publishers**:
+   - Click "Test Publishers" 
+   - Verify success and slot counts in results
+
+#### Demo Flow
+
+1. **Run BCS Eligibility Check**:
+   - Use demo patient data (female, age 56, recent mammogram)
+   - Submit eligibility check
+   - Observe "eligible" result
+
+2. **Automatic Scheduling Trigger**:
+   - Notice "Schedule Screening" panel appears
+   - See message: "Patient is eligible! Schedule screening now."
+
+3. **Search and Book Slots**:
+   - Verify search fields are pre-populated
+   - Click "Search Slots"
+   - Browse available appointments
+   - Click "Book" on preferred slot
+
+4. **Trace Verification**:
+   - Open Trace/Prove-It panel
+   - Verify scheduling events are logged:
+     - `discovery_query` with search parameters
+     - `discovery_results_count` with slot counts
+     - `chosen_slot` with booking details
+     - `handoff_url` with booking link
+
+5. **Booking Hand-off**:
+   - Observe new tab opens with booking portal
+   - For demo publisher: simulated booking page
+   - For real publishers: actual provider portal
+
+### Data Safety & Compliance
+
+- **No PHI in URLs**: Patient data never included in query parameters to publishers
+- **Timeout Protection**: All publisher requests have 8-10s timeouts
+- **Graceful Degradation**: System continues to work if publishers are unavailable
+- **Cache Management**: Automatic cache expiration and cleanup
+- **Audit Trail**: Complete scheduling activity logged for compliance
+
+### Testing
+
+Run the comprehensive test suite:
+
+```bash
+pytest tests/test_scheduling.py -v
+```
+
+Test coverage includes:
+- Configuration management
+- Bulk publisher fetch (JSON/NDJSON)
+- Index building and reference resolution
+- Slot discovery and filtering
+- Geographic distance calculations
+- Specialty matching
+- Time window filtering
+- Slot selection and booking
+- Integration scenarios
 
 ## Legacy Demo (Original BCS-E)
 
