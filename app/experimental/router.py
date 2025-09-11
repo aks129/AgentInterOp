@@ -37,6 +37,7 @@ async def agent_respond(payload: Dict[str, Any] = Body(...)):
         context = payload.get('context', [])
         facts = payload.get('facts', {})
         hint = payload.get('hint', 'free')
+        api_key = payload.get('api_key')
         
         # Build context for Claude
         context_str = ""
@@ -65,7 +66,7 @@ Please analyze this healthcare agent interaction and provide a structured respon
             {"role": "user", "content": prompt}
         ]
         
-        result = await claude_call(messages)
+        result = await claude_call(messages, api_key=api_key)
         
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
@@ -135,6 +136,7 @@ async def run_bcse_test(test_case: Dict[str, Any] = Body(...)):
         test_name = test_case.get('name', 'Unknown')
         payload = test_case.get('payload', {})
         expected = test_case.get('expect', '')
+        api_key = test_case.get('api_key')
         
         # Create facts for Claude analysis
         facts = {
@@ -152,6 +154,9 @@ async def run_bcse_test(test_case: Dict[str, Any] = Body(...)):
             "facts": facts,
             "hint": "decision"
         }
+        
+        if api_key:
+            claude_payload["api_key"] = api_key
         
         result = await agent_respond(claude_payload)
         
@@ -208,6 +213,7 @@ async def parse_narrative(request: Dict[str, Any] = Body(...)):
     try:
         narrative = request.get('narrative', '')
         target_schema = request.get('target_schema', 'bcse')
+        api_key = request.get('api_key')
         
         if not narrative.strip():
             raise HTTPException(status_code=400, detail="Narrative text is required")
@@ -223,7 +229,7 @@ Extract relevant clinical data and format it as a structured JSON object appropr
             {"role": "user", "content": prompt}
         ]
         
-        result = await claude_call(messages)
+        result = await claude_call(messages, api_key=api_key)
         
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])

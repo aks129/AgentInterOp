@@ -1,5 +1,217 @@
 /* Multi-Agent Demo - Minimal UI Styles */
 
+/* Experimental Agent UX Styles */
+.experimental-panel {
+    background: rgba(0, 123, 255, 0.05);
+    border: 1px solid rgba(0, 123, 255, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.experimental-section {
+    background: rgba(255, 193, 7, 0.05);
+    border: 1px solid rgba(255, 193, 7, 0.2);
+    border-radius: 6px;
+    padding: 0.75rem;
+}
+
+/* Two-lane transcript */
+.transcript-lanes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    min-height: 300px;
+}
+
+.applicant-lane, .administrator-lane {
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.applicant-lane h5 {
+    color: #17a2b8;
+    margin-bottom: 0.5rem;
+}
+
+.administrator-lane h5 {
+    color: #28a745;
+    margin-bottom: 0.5rem;
+}
+
+.agent-messages {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.agent-message {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    padding: 0.75rem;
+    border-left: 3px solid #007bff;
+}
+
+.message-header {
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.message-body {
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+/* Action cards */
+.action-card .card {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.action-card.request-info .card {
+    border-left: 3px solid #ffc107;
+}
+
+.action-card.propose-decision .card {
+    border-left: 3px solid #28a745;
+}
+
+.action-card.request-docs .card {
+    border-left: 3px solid #17a2b8;
+}
+
+.action-card.propose-slots .card {
+    border-left: 3px solid #6f42c1;
+}
+
+/* Test results */
+.test-results .test-case {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 0.5rem;
+}
+
+.test-result {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Right rail tabs */
+.experimental-tabs {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    max-height: 500px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.experimental-tabs .nav-tabs {
+    border-bottom-color: #444;
+}
+
+.experimental-tabs .nav-link {
+    color: #e0e0e0;
+    border-color: transparent;
+}
+
+.experimental-tabs .nav-link.active {
+    background-color: rgba(0, 123, 255, 0.2);
+    border-color: #007bff;
+    color: #fff;
+}
+
+.trace-content, .artifacts-content, .raw-content {
+    max-height: 350px;
+    overflow-y: auto;
+    font-size: 0.85rem;
+    flex: 1;
+}
+
+.experimental-tabs .tab-content {
+    flex: 1;
+    overflow: hidden;
+}
+
+.trace-entry {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.trace-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.trace-data pre {
+    background: rgba(0, 0, 0, 0.3);
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin: 0;
+    font-size: 0.8rem;
+    max-height: 150px;
+    overflow: auto;
+}
+
+/* Claude status indicators */
+#claude-status {
+    background: rgba(138, 43, 226, 0.1);
+    border: 1px solid rgba(138, 43, 226, 0.3);
+    border-radius: 6px;
+    padding: 0.5rem;
+}
+
+/* Response cards */
+#generated-response-card .card {
+    background: rgba(0, 123, 255, 0.1);
+    border-color: #007bff;
+}
+
+#generated-response-card .card-header {
+    background: rgba(0, 123, 255, 0.2);
+    border-bottom-color: #007bff;
+}
+
+/* BCS test harness */
+.bcs-test-section {
+    background: rgba(40, 167, 69, 0.05);
+    border: 1px solid rgba(40, 167, 69, 0.2);
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+/* Spinner and loading states */
+.experimental-panel .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .transcript-lanes {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    
+    .experimental-tabs .tab-content {
+        padding: 0.5rem;
+    }
+    
+    .trace-content, .artifacts-content, .raw-content {
+        max-height: 200px;
+    }
+}
+
 body {
     font-family: system-ui, -apple-system, sans-serif;
     margin: 0;
@@ -304,6 +516,20 @@ body {
     .right-pane {
         width: auto;
         height: 200px;
+    }
+    
+    /* Experimental responsive */
+    .transcript-lanes {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    
+    .experimental-panel {
+        max-height: 400px;
+    }
+    
+    .experimental-tabs {
+        max-height: 300px;
     }
     
     .controls {

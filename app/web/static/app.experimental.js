@@ -9,6 +9,7 @@ class ClaudeAgentUX {
         this.conversationTrace = [];
         this.isExperimentalEnabled = false;
         this.lastGeneratedResponse = null;
+        this.sessionApiKey = null;
     }
 
     async init() {
@@ -43,6 +44,12 @@ class ClaudeAgentUX {
         if (useResponseBtn) {
             useResponseBtn.addEventListener('click', () => this.useGeneratedResponse());
         }
+
+        // API key save button
+        const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+        if (saveApiKeyBtn) {
+            saveApiKeyBtn.addEventListener('click', () => this.saveApiKey());
+        }
     }
 
     checkURLParams() {
@@ -75,10 +82,12 @@ class ClaudeAgentUX {
                         statusIndicator.className = 'badge bg-success';
                         statusIndicator.textContent = 'Ready';
                         statusText.textContent = `Claude API available (${latency}ms)`;
+                        this.hideApiKeyInput();
                     } else {
                         statusIndicator.className = 'badge bg-warning';
                         statusIndicator.textContent = 'Not Ready';
                         statusText.textContent = 'ANTHROPIC_API_KEY not configured';
+                        this.showApiKeyInput();
                     }
                 }
             } else {
@@ -167,10 +176,16 @@ class ClaudeAgentUX {
                 testList.appendChild(resultElement);
 
                 try {
+                    // Add API key to test case if available
+                    const testCaseWithKey = { ...testCase };
+                    if (this.sessionApiKey) {
+                        testCaseWithKey.api_key = this.sessionApiKey;
+                    }
+                    
                     const testResponse = await fetch('/api/experimental/tests/bcse/run', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(testCase)
+                        body: JSON.stringify(testCaseWithKey)
                     });
 
                     if (testResponse.ok) {
@@ -248,6 +263,9 @@ class ClaudeAgentUX {
             };
 
             const payload = { role, context, facts, hint };
+            if (this.sessionApiKey) {
+                payload.api_key = this.sessionApiKey;
+            }
 
             const response = await fetch('/api/experimental/agent/respond', {
                 method: 'POST',
@@ -501,6 +519,40 @@ class ClaudeAgentUX {
         const rawPanel = document.getElementById('raw-json');
         if (rawPanel) {
             rawPanel.innerHTML = `<code>${JSON.stringify(this.conversationTrace, null, 2)}</code>`;
+        }
+    }
+
+    showApiKeyInput() {
+        const apiKeySection = document.getElementById('claude-api-key-section');
+        if (apiKeySection) {
+            apiKeySection.style.display = 'block';
+        }
+    }
+
+    hideApiKeyInput() {
+        const apiKeySection = document.getElementById('claude-api-key-section');
+        if (apiKeySection) {
+            apiKeySection.style.display = 'none';
+        }
+    }
+
+    saveApiKey() {
+        const apiKeyInput = document.getElementById('claude-api-key');
+        if (apiKeyInput && apiKeyInput.value.trim()) {
+            this.sessionApiKey = apiKeyInput.value.trim();
+            this.claudeStatus.ready = true;
+            
+            // Update status indicator
+            const statusIndicator = document.getElementById('claude-status-indicator');
+            const statusText = document.getElementById('claude-status-text');
+            if (statusIndicator && statusText) {
+                statusIndicator.className = 'badge bg-success';
+                statusIndicator.textContent = 'Ready';
+                statusText.textContent = 'Session API key configured';
+            }
+            
+            this.hideApiKeyInput();
+            alert('Claude API key saved for this session!');
         }
     }
 }

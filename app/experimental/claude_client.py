@@ -26,7 +26,8 @@ If you have nothing to do, set state to "input-required".
 async def claude_call(
     messages: List[Dict[str, str]], 
     model: str = "claude-3-5-sonnet-latest", 
-    max_tokens: int = 800
+    max_tokens: int = 800,
+    api_key: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Call the Anthropic Claude API with structured healthcare agent instructions.
@@ -39,7 +40,9 @@ async def claude_call(
     Returns:
         Parsed JSON response or error dict
     """
-    if not ANTHROPIC_API_KEY:
+    # Use provided API key or fall back to environment variable
+    effective_api_key = api_key or ANTHROPIC_API_KEY
+    if not effective_api_key:
         return {"error": "ANTHROPIC_API_KEY not set"}
         
     payload = {
@@ -54,7 +57,7 @@ async def claude_call(
             response = await client.post(
                 "https://api.anthropic.com/v1/messages",
                 headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
+                    "x-api-key": effective_api_key,
                     "anthropic-version": "2023-06-01",
                     "content-type": "application/json"
                 },
