@@ -112,11 +112,15 @@ class ClaudeAgentUX {
         
         // Show/hide experimental panels
         const agentUXPanel = document.getElementById('experimental-agent-ux-panel');
+        const autonomousV2Panel = document.getElementById('autonomous-v2-panel');
         const rightRail = document.getElementById('experimental-right-rail');
         const claudeStatus = document.getElementById('claude-status');
         
         if (agentUXPanel) {
             agentUXPanel.style.display = enabled ? 'block' : 'none';
+        }
+        if (autonomousV2Panel) {
+            autonomousV2Panel.style.display = enabled ? 'block' : 'none';
         }
         if (rightRail) {
             rightRail.style.display = enabled ? 'block' : 'none';

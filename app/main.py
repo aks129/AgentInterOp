@@ -109,6 +109,12 @@ app.include_router(mcp_bcse_router)
 from app.routers.scheduling import router as scheduling_router
 app.include_router(scheduling_router)
 
+# Include experimental router
+from app.experimental.router import router as experimental_router
+from app.experimental_v2.router import router as experimental_v2_router
+app.include_router(experimental_router)
+app.include_router(experimental_v2_router)
+
 # In-memory artifact storage for demo
 demo_artifacts = {
     "demo-task": {

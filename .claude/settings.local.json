@@ -13,7 +13,10 @@
       "Bash(mkdir:*)",
       "Bash(git reset:*)",
       "Bash(git merge:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(vercel:*)",
+      "Bash(npm install:*)",
+      "WebFetch(domain:agent-inter-dn9af5rs4-aks129s-projects.vercel.app)"
     ],
     "deny": [],
     "ask": []

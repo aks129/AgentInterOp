@@ -99,6 +99,131 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Autonomous BCS v2 Panel -->
+                <div id="autonomous-v2-panel" class="experimental-panel mt-4" style="display: none;">
+                    <h3>Autonomous BCS (v2)</h3>
+                    
+                    <!-- Endpoints & Servers -->
+                    <div class="mb-4">
+                        <h5>Endpoints & Servers</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="applicant-endpoint" class="form-label">Applicant A2A Endpoint:</label>
+                                <input type="url" id="applicant-endpoint" class="form-control form-control-sm" 
+                                       placeholder="https://applicant.example.com/a2a">
+                                <button id="test-applicant-btn" class="btn btn-outline-secondary btn-sm mt-1">Test</button>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="administrator-endpoint" class="form-label">Administrator A2A Endpoint:</label>
+                                <input type="url" id="administrator-endpoint" class="form-control form-control-sm" 
+                                       placeholder="https://admin.example.com/a2a">
+                                <button id="test-administrator-btn" class="btn btn-outline-secondary btn-sm mt-1">Test</button>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-8">
+                                <label for="fhir-base-url" class="form-label">MCP-FHIR Base URL:</label>
+                                <input type="url" id="fhir-base-url" class="form-control form-control-sm" 
+                                       value="https://hapi.fhir.org/baseR4" placeholder="https://hapi.fhir.org/baseR4">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="fhir-token" class="form-label">Token:</label>
+                                <input type="password" id="fhir-token" class="form-control form-control-sm" 
+                                       placeholder="Bearer token (optional)">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Patient & Data -->
+                    <div class="mb-4">
+                        <h5>Patient & Data</h5>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label for="patient-id" class="form-label">Patient ID:</label>
+                                <input type="text" id="patient-id" class="form-control form-control-sm" 
+                                       placeholder="Patient resource ID">
+                            </div>
+                            <div class="col-md-4">
+                                <button id="fetch-everything-btn" class="btn btn-primary btn-sm mt-4">Fetch $everything</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Minimal Facts Preview -->
+                        <div id="minimal-facts-preview" class="mt-3" style="display: none;">
+                            <h6>Extracted Facts:</h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="fact-sex" class="form-label">Sex:</label>
+                                    <input type="text" id="fact-sex" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="fact-birth-date" class="form-label">Birth Date:</label>
+                                    <input type="date" id="fact-birth-date" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="fact-last-mammogram" class="form-label">Last Mammogram:</label>
+                                    <input type="date" id="fact-last-mammogram" class="form-control form-control-sm">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Guidelines -->
+                    <div class="mb-4">
+                        <h5>Guidelines</h5>
+                        <div class="mb-2">
+                            <button id="load-guidelines-btn" class="btn btn-outline-primary btn-sm me-2">Load Current</button>
+                            <button id="restore-guidelines-btn" class="btn btn-outline-secondary btn-sm">Restore Defaults</button>
+                        </div>
+                        <textarea id="guidelines-editor" class="form-control font-monospace" rows="8" 
+                                  placeholder="BCS guidelines JSON..."></textarea>
+                    </div>
+                    
+                    <!-- Run Options -->
+                    <div class="mb-4">
+                        <h5>Run Options</h5>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="max-turns" class="form-label">Max Turns:</label>
+                                <input type="number" id="max-turns" class="form-control form-control-sm" value="8" min="2" max="20">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="sse-timeout" class="form-label">SSE Timeout (ms):</label>
+                                <input type="number" id="sse-timeout" class="form-control form-control-sm" value="8000" min="1000" max="30000">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="poll-interval" class="form-label">Poll Interval (ms):</label>
+                                <input type="number" id="poll-interval" class="form-control form-control-sm" value="1200" min="500" max="5000">
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" id="dry-run" checked>
+                                    <label class="form-check-label" for="dry-run">Dry Run</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Run Controls -->
+                    <div class="mb-4">
+                        <h5>Run Controls</h5>
+                        <button id="start-autonomous-btn" class="btn btn-success me-2">Start Autonomous Run</button>
+                        <button id="cancel-autonomous-btn" class="btn btn-danger" disabled>Cancel</button>
+                        <span id="autonomous-status" class="ms-3 small text-muted"></span>
+                    </div>
+                    
+                    <!-- Quick Tests -->
+                    <div class="mb-4">
+                        <h5>Quick Tests</h5>
+                        <div class="btn-group" role="group">
+                            <button id="test-eligible-btn" class="btn btn-outline-success btn-sm">Eligible Test</button>
+                            <button id="test-needs-info-btn" class="btn btn-outline-warning btn-sm">Needs Info Test</button>
+                            <button id="test-ineligible-btn" class="btn btn-outline-danger btn-sm">Ineligible Test</button>
+                        </div>
+                        <div id="quick-test-results" class="mt-2" style="display: none;"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -107,6 +232,35 @@
             <h2>Artifacts</h2>
             <div id="artifacts" class="artifacts">
                 <p class="no-artifacts">No artifacts available</p>
+            </div>
+            
+            <!-- Autonomous Dialog Live View -->
+            <div id="autonomous-live-view" style="display: none;">
+                <h2>Autonomous Dialog</h2>
+                
+                <!-- Arbiter Decision Bar -->
+                <div id="arbiter-decision-bar" class="alert alert-info" style="display: none;">
+                    <strong>Chosen Outcome:</strong> <span id="arbiter-decision"></span> - 
+                    <span id="arbiter-rationale"></span>
+                </div>
+                
+                <!-- Two-Lane Autonomous Transcript -->
+                <div class="autonomous-transcript-lanes">
+                    <div class="autonomous-applicant-lane">
+                        <h5>Applicant Agent</h5>
+                        <div id="autonomous-applicant-messages" class="autonomous-agent-messages"></div>
+                    </div>
+                    <div class="autonomous-administrator-lane">
+                        <h5>Administrator Agent</h5>
+                        <div id="autonomous-administrator-messages" class="autonomous-agent-messages"></div>
+                    </div>
+                </div>
+                
+                <!-- Export Controls -->
+                <div class="mt-3">
+                    <button id="export-transcript-btn" class="btn btn-outline-primary btn-sm">Export Transcript</button>
+                    <span id="dialog-progress" class="ms-3 small text-muted"></span>
+                </div>
             </div>
 
             <!-- Schedule Screening Panel -->
@@ -427,5 +581,6 @@
     
     <!-- Experimental UI Controller -->
     <script src="/static/app.experimental.js"></script>
+    <script src="/static/app.autonomous_v2.js"></script>
 </body>
 </html>

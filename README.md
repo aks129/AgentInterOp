@@ -788,6 +788,305 @@ The experimental Agent UX framework is designed to support:
 - Advanced conversation analytics and quality metrics
 - Real-time collaboration between human operators and AI agents
 
+## Experimental v2: Autonomous BCS Agents
+
+### Overview
+
+The Experimental v2 Autonomous BCS system represents the "holy grail" of agent interoperability - fully autonomous two-agent dialogs with Claude AI integration, FHIR data ingestion, and intelligent arbitration. This system demonstrates how agents can autonomously negotiate breast cancer screening eligibility decisions through structured conversations.
+
+### Features
+
+- **Autonomous Two-Agent Dialogs**: Applicant and Administrator agents conduct structured conversations without human intervention
+- **FHIR $everything Integration**: Real-time patient data extraction from FHIR servers with automatic fact mapping
+- **Intelligent Arbitration**: AI-powered decision arbiter that chooses optimal outcomes based on guidelines and confidence
+- **Hybrid Agent Modes**: Supports Claude-local, external A2A endpoints, or mixed configurations
+- **Live Conversation Visualization**: Real-time two-lane transcript with state management and decision tracking
+- **Guidelines Editor**: Configurable BCS clinical guidelines with JSON schema validation
+- **Comprehensive Testing**: Quick test harness, dry-run mode, and validation scenarios
+
+### Enabling Experimental v2
+
+#### Prerequisites
+1. **Enable Experimental UI**: Check "Enable Experimental Agent UX" in Settings or visit `?experimental=1`
+2. **Configure API Key**: Provide `ANTHROPIC_API_KEY` environment variable or session key for Claude integration
+3. **Optional FHIR Access**: Configure FHIR server endpoints for real patient data
+
+#### Access the v2 Panel
+The "Autonomous BCS (v2)" panel appears in the left sidebar when experimental mode is enabled.
+
+### System Architecture
+
+#### Core Components
+
+**FHIR Mapper** (`app/experimental_v2/fhir_mapper.py`):
+- Fetches patient `$everything` bundles from FHIR servers
+- Extracts minimal facts: sex, birthDate, last_mammogram
+- Supports configurable mammogram procedure codes
+- Validates extracted data for completeness
+
+**Guidelines Engine** (`app/experimental_v2/guidelines.py`):
+- Configurable BCS eligibility rules (age range, intervals, requirements)
+- Evaluates patient facts against clinical guidelines
+- Returns structured decisions with confidence scores and rationales
+
+**Autonomy Engine** (`app/experimental_v2/autonomy.py`):
+- Manages two-agent dialog loops (Applicant ↔ Administrator)
+- Supports hybrid modes: Claude-local, external A2A, or mixed
+- Implements SSE streaming with polling fallback
+- Handles timeout, cancellation, and error recovery
+
+**Arbiter System** (`app/experimental_v2/arbiter.py`):
+- Analyzes proposals from both agents
+- Applies preference rules for conflicting decisions
+- Prioritizes patient safety and guideline alignment
+- Provides transparent decision rationale
+
+### API Endpoints
+
+#### FHIR Integration
+```bash
+# Fetch patient data and extract facts
+POST /api/experimental/v2/fhir/everything
+{
+  "patientId": "123456",
+  "fhir_base_url": "https://hapi.fhir.org/baseR4",
+  "bearer_token": "optional_token"
+}
+
+# Get demo facts for testing
+GET /api/experimental/v2/fhir/demo-facts
+```
+
+#### Guidelines Management
+```bash
+# Get current guidelines
+GET /api/experimental/v2/guidelines/bcse
+
+# Update guidelines with validation
+POST /api/experimental/v2/guidelines/bcse
+{
+  "ageRangeYears": [50, 74],
+  "screeningIntervalMonths": 24,
+  "sexRequired": "female",
+  "rationales": {...}
+}
+
+# Test guidelines against standard cases
+GET /api/experimental/v2/guidelines/test
+```
+
+#### Autonomous Dialogs
+```bash
+# Start autonomous dialog
+POST /api/experimental/v2/autonomy/run
+{
+  "scenario": "bcse",
+  "facts": {"sex": "female", "birthDate": "1969-08-10", "last_mammogram": "2022-01-15"},
+  "a2a": {
+    "applicant_endpoint": "https://applicant.example.com/a2a",
+    "administrator_endpoint": "https://admin.example.com/a2a"
+  },
+  "options": {
+    "max_turns": 8,
+    "dry_run": false
+  },
+  "api_key": "sk-ant-..."
+}
+
+# Stream dialog progress (SSE)
+GET /api/experimental/v2/autonomy/run/{run_id}/stream
+
+# Get dialog status
+GET /api/experimental/v2/autonomy/status?run_id={run_id}
+
+# Cancel dialog
+POST /api/experimental/v2/autonomy/cancel
+```
+
+#### Quick Testing
+```bash
+# Run predefined test cases
+POST /api/experimental/v2/test/quick-run?test_case=eligible&dry_run=true
+
+# Test arbiter logic
+GET /api/experimental/v2/test/arbiter
+```
+
+### Usage Workflows
+
+#### 1. FHIR-Powered Autonomous Evaluation
+
+**Setup**:
+1. Configure FHIR server URL and optional bearer token
+2. Enter patient ID and click "Fetch $everything"
+3. Review extracted facts (sex, birth date, last mammogram)
+4. Load or customize BCS guidelines
+
+**Execution**:
+1. Configure A2A endpoints (or use Claude-local mode)
+2. Set run options (max turns, timeouts, dry-run mode)
+3. Click "Start Autonomous Run"
+4. Watch real-time two-agent conversation
+5. View arbiter's final decision with rationale
+
+**Outcome**:
+- Autonomous eligibility determination
+- Complete conversation transcript
+- Decision audit trail
+- Export capability for compliance
+
+#### 2. Hybrid Agent Configurations
+
+**Applicant-Local / Administrator-Remote**:
+- Use Claude for applicant persona
+- Connect to external administrator A2A endpoint
+- Useful for testing external admin systems
+
+**Both-Local (Dry Run)**:
+- Use Claude for both agents
+- Demonstrate autonomous conversation logic
+- No external network dependencies
+
+**Both-Remote**:
+- Connect to external applicant and administrator endpoints
+- Full A2A protocol interoperability testing
+- Real partner system integration
+
+#### 3. Guidelines Customization
+
+**Default Guidelines**:
+- Age range: 50-74 years
+- Screening interval: 24 months
+- Sex requirement: female
+- Configurable rationales and coding hints
+
+**Custom Configuration**:
+1. Edit guidelines JSON in the built-in editor
+2. Validate against schema requirements
+3. Test with standard cases
+4. Save for autonomous runs
+
+**Validation Rules**:
+- Age range must be valid integers
+- Screening interval must be positive
+- Required rationales for all decision types
+- FHIR coding hints for mammogram procedures
+
+### Agent Personas
+
+#### Applicant Agent
+- **Role**: Represents patient perspective and needs
+- **Actions**: Provide information, request clarification, accept decisions
+- **Behavior**: Focused on patient advocacy and clear communication
+- **Output**: Structured JSON with patient-centric messaging
+
+#### Administrator Agent  
+- **Role**: Evaluates eligibility against clinical guidelines
+- **Actions**: Request information/docs, propose decisions with rationale
+- **Behavior**: Evidence-based, guideline-focused, safety-conscious
+- **Output**: Structured JSON with clinical decision reasoning
+
+#### Arbiter Logic
+1. **Guidelines Alignment**: Prefer proposals that match clinical guidelines
+2. **Confidence Weighting**: Higher confidence proposals get preference
+3. **Safety Priority**: Conservative choices when guidelines are uncertain
+4. **Patient Action**: Prefer decisions that enable patient care progression
+
+### Testing & Validation
+
+#### Quick Test Cases
+- **Eligible**: 55-year-old female, mammogram 30+ months ago
+- **Needs Info**: 60-year-old female, unknown mammogram history  
+- **Ineligible**: 40-year-old female, recent mammogram
+
+#### Integration Testing
+1. FHIR connectivity and data extraction
+2. Guidelines evaluation accuracy
+3. Agent conversation flow
+4. Arbiter decision logic
+5. A2A protocol compatibility
+
+#### Safety Features
+- **Timeout Protection**: All operations have configurable timeouts
+- **Error Recovery**: Graceful degradation on failures
+- **Audit Trails**: Complete conversation and decision logging
+- **Data Validation**: Input validation and schema enforcement
+
+### Security & Privacy
+
+#### API Key Management
+- Environment variable or session-based Claude API keys
+- No persistent storage of credentials
+- Graceful degradation when unavailable
+
+#### FHIR Data Handling
+- Patient data used only for evaluation context
+- No persistent storage of PHI
+- Configurable data retention policies
+- Bearer token support for authenticated access
+
+#### Conversation Privacy
+- In-memory dialog storage during execution
+- Automatic cleanup of completed conversations
+- Export controls for audit compliance
+- No PHI in system logs
+
+### Development & Deployment
+
+#### Local Development
+```bash
+# Start with experimental v2 enabled
+UI_EXPERIMENTAL=true python app/main.py
+
+# Or use environment flag
+export UI_EXPERIMENTAL=true
+gunicorn --bind 0.0.0.0:5000 --reload main:app
+```
+
+#### Production Deployment
+- Configure `ANTHROPIC_API_KEY` environment variable
+- Set up FHIR server access and authentication
+- Configure external A2A endpoints for partner integration
+- Enable monitoring and logging for autonomous dialogs
+
+#### Configuration Management
+- Guidelines stored in `/tmp/experimental/` for Vercel compatibility
+- Runtime configuration via environment variables
+- JSON schema validation for all inputs
+- Configurable timeouts and retry policies
+
+### Troubleshooting
+
+#### Common Issues
+- **"Claude API not available"**: Set `ANTHROPIC_API_KEY` or use session key input
+- **FHIR connection failed**: Check server URL, patient ID, and bearer token
+- **Dialog timeout**: Increase SSE timeout or use dry-run mode for testing
+- **Guidelines validation error**: Check JSON syntax and required fields
+
+#### Debug Mode
+```javascript
+// Enable debug logging in browser console
+window.autonomousV2.showStatus = console.log;
+```
+
+#### Health Checks
+```bash
+# Check v2 system health
+GET /api/experimental/v2/health
+
+# Get system capabilities
+GET /api/experimental/v2/info
+```
+
+### Future Enhancements
+
+The experimental v2 autonomous system is designed to support:
+- **Multi-Scenario Support**: Extend beyond BCS to other clinical workflows
+- **Advanced Arbitration**: Machine learning-enhanced decision algorithms  
+- **Real-Time Collaboration**: Human-in-the-loop override capabilities
+- **Partner Integration**: Expanded A2A protocol support and discovery
+- **Analytics Dashboard**: Conversation quality metrics and performance insights
+
 ## Legacy Demo (Original BCS-E)
 
 ### BCS-E Eligibility Logic

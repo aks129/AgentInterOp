@@ -138,6 +138,66 @@
     overflow: hidden;
 }
 
+/* Autonomous v2 styles */
+.autonomous-transcript-lanes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    min-height: 400px;
+    margin-bottom: 1rem;
+}
+
+.autonomous-applicant-lane, .autonomous-administrator-lane {
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.autonomous-agent-messages {
+    max-height: 350px;
+    overflow-y: auto;
+    min-height: 100px;
+}
+
+.autonomous-message {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    padding: 0.75rem;
+    border-left: 3px solid #007bff;
+}
+
+.autonomous-message[data-state="completed"] {
+    border-left-color: #28a745;
+}
+
+.autonomous-message[data-state="error"] {
+    border-left-color: #dc3545;
+}
+
+.autonomous-message[data-state="working"] {
+    border-left-color: #ffc107;
+}
+
+.autonomous-message .message-header {
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.autonomous-message .message-content {
+    font-size: 0.9rem;
+}
+
+.response-actions {
+    margin-top: 0.5rem;
+}
+
+.action-summary {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
 .trace-entry {
     background: rgba(255, 255, 255, 0.05);
     border-radius: 4px;
@@ -530,6 +590,12 @@ body {
     
     .experimental-tabs {
         max-height: 300px;
+    }
+    
+    /* Autonomous v2 responsive */
+    .autonomous-transcript-lanes {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
     }
     
     .controls {
