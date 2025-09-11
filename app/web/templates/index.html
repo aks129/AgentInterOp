@@ -35,6 +35,71 @@
         <div class="left-pane">
             <h2>Transcript</h2>
             <div id="transcript" class="transcript"></div>
+            
+            <!-- Experimental Agent UX -->
+            <div id="experimental-agent-ux-panel" class="experimental-panel mt-4" style="display: none;">
+                <h3>Agent UX</h3>
+                
+                <!-- BCS Test Harness -->
+                <div class="bcs-test-section mb-4">
+                    <h4>BCS Test Harness</h4>
+                    <button id="run-bcs-tests-btn" class="btn btn-outline-primary btn-sm">Run BCS Tests</button>
+                    <div id="bcs-test-results" class="mt-3" style="display: none;">
+                        <div id="bcs-test-list" class="test-results"></div>
+                    </div>
+                </div>
+                
+                <!-- Two-Lane Transcript -->
+                <div class="two-lane-transcript">
+                    <h4>Agent Conversation</h4>
+                    <div class="transcript-lanes">
+                        <div class="applicant-lane">
+                            <h5>Applicant</h5>
+                            <div id="applicant-messages" class="agent-messages"></div>
+                        </div>
+                        <div class="administrator-lane">
+                            <h5>Administrator</h5>
+                            <div id="administrator-messages" class="agent-messages"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Claude Response Generator -->
+                <div class="claude-response-section mt-4">
+                    <h4>Generate Response</h4>
+                    <div class="mb-3">
+                        <label for="response-role" class="form-label">Role:</label>
+                        <select id="response-role" class="form-select form-select-sm">
+                            <option value="applicant">Applicant</option>
+                            <option value="administrator">Administrator</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="response-hint" class="form-label">Hint:</label>
+                        <select id="response-hint" class="form-select form-select-sm">
+                            <option value="requirements">Requirements</option>
+                            <option value="docs">Documentation</option>
+                            <option value="decision">Decision</option>
+                            <option value="slots">Scheduling</option>
+                            <option value="free">Free Response</option>
+                        </select>
+                    </div>
+                    <button id="generate-response-btn" class="btn btn-primary btn-sm">Generate Response</button>
+                    
+                    <!-- Generated Response Card -->
+                    <div id="generated-response-card" class="mt-3" style="display: none;">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Generated Response</span>
+                                <button id="use-response-btn" class="btn btn-success btn-sm">Use This Response</button>
+                            </div>
+                            <div class="card-body">
+                                <div id="response-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Center Pane: Artifacts -->
@@ -129,6 +194,41 @@
 
         <!-- Right Pane: Connectathon Settings -->
         <div class="right-pane">
+            <!-- Experimental Right Rail Tabs -->
+            <div id="experimental-right-rail" class="experimental-tabs" style="display: none;">
+                <ul class="nav nav-tabs" id="right-rail-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="trace-tab" data-bs-toggle="tab" data-bs-target="#trace-panel" type="button" role="tab">Trace</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="artifacts-tab" data-bs-toggle="tab" data-bs-target="#artifacts-panel" type="button" role="tab">Artifacts</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw-panel" type="button" role="tab">Raw</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="right-rail-content">
+                    <div class="tab-pane fade show active" id="trace-panel" role="tabpanel">
+                        <div class="p-3">
+                            <h6>Conversation Trace</h6>
+                            <div id="conversation-trace" class="trace-content"></div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="artifacts-panel" role="tabpanel">
+                        <div class="p-3">
+                            <h6>Generated Artifacts</h6>
+                            <div id="generated-artifacts" class="artifacts-content"></div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="raw-panel" role="tabpanel">
+                        <div class="p-3">
+                            <h6>Raw JSON</h6>
+                            <pre id="raw-json" class="raw-content"><code>No data available</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="settings-panel"{% if not UI_EXPERIMENTAL %} hidden{% endif %}>
                 <h2>Connectathon Settings</h2>
                 
@@ -193,6 +293,22 @@
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="protocol-default" id="protocol-mcp" value="mcp">
                         <label class="form-check-label" for="protocol-mcp">MCP</label>
+                    </div>
+                </div>
+
+                <!-- Experimental Features -->
+                <div class="mb-3 experimental-section">
+                    <label class="form-label">Experimental Features:</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="experimental-agent-ux" value="1">
+                        <label class="form-check-label" for="experimental-agent-ux">
+                            Enable Agent UX
+                            <small class="text-muted d-block">Claude-powered agent responses & BCS testing</small>
+                        </label>
+                    </div>
+                    <div id="claude-status" class="mt-2 small text-muted" style="display: none;">
+                        <span id="claude-status-indicator" class="badge bg-secondary">Checking...</span>
+                        <span id="claude-status-text">Claude API status</span>
                     </div>
                 </div>
 

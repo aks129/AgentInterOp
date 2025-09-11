@@ -564,6 +564,230 @@ Test coverage includes:
 - Slot selection and booking
 - Integration scenarios
 
+## Experimental Agent UX
+
+### Overview
+
+The Experimental Agent UX feature provides Claude-powered AI assistance for agent interactions, including intelligent response generation, automated testing, and enhanced conversation analytics. This feature is designed to showcase advanced agent capabilities and provide a testing framework for AI-driven healthcare interoperability scenarios.
+
+### Features
+
+- **Claude-Powered Response Generation**: AI-generated responses for both applicant and administrator roles
+- **BCS Test Harness**: Automated testing of breast cancer screening eligibility scenarios
+- **Two-Lane Transcript**: Visual separation of applicant and administrator conversations
+- **State Management**: Visual indicators for working, input-required, and completed states
+- **Response Cards**: Contextual action cards for information requests, decisions, documentation, and scheduling
+- **Trace & Artifacts Tabs**: Complete conversation analysis with raw JSON inspection
+- **Claude API Status**: Real-time monitoring of Claude API availability and latency
+
+### Enabling Experimental Agent UX
+
+#### Method 1: URL Parameter
+Add `?experimental=1` to any page URL:
+```
+http://localhost:5000/?experimental=1
+```
+
+#### Method 2: Settings Panel
+1. Navigate to the Settings panel
+2. Check "Enable Experimental Agent UX"
+3. The feature will be enabled for your session
+
+#### Method 3: Environment Variable
+Set the environment variable to enable by default:
+```bash
+UI_EXPERIMENTAL=true
+```
+
+### Prerequisites
+
+To use Claude-powered features, you must configure your Anthropic API key:
+
+```bash
+# Add to your .env file
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+```
+
+### UI Components
+
+#### Claude Status Indicator
+- **Green "Ready"**: Claude API key configured and accessible
+- **Yellow "Not Ready"**: ANTHROPIC_API_KEY not configured
+- **Red "Error"**: API connection failed
+- Displays response latency when available
+
+#### Two-Lane Transcript
+- **Left Lane**: Applicant messages and actions
+- **Right Lane**: Administrator messages and actions
+- Real-time state indicators for each role
+- Timestamp and status badges for each message
+
+#### Response Generation Panel
+1. **Role Selection**: Choose "Applicant" or "Administrator"
+2. **Hint Selection**: Guide Claude's response type:
+   - **Requirements**: Request additional information
+   - **Documentation**: Ask for supporting documents
+   - **Decision**: Make eligibility determination
+   - **Scheduling**: Propose appointment slots
+   - **Free Response**: Open-ended response
+3. **Generate Response**: Creates AI-powered response
+4. **Use This Response**: Applies the generated response to the conversation
+
+#### Response Cards
+Claude generates contextual action cards based on the scenario:
+
+- **Information Request Cards**: Interactive forms for gathering patient data
+- **Decision Cards**: Color-coded eligibility determinations with rationale
+- **Documentation Cards**: Checklists for required supporting documents
+- **Scheduling Cards**: Available appointment slots with booking buttons
+
+#### Right Rail Tabs
+- **Trace**: Complete conversation flow with timestamps and actions
+- **Artifacts**: Generated documents and decision bundles
+- **Raw JSON**: Full conversation data in JSON format for debugging
+
+### BCS Test Harness
+
+The automated test harness validates breast cancer screening eligibility logic using Claude AI:
+
+#### Test Cases
+1. **Eligible-RecentMammo**: Female, age 55, recent mammogram (should be eligible)
+2. **Needs-Info-NoMammo**: Female, age 46, no mammogram history (needs more info)
+3. **Ineligible-Age**: Female, age 25, recent mammogram (too young, ineligible)
+
+#### Running Tests
+1. Enable Experimental Agent UX
+2. Click "Run BCS Tests" in the Agent UX panel
+3. View real-time test execution with PASS/FAIL indicators
+4. Review detailed results including expected vs. actual decisions
+
+#### API Access
+```bash
+# Get test cases
+curl -X GET "http://localhost:5000/api/experimental/tests/bcse"
+
+# Run a specific test case
+curl -X POST "http://localhost:5000/api/experimental/tests/bcse/run" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Eligible-RecentMammo",
+    "payload": {"sex": "female", "birthDate": "1969-08-10", "last_mammogram": "2024-05-01"},
+    "expect": "eligible"
+  }'
+```
+
+### Claude Agent Response API
+
+#### Generate Role-Specific Response
+```bash
+curl -X POST "http://localhost:5000/api/experimental/agent/respond" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "role": "administrator",
+    "context": [
+      {"role": "user", "content": "Patient data for BCS evaluation"},
+      {"role": "assistant", "content": "Reviewing eligibility criteria"}
+    ],
+    "facts": {
+      "scenario": "bcse",
+      "applicant_payload": {"sex": "female", "birthDate": "1969-08-10", "last_mammogram": "2024-05-01"}
+    },
+    "hint": "decision"
+  }'
+```
+
+#### Response Format
+```json
+{
+  "ok": true,
+  "result": {
+    "role": "administrator",
+    "state": "completed",
+    "message": "Based on the provided information, the patient is **eligible** for breast cancer screening.",
+    "actions": [
+      {
+        "kind": "propose_decision",
+        "decision": "eligible",
+        "rationale": "Female patient, age 55, with recent mammogram within 27-month window."
+      }
+    ],
+    "artifacts": []
+  }
+}
+```
+
+#### Claude API Status
+```bash
+curl -X GET "http://localhost:5000/api/experimental/agent/status"
+```
+
+### Narrative Processing
+
+Transform clinical narratives into structured JSON using Claude AI:
+
+```bash
+curl -X POST "http://localhost:5000/api/experimental/narrative/parse" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "narrative": "55-year-old female with recent mammogram in May 2024, requesting BCS eligibility evaluation",
+    "target_schema": "bcse"
+  }'
+```
+
+### Security & Safety
+
+#### API Key Protection
+- API keys are never exposed in client-side code
+- All Claude API calls are server-side only
+- Graceful degradation when API key is not configured
+
+#### Content Safety
+- Healthcare-focused system prompts ensure appropriate responses
+- Structured JSON output prevents prompt injection
+- Rate limiting and timeout protection on all AI requests
+
+#### Data Privacy
+- Patient data is only used for eligibility evaluation context
+- No persistent storage of patient information in Claude calls
+- All trace data can be cleared or exported for compliance
+
+### Development & Debugging
+
+#### Enabling Debug Mode
+```javascript
+// In browser console
+window.claudeUX.debug = true;
+```
+
+#### Trace Analysis
+All experimental features generate detailed trace events:
+- Claude API request/response timing
+- User interactions and state changes
+- Test execution results
+- Response generation context
+
+#### Error Handling
+- Network failures gracefully degrade to manual operation
+- Invalid JSON responses are caught and logged
+- UI components remain functional even when AI features are unavailable
+
+### Integration with Main Protocols
+
+#### A2A Protocol
+Experimental responses can be directly submitted to A2A conversations using the "Use This Response" button, which automatically formats the response for the appropriate protocol.
+
+#### MCP Protocol
+Generated responses integrate seamlessly with MCP tool calls, providing intelligent suggestions for agent interactions.
+
+### Future Enhancements
+
+The experimental Agent UX framework is designed to support:
+- Multi-scenario AI training and testing
+- Custom prompt engineering for specialized healthcare use cases
+- Integration with additional AI providers beyond Claude
+- Advanced conversation analytics and quality metrics
+- Real-time collaboration between human operators and AI agents
+
 ## Legacy Demo (Original BCS-E)
 
 ### BCS-E Eligibility Logic

@@ -1,6 +1,512 @@
-// Experimental UI Controller for Connectathon Settings
+// Experimental UI Controller for Connectathon Settings & Agent UX
 // Non-breaking controller that extends the main app functionality
 console.log("Experimental UI Controller initialized");
+
+// Claude Agent UX functionality
+class ClaudeAgentUX {
+    constructor() {
+        this.claudeStatus = { ready: false, latency: null };
+        this.conversationTrace = [];
+        this.isExperimentalEnabled = false;
+        this.lastGeneratedResponse = null;
+    }
+
+    async init() {
+        this.setupClaudeEventListeners();
+        this.checkURLParams();
+        await this.checkClaudeStatus();
+    }
+
+    setupClaudeEventListeners() {
+        // Experimental Agent UX toggle
+        const experimentalToggle = document.getElementById('experimental-agent-ux');
+        if (experimentalToggle) {
+            experimentalToggle.addEventListener('change', (e) => {
+                this.toggleExperimentalUI(e.target.checked);
+            });
+        }
+
+        // BCS test harness
+        const runTestsBtn = document.getElementById('run-bcs-tests-btn');
+        if (runTestsBtn) {
+            runTestsBtn.addEventListener('click', () => this.runBCSTests());
+        }
+
+        // Claude response generation
+        const generateBtn = document.getElementById('generate-response-btn');
+        if (generateBtn) {
+            generateBtn.addEventListener('click', () => this.generateClaudeResponse());
+        }
+
+        // Use response button
+        const useResponseBtn = document.getElementById('use-response-btn');
+        if (useResponseBtn) {
+            useResponseBtn.addEventListener('click', () => this.useGeneratedResponse());
+        }
+    }
+
+    checkURLParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('experimental') === '1') {
+            const toggle = document.getElementById('experimental-agent-ux');
+            if (toggle) {
+                toggle.checked = true;
+                this.toggleExperimentalUI(true);
+            }
+        }
+    }
+
+    async checkClaudeStatus() {
+        const statusIndicator = document.getElementById('claude-status-indicator');
+        const statusText = document.getElementById('claude-status-text');
+        const claudeStatusDiv = document.getElementById('claude-status');
+
+        try {
+            const start = Date.now();
+            const response = await fetch('/api/experimental/agent/status');
+            const latency = Date.now() - start;
+            
+            if (response.ok) {
+                const status = await response.json();
+                this.claudeStatus = { ...status, latency };
+                
+                if (statusIndicator && statusText) {
+                    if (status.ready) {
+                        statusIndicator.className = 'badge bg-success';
+                        statusIndicator.textContent = 'Ready';
+                        statusText.textContent = `Claude API available (${latency}ms)`;
+                    } else {
+                        statusIndicator.className = 'badge bg-warning';
+                        statusIndicator.textContent = 'Not Ready';
+                        statusText.textContent = 'ANTHROPIC_API_KEY not configured';
+                    }
+                }
+            } else {
+                throw new Error('Status check failed');
+            }
+        } catch (error) {
+            console.error('Claude status check failed:', error);
+            if (statusIndicator && statusText) {
+                statusIndicator.className = 'badge bg-danger';
+                statusIndicator.textContent = 'Error';
+                statusText.textContent = 'Status check failed';
+            }
+        }
+
+        if (claudeStatusDiv) {
+            claudeStatusDiv.style.display = 'block';
+        }
+    }
+
+    toggleExperimentalUI(enabled) {
+        this.isExperimentalEnabled = enabled;
+        
+        // Show/hide experimental panels
+        const agentUXPanel = document.getElementById('experimental-agent-ux-panel');
+        const rightRail = document.getElementById('experimental-right-rail');
+        const claudeStatus = document.getElementById('claude-status');
+        
+        if (agentUXPanel) {
+            agentUXPanel.style.display = enabled ? 'block' : 'none';
+        }
+        if (rightRail) {
+            rightRail.style.display = enabled ? 'block' : 'none';
+        }
+        if (claudeStatus) {
+            claudeStatus.style.display = enabled ? 'block' : 'none';
+        }
+
+        // Initialize experimental features if enabled
+        if (enabled) {
+            this.initializeExperimentalFeatures();
+        }
+    }
+
+    initializeExperimentalFeatures() {
+        // Initialize Bootstrap tabs if available
+        if (typeof bootstrap !== 'undefined') {
+            const tabTriggerList = [].slice.call(document.querySelectorAll('#right-rail-tabs button'));
+            tabTriggerList.map(function (tabTriggerEl) {
+                return new bootstrap.Tab(tabTriggerEl);
+            });
+        }
+    }
+
+    async runBCSTests() {
+        const resultsDiv = document.getElementById('bcs-test-results');
+        const testList = document.getElementById('bcs-test-list');
+        
+        if (!resultsDiv || !testList) return;
+
+        // Show loading state
+        resultsDiv.style.display = 'block';
+        testList.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Running BCS tests...';
+
+        try {
+            // Get test cases
+            const testsResponse = await fetch('/api/experimental/tests/bcse');
+            if (!testsResponse.ok) throw new Error('Failed to get test cases');
+            
+            const testsData = await testsResponse.json();
+            const testCases = testsData.tests || [];
+
+            testList.innerHTML = '<h6>Running Tests:</h6>';
+
+            // Run each test case
+            const results = [];
+            for (const testCase of testCases) {
+                const resultElement = document.createElement('div');
+                resultElement.className = 'test-case mb-2';
+                resultElement.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-secondary me-2">Running</span>
+                        <span>${testCase.name}</span>
+                        <div class="spinner-border spinner-border-sm ms-2" style="width: 1rem; height: 1rem;"></div>
+                    </div>
+                `;
+                testList.appendChild(resultElement);
+
+                try {
+                    const testResponse = await fetch('/api/experimental/tests/bcse/run', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(testCase)
+                    });
+
+                    if (testResponse.ok) {
+                        const result = await testResponse.json();
+                        results.push(result);
+                        
+                        // Update the test result display
+                        const badge = result.passed ? 
+                            '<span class="badge bg-success me-2">PASS</span>' :
+                            '<span class="badge bg-danger me-2">FAIL</span>';
+                        
+                        resultElement.innerHTML = `
+                            <div class="test-result">
+                                ${badge}
+                                <strong>${result.test_name}</strong>
+                                <div class="small text-muted mt-1">
+                                    Expected: ${result.expected} | Actual: ${result.actual || 'N/A'}
+                                </div>
+                                ${result.error ? `<div class="small text-danger">Error: ${result.error}</div>` : ''}
+                            </div>
+                        `;
+                    } else {
+                        resultElement.innerHTML = `
+                            <span class="badge bg-danger me-2">ERROR</span>
+                            <span>${testCase.name} - Test failed</span>
+                        `;
+                    }
+                } catch (error) {
+                    resultElement.innerHTML = `
+                        <span class="badge bg-danger me-2">ERROR</span>
+                        <span>${testCase.name} - ${error.message}</span>
+                    `;
+                }
+            }
+
+            // Update trace
+            this.updateTrace('BCS Tests', { action: 'run_tests', results });
+
+        } catch (error) {
+            testList.innerHTML = `<div class="alert alert-danger">Failed to run tests: ${error.message}</div>`;
+        }
+    }
+
+    async generateClaudeResponse() {
+        if (!this.claudeStatus.ready) {
+            alert('Claude API is not available. Please configure ANTHROPIC_API_KEY.');
+            return;
+        }
+
+        const role = document.getElementById('response-role')?.value || 'applicant';
+        const hint = document.getElementById('response-hint')?.value || 'free';
+        const generateBtn = document.getElementById('generate-response-btn');
+        const responseCard = document.getElementById('generated-response-card');
+        const responseContent = document.getElementById('response-content');
+
+        if (!generateBtn || !responseCard || !responseContent) return;
+
+        // Show loading state
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating...';
+        responseCard.style.display = 'none';
+
+        try {
+            // Build context from conversation trace
+            const context = this.conversationTrace.map(entry => ({
+                role: entry.role === 'user' ? 'user' : 'assistant',
+                content: entry.message || entry.content || JSON.stringify(entry)
+            }));
+
+            // Build facts (this would normally come from the current scenario state)
+            const facts = {
+                scenario: 'bcse',
+                applicant_payload: this.getCurrentApplicantPayload(),
+                ingested: {}
+            };
+
+            const payload = { role, context, facts, hint };
+
+            const response = await fetch('/api/experimental/agent/respond', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            if (!result.ok) {
+                throw new Error(result.error || 'Unknown error');
+            }
+
+            // Display the generated response
+            this.displayGeneratedResponse(result.result);
+            responseCard.style.display = 'block';
+
+            // Update trace
+            this.updateTrace('Claude Response', { role, hint, response: result.result });
+
+        } catch (error) {
+            alert(`Failed to generate response: ${error.message}`);
+            console.error('Claude response generation failed:', error);
+        } finally {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = 'Generate Response';
+        }
+    }
+
+    displayGeneratedResponse(claudeResult) {
+        const responseContent = document.getElementById('response-content');
+        if (!responseContent) return;
+
+        let html = '';
+
+        // Display message
+        if (claudeResult.message) {
+            html += `<div class="response-message mb-3">
+                <h6>Message:</h6>
+                <div class="message-content">${this.markdownToHtml(claudeResult.message)}</div>
+            </div>`;
+        }
+
+        // Display state
+        if (claudeResult.state) {
+            const stateClass = claudeResult.state === 'completed' ? 'success' : 
+                             claudeResult.state === 'working' ? 'warning' : 'secondary';
+            html += `<div class="response-state mb-3">
+                <span class="badge bg-${stateClass}">${claudeResult.state}</span>
+            </div>`;
+        }
+
+        // Display actions
+        if (claudeResult.actions && claudeResult.actions.length > 0) {
+            html += '<div class="response-actions mb-3"><h6>Actions:</h6>';
+            claudeResult.actions.forEach(action => {
+                html += this.renderActionCard(action);
+            });
+            html += '</div>';
+        }
+
+        // Display artifacts
+        if (claudeResult.artifacts && claudeResult.artifacts.length > 0) {
+            html += '<div class="response-artifacts mb-3"><h6>Artifacts:</h6>';
+            claudeResult.artifacts.forEach(artifact => {
+                html += `<div class="artifact-item">${JSON.stringify(artifact, null, 2)}</div>`;
+            });
+            html += '</div>';
+        }
+
+        responseContent.innerHTML = html;
+        this.lastGeneratedResponse = claudeResult;
+    }
+
+    renderActionCard(action) {
+        const kind = action.kind || 'unknown';
+        
+        switch (kind) {
+            case 'request_info':
+                return `<div class="action-card request-info mb-2">
+                    <div class="card card-sm">
+                        <div class="card-body">
+                            <h6 class="card-title">Information Request</h6>
+                            <p>Requesting: ${(action.fields || []).join(', ')}</p>
+                        </div>
+                    </div>
+                </div>`;
+
+            case 'propose_decision':
+                const decisionClass = action.decision === 'eligible' ? 'success' :
+                                    action.decision === 'ineligible' ? 'danger' : 'warning';
+                return `<div class="action-card propose-decision mb-2">
+                    <div class="card card-sm border-${decisionClass}">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                Decision: <span class="badge bg-${decisionClass}">${action.decision}</span>
+                            </h6>
+                            <p>${action.rationale || 'No rationale provided'}</p>
+                        </div>
+                    </div>
+                </div>`;
+
+            case 'request_docs':
+                return `<div class="action-card request-docs mb-2">
+                    <div class="card card-sm">
+                        <div class="card-body">
+                            <h6 class="card-title">Documentation Request</h6>
+                            <ul class="mb-0">
+                                ${(action.items || []).map(item => `<li>${item}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>`;
+
+            case 'propose_slots':
+                return `<div class="action-card propose-slots mb-2">
+                    <div class="card card-sm">
+                        <div class="card-body">
+                            <h6 class="card-title">Scheduling Slots</h6>
+                            ${(action.slots || []).map(slot => `
+                                <div class="slot-item mb-2">
+                                    <strong>${slot.org || 'Unknown'}</strong><br>
+                                    <small>${slot.start} - ${slot.end}</small><br>
+                                    <small>${slot.location || 'Location TBD'}</small>
+                                    ${slot.bookingLink ? `<br><a href="${slot.bookingLink}" class="btn btn-sm btn-outline-primary mt-1">Book</a>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>`;
+
+            default:
+                return `<div class="action-card unknown mb-2">
+                    <div class="card card-sm">
+                        <div class="card-body">
+                            <h6 class="card-title">Unknown Action: ${kind}</h6>
+                            <pre><code>${JSON.stringify(action, null, 2)}</code></pre>
+                        </div>
+                    </div>
+                </div>`;
+        }
+    }
+
+    markdownToHtml(markdown) {
+        // Simple markdown conversion
+        return markdown
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/`(.*?)`/g, '<code>$1</code>')
+            .replace(/\n/g, '<br>');
+    }
+
+    useGeneratedResponse() {
+        if (!this.lastGeneratedResponse) return;
+
+        // Add the response to the appropriate lane
+        const role = this.lastGeneratedResponse.role || 'applicant';
+        this.addMessageToLane(role, this.lastGeneratedResponse);
+
+        // Hide the response card
+        const responseCard = document.getElementById('generated-response-card');
+        if (responseCard) {
+            responseCard.style.display = 'none';
+        }
+
+        // Update trace
+        this.updateTrace('Used Response', { role, response: this.lastGeneratedResponse });
+    }
+
+    addMessageToLane(role, message) {
+        const laneId = role === 'applicant' ? 'applicant-messages' : 'administrator-messages';
+        const lane = document.getElementById(laneId);
+        
+        if (!lane) return;
+
+        const messageElement = document.createElement('div');
+        messageElement.className = 'agent-message mb-3';
+        
+        const stateClass = message.state === 'completed' ? 'success' : 
+                          message.state === 'working' ? 'warning' : 'secondary';
+        
+        messageElement.innerHTML = `
+            <div class="message-header d-flex justify-content-between align-items-center">
+                <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+                <span class="badge bg-${stateClass}">${message.state || 'unknown'}</span>
+            </div>
+            <div class="message-body">
+                ${message.message ? this.markdownToHtml(message.message) : 'No message'}
+            </div>
+            ${message.actions && message.actions.length > 0 ? 
+                `<div class="message-actions mt-2">
+                    ${message.actions.map(action => this.renderActionCard(action)).join('')}
+                </div>` : ''
+            }
+        `;
+
+        lane.appendChild(messageElement);
+        lane.scrollTop = lane.scrollHeight;
+    }
+
+    getCurrentApplicantPayload() {
+        // Try to get from the applicant payload textarea
+        const payloadTextarea = document.getElementById('applicant-payload');
+        if (payloadTextarea && payloadTextarea.value.trim()) {
+            try {
+                return JSON.parse(payloadTextarea.value);
+            } catch (e) {
+                console.warn('Invalid JSON in applicant payload textarea');
+            }
+        }
+
+        // Fallback to demo data
+        return {
+            sex: 'female',
+            birthDate: '1969-08-10',
+            last_mammogram: '2024-05-01'
+        };
+    }
+
+    updateTrace(action, data) {
+        this.conversationTrace.push({
+            timestamp: new Date().toISOString(),
+            action,
+            data,
+            role: 'system'
+        });
+
+        // Update trace panel
+        const tracePanel = document.getElementById('conversation-trace');
+        if (tracePanel) {
+            const traceElement = document.createElement('div');
+            traceElement.className = 'trace-entry mb-2';
+            traceElement.innerHTML = `
+                <div class="trace-header">
+                    <strong>${action}</strong>
+                    <small class="text-muted">${new Date().toLocaleTimeString()}</small>
+                </div>
+                <div class="trace-data small">
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                </div>
+            `;
+            tracePanel.appendChild(traceElement);
+            tracePanel.scrollTop = tracePanel.scrollHeight;
+        }
+
+        // Update raw JSON panel
+        const rawPanel = document.getElementById('raw-json');
+        if (rawPanel) {
+            rawPanel.innerHTML = `<code>${JSON.stringify(this.conversationTrace, null, 2)}</code>`;
+        }
+    }
+}
+
+// Global Claude UX instance
+let claudeUX = null;
 
 // Initialize experimental features when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
@@ -13,6 +519,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('Experimental UI enabled - initializing features');
     initializeExperimentalFeatures();
+    
+    // Initialize Claude Agent UX
+    claudeUX = new ClaudeAgentUX();
+    claudeUX.init().then(() => {
+        console.log('Claude Agent UX initialized');
+    }).catch(error => {
+        console.error('Failed to initialize Claude Agent UX:', error);
+    });
 });
 
 function initializeExperimentalFeatures() {
