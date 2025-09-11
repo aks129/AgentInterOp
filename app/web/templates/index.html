@@ -229,7 +229,7 @@
                 </div>
             </div>
             
-            <div class="settings-panel"{% if not UI_EXPERIMENTAL %} hidden{% endif %}>
+            <div class="settings-panel">
                 <h2>Connectathon Settings</h2>
                 
                 <!-- Self-test Badge -->
@@ -340,7 +340,7 @@
             </div>
 
             <!-- Scheduling Links Configuration -->
-            <div class="scheduling-links-panel mt-4"{% if not UI_EXPERIMENTAL %} hidden{% endif %}>
+            <div class="scheduling-links-panel mt-4">
                 <h3>Scheduling Links</h3>
                 
                 <!-- Publishers Configuration -->
@@ -414,9 +414,7 @@
     <!-- Custom JavaScript -->
     <script src="/static/app.js"></script>
     
-    <!-- Experimental UI Controller (feature-flagged) -->
-    {% if UI_EXPERIMENTAL %}
+    <!-- Experimental UI Controller -->
     <script src="/static/app.experimental.js"></script>
-    {% endif %}
 </body>
 </html>
