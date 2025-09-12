@@ -206,7 +206,7 @@ class A2AInspector {
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
                 console.log('Attempting proxy fallback for CORS issue...');
                 try {
-                    await this.fetchAgentCardViaProxy(baseUrl);
+                    await this.fetchAgentCardViaProxy(baseUrl);  // Pass baseUrl, not cardUrl
                     return; // Success via proxy, exit here
                 } catch (proxyError) {
                     console.error('Proxy fallback also failed:', proxyError);
@@ -495,16 +495,24 @@ class A2AInspector {
 
         } catch (error) {
             console.error('Direct message send failed:', error);
+            console.log(`Error type: ${error.name}, message: ${error.message}`);
+            console.log(`Current A2A endpoint: ${this.currentA2aEndpoint}`);
+            console.log(`Target URL was: ${a2aUrl}`);
             
             // Try proxy fallback for CORS issues with external agents
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch') && this.currentA2aEndpoint) {
-                console.log('Attempting message proxy fallback for CORS issue...');
+                console.log('CORS detected - attempting message proxy fallback...');
                 try {
                     await this.sendMessageViaProxy(a2aUrl, payload);
                     return; // Success via proxy, exit here
                 } catch (proxyError) {
                     console.error('Proxy message fallback also failed:', proxyError);
+                    console.error('Proxy error details:', proxyError.message);
                 }
+            } else {
+                console.log('Proxy fallback conditions not met:');
+                console.log(`- Is TypeError with "Failed to fetch"? ${error.name === 'TypeError' && error.message.includes('Failed to fetch')}`);
+                console.log(`- Has currentA2aEndpoint? ${!!this.currentA2aEndpoint}`);
             }
             
             // Provide more specific error messages
@@ -538,26 +546,37 @@ class A2AInspector {
 
     async sendMessageViaProxy(targetUrl, payload) {
         const proxyUrl = `${window.location.origin}/api/proxy/a2a-message`;
-        console.log(`Sending message via proxy to: ${targetUrl}`);
+        console.log(`Sending message via proxy:`);
+        console.log(`- Proxy URL: ${proxyUrl}`);
+        console.log(`- Target URL: ${targetUrl}`);
+        console.log(`- Payload:`, payload);
+        
+        const requestBody = {
+            target_url: targetUrl,
+            payload: payload
+        };
+        
+        console.log('Full proxy request body:', requestBody);
         
         const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                target_url: targetUrl,
-                payload: payload
-            })
+            body: JSON.stringify(requestBody)
         });
+
+        console.log(`Proxy response status: ${response.status}`);
 
         if (!response.ok) {
             const errorData = await response.json();
+            console.error('Proxy error response:', errorData);
             throw new Error(errorData.detail || `Proxy error: ${response.status}`);
         }
 
         const result = await response.json();
+        console.log('Proxy response result:', result);
         
         if (result.success) {
-            console.log('Successfully sent message via proxy:', result.data);
+            console.log('✅ Successfully sent message via proxy');
             
             this.handleMessageResponse({
                 success: true,
@@ -569,6 +588,7 @@ class A2AInspector {
                 }
             });
         } else {
+            console.error('❌ Proxy returned unsuccessful result');
             throw new Error(result.data || 'Proxy request failed');
         }
     }

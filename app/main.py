@@ -383,6 +383,10 @@ async def proxy_agent_card(url: str):
         
         # Ensure it's requesting an agent card
         if not url.endswith('/.well-known/agent-card.json'):
+            # Remove any existing agent-card.json path to avoid duplication
+            if '/.well-known/agent-card.json' in url:
+                url = url.split('/.well-known/agent-card.json')[0]
+            
             if url.endswith('/'):
                 url = url.rstrip('/') + '/.well-known/agent-card.json'
             else:
