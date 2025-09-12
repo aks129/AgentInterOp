@@ -2,7 +2,8 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from typing import Dict, Any
-import asyncio, json, uuid, time
+import asyncio, json, uuid, time, re
+from datetime import datetime, timedelta
 
 from app.a2a_store import STORE
 
@@ -10,6 +11,64 @@ router = APIRouter()
 
 def _new_context_id() -> str:
     return f"ctx_{uuid.uuid4().hex[:8]}"
+
+async def _search_appointments(location_text: str) -> Dict[str, Any]:
+    """Search for mammography appointments near the specified location."""
+    try:
+        from app.scheduling.discovery import SlotQuery, discover_slots
+        
+        # Create search query for mammography
+        query = SlotQuery(
+            specialty="mammography",
+            location_text=location_text,
+            start=datetime.now(),
+            end=datetime.now() + timedelta(days=30),  # Search next 30 days
+            limit=5  # Limit to top 5 results
+        )
+        
+        # Search for slots
+        results = await discover_slots(query)
+        
+        if results.get("slots"):
+            slots_text = "Here are available mammography appointments near you:\\n\\n"
+            for i, slot in enumerate(results["slots"][:3], 1):  # Show top 3
+                start_time = slot.get("start", "")
+                org = slot.get("org", "Healthcare Provider")
+                location = slot.get("location", {})
+                address = location.get("address", "Address not available")
+                
+                # Format the date/time
+                if start_time:
+                    try:
+                        dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                        formatted_time = dt.strftime("%A, %B %d at %I:%M %p")
+                    except:
+                        formatted_time = start_time
+                else:
+                    formatted_time = "Time TBD"
+                
+                slots_text += f"{i}. {org}\\n   {formatted_time}\\n   {address}\\n\\n"
+            
+            slots_text += "To book an appointment, please contact the provider directly or visit their website. Would you like me to search for more options?"
+            
+            return {
+                "success": True,
+                "message": slots_text,
+                "found_slots": len(results["slots"])
+            }
+        else:
+            return {
+                "success": True, 
+                "message": f"I searched for mammography appointments near {location_text} but didn't find any available slots in the next 30 days. This might be because:\\n\\n1. The location wasn't recognized\\n2. No providers are currently offering online scheduling\\n3. All nearby slots are booked\\n\\nI recommend calling local healthcare providers or imaging centers directly to check availability.",
+                "found_slots": 0
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"I had trouble searching for appointments. This might be a temporary issue with the scheduling system. Please try contacting local healthcare providers directly.",
+            "error": str(e)
+        }
 
 async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str, Any]:
     """
@@ -45,9 +104,10 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
     current_age = None
     if not found_date:  # Only look for age if not processing a date
         age_patterns = [
-            r'\b(?:I am|I\'m|am|age)\s*(\d{2})\s*(?:years?\s*old|yo|year)?\b',
-            r'\b(\d{2})\s*(?:years?\s*old|yo)\b',
-            r'\bage\s*(\d{2})\b'
+            r'\b(?:I am|I\'m|am|age)\s*(\d{1,2})\s*(?:years?\s*old|yo|year)?\b',
+            r'\b(\d{1,2})\s*(?:years?\s*old|yo)\b',
+            r'\bage\s*(\d{1,2})\b',
+            r'\b(\d{2})\s*$'  # Just a number at end of message
         ]
         for pattern in age_patterns:
             age_match = re.search(pattern, user_text, re.IGNORECASE)
@@ -64,8 +124,9 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                 # Don't extract age from messages that contain dates
                 if not any(re.search(pattern, text) for pattern in date_patterns):
                     age_patterns = [
-                        r'\b(?:I am|I\'m|am|age)\s*(\d{2})\s*(?:years?\s*old|yo|year)?\b',
-                        r'\b(\d{2})\s*(?:years?\s*old|yo)\b'
+                        r'\b(?:I am|I\'m|am|age)\s*(\d{1,2})\s*(?:years?\s*old|yo|year)?\b',
+                        r'\b(\d{1,2})\s*(?:years?\s*old|yo)\b',
+                        r'\b(\d{2})\s*$'  # Just a number at end
                     ]
                     for pattern in age_patterns:
                         age_match = re.search(pattern, text, re.IGNORECASE)
@@ -84,7 +145,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
             "status": {"state": "input-required"}
         }
     
-    # Stage 2: Collect age and ask for mammogram date
+    # Stage 2: Process age and ask for mammogram date
     elif conversation_stage == 2:
         if patient_age:
             if patient_age < 40:
@@ -100,30 +161,40 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                 "status": {"state": "input-required"}
             }
         else:
-            reply = "I need to know your age to provide appropriate screening guidance. Could you please tell me how old you are?"
+            # Age not detected, ask again but more specifically
+            reply = "I didn't catch your age. Could you please tell me how old you are? For example, just say the number like '45' or '60'."
             return {
                 "role": "agent",
                 "parts": [{"kind": "text", "text": reply}],
                 "status": {"state": "input-required"}
             }
     
-    # Stage 3+: Process mammogram date and make eligibility determination
-    else:
-        # Handle "never" case
+    # Stage 3: Process mammogram date and eligibility determination
+    elif conversation_stage == 3:
+        # Handle "never" case  
         if any(word in user_text.lower() for word in ['never', 'none', 'no', "haven't"]):
-            age = patient_age or 55  # Default age
+            age = patient_age or 55
             if age >= 50:
-                reply = f"Based on your information:\\n- Age: {age}\\n- No previous mammograms\\n\\nELIGIBLE: Since you are {age} years old and have never had a mammogram, you should schedule one. Guidelines recommend mammography every 1-2 years for women aged 50-74."
+                reply = f"Based on your information:\\n- Age: {age}\\n- No previous mammograms\\n\\nELIGIBLE: Since you are {age} years old and have never had a mammogram, you should schedule one. Guidelines recommend mammography every 1-2 years for women aged 50-74.\\n\\nWould you like me to help you find available screening appointments in your area?"
+                return {
+                    "role": "agent",
+                    "parts": [{"kind": "text", "text": reply}],
+                    "status": {"state": "scheduling-offer"}
+                }
             elif age >= 40:
-                reply = f"Based on your information:\\n- Age: {age}\\n- No previous mammograms\\n\\nDISCUSS WITH DOCTOR: You're in the 40-49 age group. Some guidelines suggest annual screening starting at 40. Please discuss with your healthcare provider."
+                reply = f"Based on your information:\\n- Age: {age}\\n- No previous mammograms\\n\\nDISCUSS WITH DOCTOR: You're in the 40-49 age group. Some guidelines suggest annual screening starting at 40. Please discuss with your healthcare provider about what's right for you."
+                return {
+                    "role": "agent",
+                    "parts": [{"kind": "text", "text": reply}],
+                    "status": {"state": "completed"}
+                }
             else:
                 reply = f"Based on your information:\\n- Age: {age}\\n- No previous mammograms\\n\\nNOT TYPICALLY RECOMMENDED: Routine screening is typically not recommended under age 40 unless you have risk factors."
-            
-            return {
-                "role": "agent",
-                "parts": [{"kind": "text", "text": reply}],
-                "status": {"state": "completed"}
-            }
+                return {
+                    "role": "agent",
+                    "parts": [{"kind": "text", "text": reply}],
+                    "status": {"state": "completed"}
+                }
         
         # Process mammogram date
         if found_date:
@@ -145,23 +216,28 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                     months_since = (current_date - last_mammogram).days / 30.44
                     age = patient_age or 55
                     
-                    # Make eligibility determination
+                    # Make eligibility determination with scheduling offer
                     if age >= 50 and age <= 74:
                         if months_since >= 24:
-                            reply = f"Based on your information:\\n- Age: {age}\\n- Last mammogram: {found_date} ({int(months_since)} months ago)\\n\\nELIGIBLE: You meet the criteria for breast cancer screening. It's been {int(months_since)} months since your last mammogram, so you are due for screening."
+                            reply = f"Based on your information:\\n- Age: {age}\\n- Last mammogram: {found_date} ({int(months_since)} months ago)\\n\\nELIGIBLE: You meet the criteria for breast cancer screening. It's been {int(months_since)} months since your last mammogram, so you are due for screening.\\n\\nWould you like me to help you find available screening appointments in your area?"
+                            status = "scheduling-offer"
                         elif months_since >= 12:
-                            reply = f"Based on your information:\\n- Age: {age}\\n- Last mammogram: {found_date} ({int(months_since)} months ago)\\n\\nCONSIDER: You may be ready for screening. Many guidelines suggest screening every 1-2 years, so you could consider scheduling soon."
+                            reply = f"Based on your information:\\n- Age: {age}\\n- Last mammogram: {found_date} ({int(months_since)} months ago)\\n\\nCONSIDER: You may be ready for screening. Many guidelines suggest screening every 1-2 years, so you could consider scheduling soon.\\n\\nWould you like me to help you find available screening appointments in your area?"
+                            status = "scheduling-offer"  
                         else:
                             reply = f"Based on your information:\\n- Age: {age}\\n- Last mammogram: {found_date} ({int(months_since)} months ago)\\n\\nNOT DUE: You had a recent mammogram. You're likely not due yet unless you have specific risk factors."
+                            status = "completed"
                     elif age >= 40:
                         reply = f"Based on your information:\\n- Age: {age}\\n- Last mammogram: {found_date}\\n\\nDISCUSS WITH DOCTOR: You're in the 40-49 age group where screening recommendations vary. Please discuss with your healthcare provider."
+                        status = "completed"
                     else:
                         reply = f"Based on your information:\\n- Age: {age}\\n- Last mammogram: {found_date}\\n\\nScreening recommendations for your age group may differ from standard guidelines. Please consult with your healthcare provider."
+                        status = "completed"
                     
                     return {
                         "role": "agent",
                         "parts": [{"kind": "text", "text": reply}],
-                        "status": {"state": "completed"}
+                        "status": {"state": status}
                     }
                     
             except Exception:
@@ -179,6 +255,68 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
             "parts": [{"kind": "text", "text": reply}],
             "status": {"state": "input-required"}
         }
+    
+    # Stage 4+: Handle scheduling and location requests
+    else:
+        # Check if the last agent message offered scheduling
+        last_agent_message = None
+        for msg in reversed(history):
+            if msg.get("role") == "agent":
+                last_agent_message = msg["parts"][0].get("text", "") if msg["parts"] else ""
+                break
+        
+        offered_scheduling = (last_agent_message and 
+                            ("would you like me to help" in last_agent_message.lower() or
+                             "zip code" in last_agent_message.lower() or
+                             "city" in last_agent_message.lower()))
+        
+        # If user wants to schedule
+        if any(word in user_text.lower() for word in ['schedule', 'book', 'appointment', 'yes', 'find']):
+            # Ask for location to search for appointments
+            reply = "Great! I'll help you find available mammography appointments. To search for the best options, could you please tell me your ZIP code or city/state? For example: '10001' or 'New York, NY'"
+            return {
+                "role": "agent", 
+                "parts": [{"kind": "text", "text": reply}],
+                "status": {"state": "location-request"}
+            }
+        
+        # If we asked for location and got a response
+        elif offered_scheduling and ("zip" in last_agent_message.lower() or "city" in last_agent_message.lower()):
+            # User provided location, search for appointments
+            location = user_text.strip()
+            if location:
+                search_result = await _search_appointments(location)
+                reply = search_result["message"]
+                return {
+                    "role": "agent",
+                    "parts": [{"kind": "text", "text": reply}],
+                    "status": {"state": "completed"}
+                }
+            else:
+                reply = "I need a location to search for appointments. Could you please provide your ZIP code or city/state? For example: '10001' or 'New York, NY'"
+                return {
+                    "role": "agent",
+                    "parts": [{"kind": "text", "text": reply}],
+                    "status": {"state": "location-request"}
+                }
+        
+        # If user declines scheduling
+        elif any(word in user_text.lower() for word in ['no', 'not now', 'later']):
+            reply = "No problem! Feel free to reach out anytime if you'd like help scheduling a mammography appointment. Take care and remember to keep up with your screening schedule."
+            return {
+                "role": "agent",
+                "parts": [{"kind": "text", "text": reply}],
+                "status": {"state": "completed"}
+            }
+        
+        # Default response for post-evaluation 
+        else:
+            reply = "I've completed your breast cancer screening eligibility evaluation. Would you like me to help you schedule an appointment, or do you have any other questions?"
+            return {
+                "role": "agent",
+                "parts": [{"kind": "text", "text": reply}],
+                "status": {"state": "scheduling-offer"}
+            }
 
 def _rpc_ok(id_, payload):
     return {"jsonrpc": "2.0", "id": id_, "result": payload}
