@@ -160,13 +160,25 @@ class A2AInspector {
     async fetchAgentCardHTTP(baseUrl) {
         try {
             const cardUrl = `${baseUrl}/.well-known/agent-card.json`;
-            const response = await fetch(cardUrl);
+            console.log(`Attempting to fetch agent card from: ${cardUrl}`);
+            
+            const response = await fetch(cardUrl, {
+                method: 'GET',
+                mode: 'cors',  // Explicitly set CORS mode
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            console.log(`Response status: ${response.status} ${response.statusText}`);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const agentCard = await response.json();
+            console.log('Successfully fetched agent card:', agentCard);
             
             this.handleAgentCardResponse({
                 success: true,
@@ -186,9 +198,34 @@ class A2AInspector {
             });
             
         } catch (error) {
+            console.error('Direct agent card fetch failed:', error);
+            
+            // Try proxy fallback for CORS issues
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                console.log('Attempting proxy fallback for CORS issue...');
+                try {
+                    await this.fetchAgentCardViaProxy(baseUrl);
+                    return; // Success via proxy, exit here
+                } catch (proxyError) {
+                    console.error('Proxy fallback also failed:', proxyError);
+                }
+            }
+            
+            // Provide more specific error messages
+            let errorMessage = error.toString();
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                errorMessage = `CORS Error: Unable to fetch from ${baseUrl}. Both direct fetch and proxy fallback failed.\n\nThis usually means:\n1. The server doesn't allow cross-origin requests\n2. Network connectivity issues\n3. SSL certificate problems\n\nTry:\n- Checking if the URL is correct\n- Testing in a different browser`;
+            } else if (error.message.includes('HTTP 404')) {
+                errorMessage = `Not Found: The agent card endpoint ${baseUrl}/.well-known/agent-card.json doesn't exist.`;
+            } else if (error.message.includes('HTTP 403')) {
+                errorMessage = `Forbidden: Access denied to ${baseUrl}/.well-known/agent-card.json`;
+            } else if (error.message.includes('HTTP 500')) {
+                errorMessage = `Server Error: The target server returned an error. Try again later.`;
+            }
+            
             this.handleAgentCardResponse({
                 success: false,
-                error: error.toString()
+                error: errorMessage
             });
         } finally {
             const connectBtn = document.getElementById('connect-btn');
@@ -196,6 +233,37 @@ class A2AInspector {
                 connectBtn.textContent = 'Connect';
                 connectBtn.disabled = false;
             }
+        }
+    }
+
+    async fetchAgentCardViaProxy(baseUrl) {
+        const proxyUrl = `${window.location.origin}/api/proxy/agent-card?url=${encodeURIComponent(baseUrl)}`;
+        console.log(`Fetching via proxy: ${proxyUrl}`);
+        
+        const response = await fetch(proxyUrl);
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('Successfully fetched agent card via proxy:', result.data);
+            
+            this.handleAgentCardResponse({
+                success: true,
+                data: result.data,
+                debug: {
+                    type: 'agent_card_fetch_proxy',
+                    request: { method: 'GET', url: result.url, via_proxy: true },
+                    response: { status_code: result.status_code, body: result.data }
+                }
+            });
+            
+            // Perform validation
+            const validation = this.validateAgentCard(result.data);
+            this.handleValidationResult({
+                success: true,
+                data: validation
+            });
+        } else {
+            throw new Error(result.error || 'Proxy request failed');
         }
     }
 

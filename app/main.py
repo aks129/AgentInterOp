@@ -369,6 +369,61 @@ async def health():
     """Health check endpoint"""
     return {"status": "healthy"}
 
+@app.get("/api/proxy/agent-card")
+async def proxy_agent_card(url: str):
+    """Proxy endpoint to fetch external agent cards (CORS workaround)"""
+    import httpx
+    from urllib.parse import urlparse
+    
+    # Validate URL
+    try:
+        parsed = urlparse(url)
+        if not parsed.scheme or not parsed.netloc:
+            raise HTTPException(status_code=400, detail="Invalid URL format")
+        
+        # Ensure it's requesting an agent card
+        if not url.endswith('/.well-known/agent-card.json'):
+            if url.endswith('/'):
+                url = url.rstrip('/') + '/.well-known/agent-card.json'
+            else:
+                url = url + '/.well-known/agent-card.json'
+                
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid URL")
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, headers={
+                'Accept': 'application/json',
+                'User-Agent': 'AgentInterOp-Inspector/1.0'
+            })
+            
+            if response.status_code == 200:
+                try:
+                    agent_card = response.json()
+                    return {
+                        "success": True,
+                        "data": agent_card,
+                        "url": url,
+                        "status_code": response.status_code
+                    }
+                except Exception as e:
+                    raise HTTPException(status_code=502, detail=f"Invalid JSON response: {str(e)}")
+            else:
+                return {
+                    "success": False,
+                    "error": f"HTTP {response.status_code}: {response.reason_phrase}",
+                    "url": url,
+                    "status_code": response.status_code
+                }
+                
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Request timeout - server took too long to respond")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Connection failed - unable to reach server")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Proxy error: {str(e)}")
+
 # Friendly guidance for partners
 @app.post("/")
 def root_post_hint():
