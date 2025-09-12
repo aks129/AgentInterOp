@@ -246,7 +246,14 @@ class A2AInspector {
     }
 
     async fetchAgentCardViaProxy(baseUrl) {
-        const proxyUrl = `${window.location.origin}/api/proxy/agent-card?url=${encodeURIComponent(baseUrl)}`;
+        // Handle case where user enters full agent card URL instead of base URL
+        let cleanBaseUrl = baseUrl;
+        if (baseUrl.includes('/.well-known/agent-card.json')) {
+            cleanBaseUrl = baseUrl.split('/.well-known/agent-card.json')[0];
+            console.log(`Detected full agent card URL in proxy, using base: ${cleanBaseUrl}`);
+        }
+        
+        const proxyUrl = `${window.location.origin}/api/proxy/agent-card?url=${encodeURIComponent(cleanBaseUrl)}`;
         console.log(`Fetching via proxy: ${proxyUrl}`);
         
         const response = await fetch(proxyUrl);
