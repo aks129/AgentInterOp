@@ -119,6 +119,10 @@ app.include_router(experimental_v2_router)
 from app.a2a_router import router as canonical_a2a_router
 app.include_router(canonical_a2a_router)
 
+# Include A2A Inspector for testing and debugging
+from app.inspector.router import router as inspector_router
+app.include_router(inspector_router)
+
 # In-memory artifact storage for demo
 demo_artifacts = {
     "demo-task": {
