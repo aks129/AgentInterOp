@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scenario Runner (Experimental) - AgentInterOp</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            opacity: 0.9;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 80px);
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .left-panel {
+            width: 400px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .right-panel {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #555;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            color: #666;
+        }
+
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .button:hover {
+            background: #5a67d8;
+        }
+
+        .button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+
+        .button.secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .button.secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .button.small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-ready { background: #48bb78; }
+        .status-working { background: #ed8936; }
+        .status-error { background: #f56565; }
+        .status-offline { background: #a0aec0; }
+
+        .conversation-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+        }
+
+        .conversation-header {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .conversation-tabs {
+            display: flex;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 1rem;
+        }
+
+        .tab {
+            padding: 0.5rem 1rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: #666;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+
+        .transcript {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            height: 100%;
+        }
+
+        .transcript-column {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .transcript-column h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #555;
+            text-align: center;
+        }
+
+        .message {
+            background: white;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            border-left: 3px solid #667eea;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .message.remote {
+            border-left-color: #48bb78;
+        }
+
+        .message-meta {
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-content {
+            color: #333;
+        }
+
+        .message-composer {
+            border-top: 1px solid #eee;
+            padding: 1rem 1.5rem;
+        }
+
+        .composer-input {
+            width: 100%;
+            min-height: 60px;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            resize: vertical;
+            margin-bottom: 0.75rem;
+        }
+
+        .composer-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .json-viewer {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 1rem;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.75rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .collapsible {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .collapsible-header {
+            background: #f8f9fa;
+            padding: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: none;
+            width: 100%;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .collapsible-content {
+            padding: 1rem;
+            display: none;
+        }
+
+        .collapsible.expanded .collapsible-content {
+            display: block;
+        }
+
+        .collapsible.expanded .collapsible-header::after {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-header::after {
+            content: '▼';
+            font-size: 0.75rem;
+            transition: transform 0.2s;
+        }
+
+        .info-card {
+            background: #e6fffa;
+            border: 1px solid #81e6d9;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .info-card.warning {
+            background: #fefcbf;
+            border-color: #f6e05e;
+        }
+
+        .info-card.error {
+            background: #fed7d7;
+            border-color: #fc8181;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .left-panel {
+                width: 100%;
+                order: 2;
+            }
+            
+            .transcript {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>🧪 Scenario Runner (Experimental)</h1>
+        <div class="subtitle">Banterop-style A2A Interoperability Testing</div>
+    </header>
+
+    <div class="main-container">
+        <!-- Left Panel: Configuration -->
+        <div class="left-panel">
+            <!-- Scenario Config -->
+            <div class="section">
+                <div class="section-title">📋 Scenario Configuration</div>
+                
+                <div class="input-group">
+                    <label>Scenario JSON URL</label>
+                    <input type="text" id="scenario-url" placeholder="https://example.com/scenario.json">
+                    <div class="preset-buttons">
+                        <button class="button small secondary" onclick="loadSampleScenario()">Sample BCS</button>
+                    </div>
+                </div>
+                
+                <button class="button" id="load-scenario-btn" onclick="loadScenario()">Load Scenario</button>
+                
+                <div id="scenario-info" class="info-card hidden">
+                    <strong id="scenario-name">Scenario Name</strong>
+                    <div id="scenario-description"></div>
+                    <div id="scenario-agents"></div>
+                </div>
+
+                <div class="input-group">
+                    <label>My Role</label>
+                    <select id="my-role">
+                        <option value="">Select from scenario...</option>
+                        <option value="applicant">Applicant</option>
+                        <option value="administrator">Administrator</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Remote Agent Config -->
+            <div class="section">
+                <div class="section-title">🌐 Remote Agent</div>
+                
+                <div class="input-group">
+                    <label>Agent Card URL</label>
+                    <input type="text" id="agent-card-url" placeholder="https://care-commons.meteorapp.com">
+                    <div class="preset-buttons">
+                        <button class="button small secondary" onclick="setPresetAgent('carecommons')">CareCommons</button>
+                        <button class="button small secondary" onclick="setPresetAgent('local')">Local</button>
+                    </div>
+                </div>
+                
+                <button class="button" id="load-agent-card-btn" onclick="loadAgentCard()">Load Agent Card</button>
+                
+                <div id="agent-card-info" class="info-card hidden">
+                    <strong id="agent-name">Agent Name</strong>
+                    <div id="agent-details"></div>
+                </div>
+            </div>
+
+            <!-- FHIR Config -->
+            <div class="collapsible">
+                <button class="collapsible-header" onclick="toggleCollapsible(this)">
+                    🏥 FHIR Configuration
+                </button>
+                <div class="collapsible-content">
+                    <div class="input-group">
+                        <label>Base URL</label>
+                        <input type="text" id="fhir-base" placeholder="https://fhir.server.com/R4">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Patient ID</label>
+                        <input type="text" id="fhir-patient-id" placeholder="patient-123">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Bearer Token (optional)</label>
+                        <input type="password" id="fhir-token" placeholder="Bearer token">
+                    </div>
+                    
+                    <button class="button" onclick="fetchFhirData()">Fetch $everything</button>
+                    
+                    <div id="fhir-facts" class="info-card hidden">
+                        <strong>Patient Facts</strong>
+                        <div id="fhir-facts-content"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BCS Rules -->
+            <div class="collapsible">
+                <button class="collapsible-header" onclick="toggleCollapsible(this)">
+                    📊 BCS Rules Editor
+                </button>
+                <div class="collapsible-content">
+                    <div class="button-group">
+                        <button class="button small" onclick="loadBcsRules()">Load Rules</button>
+                        <button class="button small secondary" onclick="resetBcsRules()">Reset</button>
+                    </div>
+                    <textarea id="bcs-rules" placeholder="BCS rules JSON..."></textarea>
+                    <button class="button" onclick="saveBcsRules()">Save Rules</button>
+                </div>
+            </div>
+
+            <!-- Run Configuration -->
+            <div class="section">
+                <div class="section-title">🚀 Run Configuration</div>
+                
+                <div class="input-group">
+                    <label>Conversation Mode</label>
+                    <select id="conversation-mode">
+                        <option value="remote">Remote (via A2A)</option>
+                        <option value="local">Local (simulate)</option>
+                    </select>
+                </div>
+                
+                <button class="button" id="start-run-btn" onclick="startRun()">Start Run</button>
+                
+                <div id="run-status" class="info-card hidden">
+                    <div class="status-indicator status-offline"></div>
+                    <span id="run-status-text">Not started</span>
+                </div>
+            </div>
+
+            <!-- BCS Helper -->
+            <div class="section">
+                <div class="section-title">🎯 BCS Helper</div>
+                
+                <button class="button" onclick="evaluateBcs()" disabled id="evaluate-bcs-btn">Evaluate BCS</button>
+                
+                <div id="bcs-evaluation" class="info-card hidden">
+                    <div id="bcs-evaluation-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Conversation & Tools -->
+        <div class="right-panel">
+            <div class="conversation-container">
+                <div class="conversation-header">
+                    <h2 id="conversation-title">Conversation</h2>
+                    <div id="conversation-status">Ready to start</div>
+                </div>
+
+                <div class="conversation-tabs">
+                    <button class="tab active" onclick="switchTab('transcript')">Transcript</button>
+                    <button class="tab" onclick="switchTab('trace')">Trace</button>
+                    <button class="tab" onclick="switchTab('artifacts')">Artifacts</button>
+                    <button class="tab" onclick="switchTab('scenario')">Scenario</button>
+                    <button class="tab" onclick="switchTab('facts')">Facts</button>
+                    <button class="tab" onclick="switchTab('test')">Test</button>
+                </div>
+
+                <div class="tab-content" id="transcript-content">
+                    <div class="transcript">
+                        <div class="transcript-column">
+                            <h3>Mine</h3>
+                            <div id="my-messages"></div>
+                        </div>
+                        <div class="transcript-column">
+                            <h3>Remote</h3>
+                            <div id="remote-messages"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content hidden" id="trace-content">
+                    <div class="json-viewer" id="trace-viewer">No trace data yet...</div>
+                    <button class="button small" onclick="exportTrace()">Export JSON</button>
+                </div>
+
+                <div class="tab-content hidden" id="artifacts-content">
+                    <div id="artifacts-list">No artifacts yet...</div>
+                </div>
+
+                <div class="tab-content hidden" id="scenario-content">
+                    <div class="json-viewer" id="scenario-viewer">No scenario loaded...</div>
+                </div>
+
+                <div class="tab-content hidden" id="facts-content">
+                    <div class="json-viewer" id="facts-viewer">No FHIR facts loaded...</div>
+                </div>
+
+                <div class="tab-content hidden" id="test-content">
+                    <div class="section">
+                        <div class="section-title">🧪 Smoke Test Runner</div>
+                        <div class="input-group">
+                            <label>Remote A2A URL</label>
+                            <input type="text" id="smoke-test-url" placeholder="https://care-commons.meteorapp.com/api/a2a">
+                        </div>
+                        <div class="input-group">
+                            <label>Script Length</label>
+                            <select id="smoke-test-length">
+                                <option value="2">2 exchanges</option>
+                                <option value="3">3 exchanges</option>
+                            </select>
+                        </div>
+                        <button class="button" onclick="runSmokeTest()">Run Test</button>
+                        <div id="smoke-test-results" class="json-viewer hidden"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="message-composer" id="message-composer" style="display: none;">
+                <textarea class="composer-input" id="message-input" placeholder="Type your message here..."></textarea>
+                <div class="composer-actions">
+                    <div>
+                        <label>
+                            <input type="checkbox" id="stream-mode"> Stream response
+                        </label>
+                    </div>
+                    <button class="button" id="send-btn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="banterop.js"></script>
+</body>
+</html>

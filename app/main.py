@@ -123,6 +123,10 @@ app.include_router(canonical_a2a_router)
 from app.inspector.router import router as inspector_router
 app.include_router(inspector_router)
 
+# Include Banterop UI (experimental)
+from app.banterop_ui.router import router as banterop_router
+app.include_router(banterop_router)
+
 # In-memory artifact storage for demo
 demo_artifacts = {
     "demo-task": {
@@ -242,6 +246,32 @@ async def index(request: Request):
         })
     else:
         return HTMLResponse("<h1>Multi-Agent Demo</h1><p>Templates not available in this environment</p>")
+
+@app.get("/experimental/banterop", response_class=HTMLResponse)
+async def experimental_banterop(request: Request):
+    """GET /experimental/banterop renders Banterop-style scenario UI"""
+    base = Path(__file__).resolve().parent
+    banterop_dir = base / "web" / "experimental" / "banterop"
+    
+    if (banterop_dir / "index.html").exists():
+        with open(banterop_dir / "index.html", 'r', encoding='utf-8') as f:
+            content = f.read()
+        return HTMLResponse(content)
+    else:
+        return HTMLResponse("<h1>Experimental Banterop UI</h1><p>Frontend files not found</p>")
+
+@app.get("/experimental/banterop/banterop.js")
+async def experimental_banterop_js():
+    """Serve banterop.js file"""
+    base = Path(__file__).resolve().parent
+    js_file = base / "web" / "experimental" / "banterop" / "banterop.js"
+    
+    if js_file.exists():
+        with open(js_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return Response(content, media_type="application/javascript")
+    else:
+        return Response("// banterop.js not found", media_type="application/javascript")
 
 @app.get("/partner_connect", response_class=HTMLResponse)
 async def partner_connect(request: Request):

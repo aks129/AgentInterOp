@@ -1,0 +1,1 @@
+"""Banterop-style UI module for scenario-driven A2A interoperability testing"""

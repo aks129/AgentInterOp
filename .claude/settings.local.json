@@ -21,7 +21,8 @@
       "Read(//c/**)",
       "Bash(cat:*)",
       "Bash(git clean:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
