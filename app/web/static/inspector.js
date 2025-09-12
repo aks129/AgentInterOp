@@ -161,7 +161,14 @@ class A2AInspector {
 
     async fetchAgentCardHTTP(baseUrl) {
         try {
-            const cardUrl = `${baseUrl}/.well-known/agent-card.json`;
+            // Handle case where user enters full agent card URL instead of base URL
+            let cleanBaseUrl = baseUrl;
+            if (baseUrl.includes('/.well-known/agent-card.json')) {
+                cleanBaseUrl = baseUrl.split('/.well-known/agent-card.json')[0];
+                console.log(`Detected full agent card URL, using base: ${cleanBaseUrl}`);
+            }
+            
+            const cardUrl = `${cleanBaseUrl}/.well-known/agent-card.json`;
             console.log(`Attempting to fetch agent card from: ${cardUrl}`);
             
             const response = await fetch(cardUrl, {
