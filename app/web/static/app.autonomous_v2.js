@@ -301,8 +301,8 @@ class AutonomousV2Controller {
             scenario: 'bcse',
             facts: facts,
             a2a: {
-                applicant_endpoint: document.getElementById('applicant-endpoint')?.value || 'https://care-commons.meteorapp.com/api/a2a',
-                administrator_endpoint: document.getElementById('administrator-endpoint')?.value || 'https://care-commons.meteorapp.com/api/a2a'
+                applicant_endpoint: document.getElementById('applicant-endpoint')?.value || 'https://care-commons.meteorapp.com/mcp',
+                administrator_endpoint: document.getElementById('administrator-endpoint')?.value || 'https://care-commons.meteorapp.com/mcp'
             },
             options: {
                 max_turns: parseInt(document.getElementById('max-turns')?.value || '6'),

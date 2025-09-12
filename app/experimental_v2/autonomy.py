@@ -200,10 +200,10 @@ Base decisions on clinical guidelines and available evidence."""
                 # Use Claude for applicant
                 response = await self._call_claude_agent(AgentRole.APPLICANT)
             else:
-                # Use external A2A endpoint
-                response = await self._call_a2a_endpoint(
+                # Use external endpoint (A2A or MCP)
+                response = await self._call_external_agent(
                     self.config.a2a["applicant_endpoint"], 
-                    self._build_context_message()
+                    AgentRole.APPLICANT
                 )
             
             turn.response = response
@@ -262,10 +262,10 @@ Base decisions on clinical guidelines and available evidence."""
                 # Use Claude for administrator
                 response = await self._call_claude_agent(AgentRole.ADMINISTRATOR)
             else:
-                # Use external A2A endpoint
-                response = await self._call_a2a_endpoint(
+                # Use external endpoint (A2A or MCP)
+                response = await self._call_external_agent(
                     self.config.a2a["administrator_endpoint"],
-                    self._build_context_message()
+                    AgentRole.ADMINISTRATOR
                 )
             
             turn.response = response
@@ -339,11 +339,133 @@ Please provide your response as JSON following the specified schema."""
         
         return result
     
-    async def _call_a2a_endpoint(self, endpoint: str, message: Dict[str, Any]) -> Dict[str, Any]:
-        """Call external A2A endpoint with proper message format."""
+    async def _call_external_agent(self, endpoint: str, role: AgentRole) -> Dict[str, Any]:
+        """Call external agent endpoint (A2A or MCP)."""
+        if "/mcp" in endpoint:
+            return await self._call_mcp_endpoint(endpoint, role)
+        else:
+            return await self._call_a2a_endpoint(endpoint, role)
+    
+    async def _call_mcp_endpoint(self, endpoint: str, role: AgentRole) -> Dict[str, Any]:
+        """Call MCP endpoint using chat tools."""
+        agent_name = role.value
         
-        # Create a more detailed message for the A2A agent
-        agent_role = "applicant" if "applicant" in endpoint else "administrator"
+        try:
+            # Begin chat thread
+            async with httpx.AsyncClient(timeout=self.sse_timeout_ms / 1000) as client:
+                begin_payload = {
+                    "jsonrpc": "2.0",
+                    "method": "tools/call",
+                    "params": {
+                        "name": "begin_chat_thread",
+                        "arguments": {}
+                    },
+                    "id": f"begin_{self.current_turn}_{agent_name}"
+                }
+                
+                response = await client.post(
+                    endpoint,
+                    headers={"Content-Type": "application/json"},
+                    json=begin_payload
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                if "error" in result:
+                    raise Exception(f"MCP begin error: {result['error']}")
+                
+                # Get conversation ID
+                conversation_id = result.get("result", {}).get("content", [])[0].get("text", "")
+                if not conversation_id:
+                    raise Exception("No conversation ID returned")
+                
+                # Build message for agent
+                message_content = self._build_agent_message(role)
+                
+                # Send message
+                send_payload = {
+                    "jsonrpc": "2.0",
+                    "method": "tools/call",
+                    "params": {
+                        "name": "send_message_to_chat_thread",
+                        "arguments": {
+                            "conversationId": conversation_id,
+                            "message": message_content
+                        }
+                    },
+                    "id": f"send_{self.current_turn}_{agent_name}"
+                }
+                
+                response = await client.post(
+                    endpoint,
+                    headers={"Content-Type": "application/json"},
+                    json=send_payload
+                )
+                response.raise_for_status()
+                
+                # Check for replies
+                check_payload = {
+                    "jsonrpc": "2.0",
+                    "method": "tools/call",
+                    "params": {
+                        "name": "check_replies",
+                        "arguments": {
+                            "conversationId": conversation_id,
+                            "waitMs": 5000
+                        }
+                    },
+                    "id": f"check_{self.current_turn}_{agent_name}"
+                }
+                
+                await asyncio.sleep(1)  # Brief delay
+                response = await client.post(
+                    endpoint,
+                    headers={"Content-Type": "application/json"},
+                    json=check_payload
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                # Parse response
+                if "error" in result:
+                    raise Exception(f"MCP check error: {result['error']}")
+                
+                # Extract agent response from MCP result
+                content = result.get("result", {}).get("content", [])
+                if content and content[0].get("type") == "text":
+                    response_text = content[0].get("text", "")
+                    
+                    # Return structured response
+                    if role == AgentRole.APPLICANT:
+                        return {
+                            "role": "applicant",
+                            "state": "completed",
+                            "message": f"Applicant response via MCP: {response_text[:100]}...",
+                            "actions": [
+                                {"kind": "provide_info", "data": self.config.facts}
+                            ],
+                            "confidence": 0.8,
+                            "raw_response": response_text
+                        }
+                    else:
+                        return {
+                            "role": "administrator",
+                            "state": "completed", 
+                            "message": f"Administrator response via MCP: {response_text[:100]}...",
+                            "actions": [
+                                {"kind": "propose_decision", "decision": "needs-more-info", "rationale": "MCP agent response received"}
+                            ],
+                            "confidence": 0.7,
+                            "raw_response": response_text
+                        }
+                
+        except Exception as e:
+            print(f"MCP endpoint failed, falling back to Claude: {e}")
+            return await self._call_claude_agent(role)
+    
+    async def _call_a2a_endpoint(self, endpoint: str, role: AgentRole) -> Dict[str, Any]:
+        """Call external A2A endpoint with proper message format."""
+        agent_role = role.value
         
         # Build context prompt
         context_text = f"You are a {agent_role} agent in a breast cancer screening eligibility dialog.\n\n"
@@ -413,7 +535,24 @@ Please provide your response as JSON following the specified schema."""
         except Exception as e:
             # Fallback to Claude if A2A fails
             print(f"A2A endpoint failed, falling back to Claude: {e}")
-            return await self._call_claude_agent(AgentRole.APPLICANT if agent_role == "applicant" else AgentRole.ADMINISTRATOR)
+            return await self._call_claude_agent(role)
+    
+    def _build_agent_message(self, role: AgentRole) -> str:
+        """Build message content for external agent."""
+        persona = self.applicant_persona if role == AgentRole.APPLICANT else self.administrator_persona
+        
+        message = f"ROLE: {role.value}\n\n"
+        message += f"PERSONA: {persona}\n\n"
+        message += f"PATIENT FACTS: {json.dumps(self.config.facts, indent=2)}\n\n"
+        message += f"GUIDELINES: {json.dumps(self.config.guidelines, indent=2)}\n\n"
+        
+        if self.turns:
+            message += f"CONVERSATION HISTORY:\n"
+            for turn in self.turns[-3:]:
+                message += f"Turn {turn.turn_number} ({turn.agent_role.value}): {turn.response.get('message', 'No message') if turn.response else 'No response'}\n"
+        
+        message += "\nPlease respond as the specified agent role with appropriate actions in JSON format."
+        return message
     
     def _build_context_message(self) -> Dict[str, Any]:
         """Build context message for external agents."""

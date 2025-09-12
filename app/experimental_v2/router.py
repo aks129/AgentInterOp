@@ -52,8 +52,8 @@ async def get_default_test_config():
     return {
         "facts": create_demo_facts("eligible"),
         "a2a": {
-            "applicant_endpoint": "https://care-commons.meteorapp.com/api/a2a",
-            "administrator_endpoint": "https://care-commons.meteorapp.com/api/a2a"
+            "applicant_endpoint": "https://care-commons.meteorapp.com/mcp",
+            "administrator_endpoint": "https://care-commons.meteorapp.com/mcp"
         },
         "guidelines": DEFAULT_BCS_GUIDELINES.copy(),
         "options": {
@@ -72,8 +72,8 @@ async def run_autonomous_quick_test(api_key: Optional[str] = None):
             scenario="bcse",
             facts=create_demo_facts("eligible"),
             a2a={
-                "applicant_endpoint": "https://care-commons.meteorapp.com/api/a2a",
-                "administrator_endpoint": "https://care-commons.meteorapp.com/api/a2a"
+                "applicant_endpoint": "https://care-commons.meteorapp.com/mcp",
+                "administrator_endpoint": "https://care-commons.meteorapp.com/mcp"
             },
             guidelines=DEFAULT_BCS_GUIDELINES.copy(),
             options={
