@@ -223,11 +223,11 @@ class A2AInspector {
             // Provide more specific error messages
             let errorMessage = error.toString();
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-                errorMessage = `CORS Error: Unable to fetch from ${baseUrl}. Both direct fetch and proxy fallback failed.\n\nThis usually means:\n1. The server doesn't allow cross-origin requests\n2. Network connectivity issues\n3. SSL certificate problems\n\nTry:\n- Checking if the URL is correct\n- Testing in a different browser`;
+                errorMessage = `CORS Error: Unable to fetch from ${cleanBaseUrl}. Both direct fetch and proxy fallback failed.\n\nThis usually means:\n1. The server doesn't allow cross-origin requests\n2. Network connectivity issues\n3. SSL certificate problems\n\nTry:\n- Checking if the URL is correct\n- Testing in a different browser`;
             } else if (error.message.includes('HTTP 404')) {
-                errorMessage = `Not Found: The agent card endpoint ${baseUrl}/.well-known/agent-card.json doesn't exist.`;
+                errorMessage = `Not Found: The agent card endpoint ${cleanBaseUrl}/.well-known/agent-card.json doesn't exist.`;
             } else if (error.message.includes('HTTP 403')) {
-                errorMessage = `Forbidden: Access denied to ${baseUrl}/.well-known/agent-card.json`;
+                errorMessage = `Forbidden: Access denied to ${cleanBaseUrl}/.well-known/agent-card.json`;
             } else if (error.message.includes('HTTP 500')) {
                 errorMessage = `Server Error: The target server returned an error. Try again later.`;
             }
