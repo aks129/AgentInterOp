@@ -288,7 +288,9 @@ class A2AInspector {
             this.currentAgentCard = message.data;
             this.currentA2aEndpoint = this.extractA2aEndpoint(message.data);
             
-            console.log(`Using A2A endpoint: ${this.currentA2aEndpoint}`);
+            console.log(`🎯 Successfully fetched agent card`);
+            console.log(`🔗 Extracted A2A endpoint: "${this.currentA2aEndpoint}"`);
+            console.log(`🏷️ Agent name: "${message.data.name}"`);
             
             this.displayAgentCard(message.data);
             
@@ -305,14 +307,17 @@ class A2AInspector {
     
     extractA2aEndpoint(agentCard) {
         // Try different ways to get the A2A endpoint from the agent card
+        console.log('🔍 Extracting A2A endpoint from agent card...');
         
         // Method 1: Direct url field (common in newer specs)
         if (agentCard.url) {
+            console.log(`✅ Found A2A endpoint via url field: ${agentCard.url}`);
             return agentCard.url;
         }
         
         // Method 2: endpoints.jsonrpc (older spec format)
         if (agentCard.endpoints && agentCard.endpoints.jsonrpc) {
+            console.log(`✅ Found A2A endpoint via endpoints.jsonrpc: ${agentCard.endpoints.jsonrpc}`);
             return agentCard.endpoints.jsonrpc;
         }
         
@@ -320,6 +325,7 @@ class A2AInspector {
         if (agentCard.skills && Array.isArray(agentCard.skills)) {
             for (const skill of agentCard.skills) {
                 if (skill.discovery && skill.discovery.url) {
+                    console.log(`✅ Found A2A endpoint via skills discovery: ${skill.discovery.url}`);
                     return skill.discovery.url;
                 }
             }
@@ -331,11 +337,13 @@ class A2AInspector {
                 iface => iface.transport === 'JSONRPC' || iface.transport === 'jsonrpc'
             );
             if (jsonrpcInterface && jsonrpcInterface.url) {
+                console.log(`✅ Found A2A endpoint via additionalInterfaces: ${jsonrpcInterface.url}`);
                 return jsonrpcInterface.url;
             }
         }
         
         // Fallback: return null to indicate no endpoint found
+        console.log('❌ No A2A endpoint found in agent card');
         return null;
     }
 
@@ -505,21 +513,29 @@ class A2AInspector {
             console.log(`Error type: ${error.name}, message: ${error.message}`);
             console.log(`Current A2A endpoint: ${this.currentA2aEndpoint}`);
             console.log(`Target URL was: ${a2aUrl}`);
+            console.log(`Full error object:`, error);
             
             // Try proxy fallback for CORS issues with external agents
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch') && this.currentA2aEndpoint) {
-                console.log('CORS detected - attempting message proxy fallback...');
+                console.log('✅ CORS detected - attempting message proxy fallback...');
+                console.log(`📤 Proxy fallback: sending to ${a2aUrl} via proxy`);
                 try {
                     await this.sendMessageViaProxy(a2aUrl, payload);
+                    console.log('🎉 Proxy fallback succeeded! Message sent successfully.');
                     return; // Success via proxy, exit here
                 } catch (proxyError) {
-                    console.error('Proxy message fallback also failed:', proxyError);
+                    console.error('❌ Proxy message fallback also failed:', proxyError);
                     console.error('Proxy error details:', proxyError.message);
+                    console.error('Full proxy error object:', proxyError);
+                    console.error('Proxy error stack:', proxyError.stack);
                 }
             } else {
-                console.log('Proxy fallback conditions not met:');
-                console.log(`- Is TypeError with "Failed to fetch"? ${error.name === 'TypeError' && error.message.includes('Failed to fetch')}`);
+                console.log('❌ Proxy fallback conditions not met:');
+                console.log(`- Is TypeError? ${error.name === 'TypeError'}`);
+                console.log(`- Contains "Failed to fetch"? ${error.message.includes('Failed to fetch')}`);
                 console.log(`- Has currentA2aEndpoint? ${!!this.currentA2aEndpoint}`);
+                console.log(`- Current A2A endpoint value: "${this.currentA2aEndpoint}"`);
+                console.log(`- Full condition check: ${error.name === 'TypeError' && error.message.includes('Failed to fetch') && this.currentA2aEndpoint}`);
             }
             
             // Provide more specific error messages
@@ -571,19 +587,39 @@ class A2AInspector {
             body: JSON.stringify(requestBody)
         });
 
-        console.log(`Proxy response status: ${response.status}`);
+        console.log(`📡 Proxy response status: ${response.status}`);
+        console.log(`📡 Proxy response ok: ${response.ok}`);
 
         if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Proxy error response:', errorData);
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch (jsonError) {
+                console.error('Failed to parse proxy error response as JSON:', jsonError);
+                const errorText = await response.text();
+                console.error('Proxy error response text:', errorText);
+                throw new Error(`Proxy error: ${response.status} - ${errorText}`);
+            }
+            console.error('🔥 Proxy error response:', errorData);
             throw new Error(errorData.detail || `Proxy error: ${response.status}`);
         }
 
-        const result = await response.json();
-        console.log('Proxy response result:', result);
+        let result;
+        try {
+            result = await response.json();
+        } catch (jsonError) {
+            console.error('Failed to parse proxy success response as JSON:', jsonError);
+            const responseText = await response.text();
+            console.error('Proxy response text:', responseText);
+            throw new Error('Invalid JSON response from proxy');
+        }
+        
+        console.log('📦 Proxy response result:', result);
+        console.log(`📦 Proxy success status: ${result.success}`);
         
         if (result.success) {
-            console.log('✅ Successfully sent message via proxy');
+            console.log('🎉 Successfully sent message via proxy!');
+            console.log('📨 Response data:', result.data);
             
             this.handleMessageResponse({
                 success: true,
@@ -595,8 +631,9 @@ class A2AInspector {
                 }
             });
         } else {
-            console.error('❌ Proxy returned unsuccessful result');
-            throw new Error(result.data || 'Proxy request failed');
+            console.error('❌ Proxy returned unsuccessful result:');
+            console.error('❌ Result object:', result);
+            throw new Error(result.error || result.data || 'Proxy request failed');
         }
     }
 
