@@ -15,12 +15,22 @@ def test_agent_card_compliance():
     
     card = response.json()
     
-    # Required fields
-    assert card["protocolVersion"] == "0.2.9"
-    assert card["preferredTransport"] == "JSONRPC"
+    # Standard required fields
+    assert card["name"]
+    assert card["description"] 
+    assert card["version"]
     assert card["capabilities"]["streaming"] is True
     
-    # Skills structure
+    # A2A specific fields
+    assert card["protocolVersion"] == "0.2.9"
+    assert card["preferredTransport"] == "JSONRPC"
+    
+    # Endpoints - both formats supported
+    assert "endpoints" in card
+    assert card["endpoints"]["jsonrpc"]
+    assert "/api/bridge/demo/a2a" in card["endpoints"]["jsonrpc"]
+    
+    # Skills structure (newer spec format)
     assert "skills" in card
     assert len(card["skills"]) > 0
     skill = card["skills"][0]

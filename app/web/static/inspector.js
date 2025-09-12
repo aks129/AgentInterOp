@@ -422,11 +422,29 @@ class A2AInspector {
             }
         });
 
-        // Endpoints validation
-        if (!card.endpoints) {
-            issues.push('Missing endpoints field');
-        } else if (!card.endpoints.jsonrpc) {
-            warnings.push('Missing jsonrpc endpoint - required for A2A protocol');
+        // Endpoints validation - check both standard endpoints field and skills discovery
+        let hasJsonrpcEndpoint = false;
+        
+        if (card.endpoints && card.endpoints.jsonrpc) {
+            hasJsonrpcEndpoint = true;
+        }
+        
+        // Also check skills for discovery URLs (newer spec format)
+        if (card.skills && Array.isArray(card.skills)) {
+            for (const skill of card.skills) {
+                if (skill.discovery && skill.discovery.url) {
+                    hasJsonrpcEndpoint = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!hasJsonrpcEndpoint) {
+            if (!card.endpoints) {
+                issues.push('Missing endpoints field or skills with discovery URLs');
+            } else if (!card.endpoints.jsonrpc) {
+                warnings.push('Missing jsonrpc endpoint - required for A2A protocol');
+            }
         }
 
         // Skills validation

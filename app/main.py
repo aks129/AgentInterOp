@@ -149,12 +149,20 @@ def version():
 def agent_card(request: Request):
     base = str(request.base_url).rstrip("/")
     card = {
+      "name": "AgentInterOp Healthcare Platform",
+      "description": "A healthcare interoperability platform supporting A2A protocol for agent-to-agent communication with specialized healthcare scenarios including FHIR integration and BCS eligibility evaluation.",
+      "version": "1.0.0-bcse",
       "protocolVersion": "0.2.9",
       "preferredTransport": "JSONRPC",
       "capabilities": {"streaming": True},
+      "endpoints": {
+        "jsonrpc": f"{base}/api/bridge/demo/a2a"
+      },
       "skills": [
         {
           "id": "scenario",
+          "name": "Healthcare Scenario Processing",
+          "description": "Processes healthcare scenarios including breast cancer screening eligibility evaluation",
           "discovery": {
             "url": f"{base}/api/bridge/demo/a2a"
           },
