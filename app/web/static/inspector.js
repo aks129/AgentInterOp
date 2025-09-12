@@ -8,6 +8,8 @@ class A2AInspector {
         this.clientId = this.generateUUID();
         this.connected = false;
         this.currentTaskId = null; // Track current conversation task ID
+        this.currentAgentCard = null; // Store fetched agent card
+        this.currentA2aEndpoint = null; // Store A2A endpoint from agent card
     }
 
     generateUUID() {
@@ -275,6 +277,12 @@ class A2AInspector {
         }
 
         if (message.success) {
+            // Store the agent card and extract A2A endpoint
+            this.currentAgentCard = message.data;
+            this.currentA2aEndpoint = this.extractA2aEndpoint(message.data);
+            
+            console.log(`Using A2A endpoint: ${this.currentA2aEndpoint}`);
+            
             this.displayAgentCard(message.data);
             
             // Enable chat interface
@@ -288,6 +296,42 @@ class A2AInspector {
         }
     }
     
+    extractA2aEndpoint(agentCard) {
+        // Try different ways to get the A2A endpoint from the agent card
+        
+        // Method 1: Direct url field (common in newer specs)
+        if (agentCard.url) {
+            return agentCard.url;
+        }
+        
+        // Method 2: endpoints.jsonrpc (older spec format)
+        if (agentCard.endpoints && agentCard.endpoints.jsonrpc) {
+            return agentCard.endpoints.jsonrpc;
+        }
+        
+        // Method 3: skills discovery URL (newer spec format)
+        if (agentCard.skills && Array.isArray(agentCard.skills)) {
+            for (const skill of agentCard.skills) {
+                if (skill.discovery && skill.discovery.url) {
+                    return skill.discovery.url;
+                }
+            }
+        }
+        
+        // Method 4: additionalInterfaces
+        if (agentCard.additionalInterfaces && Array.isArray(agentCard.additionalInterfaces)) {
+            const jsonrpcInterface = agentCard.additionalInterfaces.find(
+                iface => iface.transport === 'JSONRPC' || iface.transport === 'jsonrpc'
+            );
+            if (jsonrpcInterface && jsonrpcInterface.url) {
+                return jsonrpcInterface.url;
+            }
+        }
+        
+        // Fallback: return null to indicate no endpoint found
+        return null;
+    }
+
     enableChatInterface() {
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
@@ -390,7 +434,19 @@ class A2AInspector {
 
     async sendMessageHTTP(baseUrl, message) {
         try {
-            const a2aUrl = `${baseUrl}/api/bridge/demo/a2a`;
+            // Determine the A2A endpoint to use
+            let a2aUrl;
+            
+            if (this.currentA2aEndpoint) {
+                // Use the endpoint from the agent card
+                a2aUrl = this.currentA2aEndpoint;
+                console.log(`Using agent card endpoint: ${a2aUrl}`);
+            } else {
+                // Fallback to our local demo endpoint
+                a2aUrl = `${baseUrl}/api/bridge/demo/a2a`;
+                console.log(`Using local demo endpoint: ${a2aUrl}`);
+            }
+            
             const payload = {
                 jsonrpc: '2.0',
                 id: this.generateUUID(),
@@ -407,13 +463,25 @@ class A2AInspector {
                 payload.params.message.taskId = this.currentTaskId;
             }
 
+            console.log(`Sending message to: ${a2aUrl}`);
+            console.log('Payload:', payload);
+
             const response = await fetch(a2aUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                mode: 'cors',
                 body: JSON.stringify(payload)
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
             const responseData = await response.json();
+            console.log('Response received:', responseData);
 
             this.handleMessageResponse({
                 success: true,
@@ -426,9 +494,38 @@ class A2AInspector {
             });
 
         } catch (error) {
+            console.error('Direct message send failed:', error);
+            
+            // Try proxy fallback for CORS issues with external agents
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch') && this.currentA2aEndpoint) {
+                console.log('Attempting message proxy fallback for CORS issue...');
+                try {
+                    await this.sendMessageViaProxy(a2aUrl, payload);
+                    return; // Success via proxy, exit here
+                } catch (proxyError) {
+                    console.error('Proxy message fallback also failed:', proxyError);
+                }
+            }
+            
+            // Provide more specific error messages
+            let errorMessage = error.toString();
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                if (this.currentA2aEndpoint) {
+                    errorMessage = `CORS Error: Unable to send message to external agent. Both direct fetch and proxy fallback failed.`;
+                } else {
+                    errorMessage = `Network Error: Unable to send message to the agent endpoint.`;
+                }
+            } else if (error.message.includes('HTTP 404')) {
+                errorMessage = `Not Found: The agent endpoint doesn't exist or is not configured correctly.`;
+            } else if (error.message.includes('HTTP 403')) {
+                errorMessage = `Forbidden: Access denied to the agent endpoint.`;
+            } else if (error.message.includes('HTTP 500')) {
+                errorMessage = `Server Error: The agent returned an error. Try again later.`;
+            }
+            
             this.handleMessageResponse({
                 success: false,
-                error: error.toString()
+                error: errorMessage
             });
         } finally {
             const sendBtn = document.getElementById('send-btn');
@@ -436,6 +533,43 @@ class A2AInspector {
                 sendBtn.textContent = 'Send';
                 sendBtn.disabled = false;
             }
+        }
+    }
+
+    async sendMessageViaProxy(targetUrl, payload) {
+        const proxyUrl = `${window.location.origin}/api/proxy/a2a-message`;
+        console.log(`Sending message via proxy to: ${targetUrl}`);
+        
+        const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                target_url: targetUrl,
+                payload: payload
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || `Proxy error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('Successfully sent message via proxy:', result.data);
+            
+            this.handleMessageResponse({
+                success: true,
+                data: result.data,
+                debug: {
+                    type: 'message_send_proxy',
+                    request: { method: 'POST', url: targetUrl, body: payload, via_proxy: true },
+                    response: { status_code: result.status_code, body: result.data }
+                }
+            });
+        } else {
+            throw new Error(result.data || 'Proxy request failed');
         }
     }
 

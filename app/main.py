@@ -424,6 +424,55 @@ async def proxy_agent_card(url: str):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Proxy error: {str(e)}")
 
+@app.post("/api/proxy/a2a-message")
+async def proxy_a2a_message(request: Request):
+    """Proxy endpoint to send A2A messages to external agents (CORS workaround)"""
+    import httpx
+    from urllib.parse import urlparse
+    
+    try:
+        body = await request.json()
+        target_url = body.get('target_url')
+        message_payload = body.get('payload')
+        
+        if not target_url or not message_payload:
+            raise HTTPException(status_code=400, detail="Missing target_url or payload")
+        
+        # Validate URL
+        parsed = urlparse(target_url)
+        if not parsed.scheme or not parsed.netloc:
+            raise HTTPException(status_code=400, detail="Invalid target URL format")
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                target_url,
+                json=message_payload,
+                headers={
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'User-Agent': 'AgentInterOp-Inspector/1.0'
+                }
+            )
+            
+            try:
+                response_data = response.json()
+            except:
+                response_data = response.text
+            
+            return {
+                "success": response.status_code < 400,
+                "status_code": response.status_code,
+                "data": response_data,
+                "target_url": target_url
+            }
+                
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Request timeout - agent took too long to respond")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Connection failed - unable to reach agent")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Proxy error: {str(e)}")
+
 # Friendly guidance for partners
 @app.post("/")
 def root_post_hint():
