@@ -60,6 +60,11 @@ class AutonomousV2Controller {
         document.getElementById('test-ineligible-btn')?.addEventListener('click', () => {
             this.runQuickTest('ineligible');
         });
+        
+        // Auto test with provided endpoints
+        document.getElementById('auto-test-btn')?.addEventListener('click', () => {
+            this.runAutomaticTest();
+        });
 
         // Export
         document.getElementById('export-transcript-btn')?.addEventListener('click', () => {
@@ -199,39 +204,121 @@ class AutonomousV2Controller {
         }
     }
 
+    async runAutomaticTest() {
+        console.log('Starting automatic test with provided endpoints');
+        
+        try {
+            // Use quick test endpoint with default configuration
+            const response = await fetch('/api/experimental/v2/test/autonomous-quick', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    api_key: this.getApiKey()
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            this.currentRunId = result.run_id;
+            this.showStatus(`🚀 Automatic test completed: ${result.status}`);
+            
+            // Display results
+            this.displayAutomaticTestResults(result);
+            
+        } catch (error) {
+            console.error('Automatic test failed:', error);
+            this.showStatus(`❌ Automatic test failed: ${error.message}`);
+        }
+    }
+    
+    displayAutomaticTestResults(result) {
+        const container = document.getElementById('autonomous-applicant-messages');
+        if (!container) return;
+        
+        container.innerHTML = '<h6>Automatic Test Results</h6>';
+        
+        // Show frames
+        result.frames?.forEach((frame, index) => {
+            const frameDiv = document.createElement('div');
+            frameDiv.className = 'autonomous-message mb-2';
+            frameDiv.innerHTML = `
+                <div class="message-header">
+                    <small>Frame ${index + 1}: ${frame.type}</small>
+                    <small class="text-muted">${new Date(frame.timestamp).toLocaleTimeString()}</small>
+                </div>
+                <div class="message-content">
+                    <pre>${JSON.stringify(frame, null, 2)}</pre>
+                </div>
+            `;
+            container.appendChild(frameDiv);
+        });
+        
+        // Show final outcome
+        if (result.final_state?.final_outcome) {
+            const outcomeDiv = document.createElement('div');
+            outcomeDiv.className = 'autonomous-message mb-2';
+            outcomeDiv.style.borderLeftColor = '#28a745';
+            outcomeDiv.innerHTML = `
+                <div class="message-header">
+                    <strong>Final Outcome</strong>
+                </div>
+                <div class="message-content">
+                    <pre>${JSON.stringify(result.final_state.final_outcome, null, 2)}</pre>
+                </div>
+            `;
+            container.appendChild(outcomeDiv);
+        }
+    }
+
     async startAutonomousRun() {
-        // Validate inputs
-        const facts = this.getCurrentFacts();
+        // Try to get facts or use defaults
+        let facts = this.getCurrentFacts();
         if (!facts || (!facts.sex && !facts.birthDate)) {
-            alert('Please provide patient facts (either fetch from FHIR or enter manually)');
-            return;
+            // Use default facts for testing
+            facts = {
+                sex: 'female',
+                birthDate: '1970-01-01',
+                last_mammogram: '2022-01-01'
+            };
         }
 
         // Prepare guidelines
-        const guidelinesText = document.getElementById('guidelines-editor').value;
+        const guidelinesText = document.getElementById('guidelines-editor')?.value;
         let guidelines;
         try {
-            guidelines = JSON.parse(guidelinesText);
+            guidelines = guidelinesText ? JSON.parse(guidelinesText) : null;
         } catch (error) {
-            alert('Invalid guidelines JSON. Please fix syntax errors.');
-            return;
+            console.warn('Invalid guidelines JSON, will use defaults:', error);
+            guidelines = null;
         }
 
-        // Prepare configuration
+        // Prepare configuration with defaults
         const config = {
             scenario: 'bcse',
             facts: facts,
             a2a: {
-                applicant_endpoint: document.getElementById('applicant-endpoint').value || null,
-                administrator_endpoint: document.getElementById('administrator-endpoint').value || null
+                applicant_endpoint: document.getElementById('applicant-endpoint')?.value || 'https://care-commons.meteorapp.com/api/a2a',
+                administrator_endpoint: document.getElementById('administrator-endpoint')?.value || 'https://care-commons.meteorapp.com/api/a2a'
             },
             options: {
-                max_turns: parseInt(document.getElementById('max-turns').value),
-                sse_timeout_ms: parseInt(document.getElementById('sse-timeout').value),
-                poll_interval_ms: parseInt(document.getElementById('poll-interval').value),
-                dry_run: document.getElementById('dry-run').checked
+                max_turns: parseInt(document.getElementById('max-turns')?.value || '6'),
+                sse_timeout_ms: parseInt(document.getElementById('sse-timeout')?.value || '8000'),
+                poll_interval_ms: parseInt(document.getElementById('poll-interval')?.value || '1200'),
+                dry_run: document.getElementById('dry-run')?.checked || false
             },
-            guidelines: guidelines
+            guidelines: guidelines || {
+                name: "BCS Eligibility Guidelines",
+                version: "1.0",
+                rules: [
+                    {"field": "sex", "operator": "equals", "value": "female", "required": true},
+                    {"field": "age", "operator": "between", "min": 50, "max": 74, "required": true},
+                    {"field": "months_since_last_mammogram", "operator": "greater_than", "value": 24, "required": false}
+                ]
+            }
         };
 
         // Add API key if available

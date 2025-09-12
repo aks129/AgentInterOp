@@ -46,6 +46,64 @@ class AutonomyRequest(BaseModel):
 
 # === FHIR Endpoints ===
 
+@router.get("/test/default-config")
+async def get_default_test_config():
+    """Get default configuration for autonomous testing."""
+    return {
+        "facts": create_demo_facts("eligible"),
+        "a2a": {
+            "applicant_endpoint": "https://care-commons.meteorapp.com/api/a2a",
+            "administrator_endpoint": "https://care-commons.meteorapp.com/api/a2a"
+        },
+        "guidelines": DEFAULT_BCS_GUIDELINES.copy(),
+        "options": {
+            "max_turns": 8,
+            "sse_timeout_ms": 8000,
+            "poll_interval_ms": 1200,
+            "dry_run": False
+        }
+    }
+
+@router.post("/test/autonomous-quick")
+async def run_autonomous_quick_test(api_key: Optional[str] = None):
+    """Run autonomous test with default configuration."""
+    try:
+        config = DialogConfig(
+            scenario="bcse",
+            facts=create_demo_facts("eligible"),
+            a2a={
+                "applicant_endpoint": "https://care-commons.meteorapp.com/api/a2a",
+                "administrator_endpoint": "https://care-commons.meteorapp.com/api/a2a"
+            },
+            guidelines=DEFAULT_BCS_GUIDELINES.copy(),
+            options={
+                "max_turns": 6,
+                "sse_timeout_ms": 8000,
+                "poll_interval_ms": 1200,
+                "dry_run": False
+            },
+            api_key=api_key
+        )
+        
+        dialog = AutonomousDialog(config)
+        run_id = dialog.run_id
+        active_dialogs[run_id] = dialog
+        
+        # Run dialog and collect results
+        results = []
+        async for frame in dialog.run():
+            results.append(frame)
+        
+        return {
+            "run_id": run_id,
+            "status": "completed",
+            "frames": results,
+            "final_state": dialog.get_status()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/fhir/everything")
 async def fetch_fhir_everything(request: FHIRRequest = Body(...)):
     """
