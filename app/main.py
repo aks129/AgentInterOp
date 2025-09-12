@@ -149,50 +149,20 @@ def version():
 def agent_card(request: Request):
     base = str(request.base_url).rstrip("/")
     card = {
-      "name": "AgentInterOp Healthcare Platform", 
-      "description": "A healthcare interoperability platform supporting dual protocols (A2A/MCP) for agent-to-agent communication with specialized healthcare scenarios including FHIR integration.",
-      "url": base,
-      "provider": {
-        "organization": "AgentInterOp Project",
-        "url": base
-      },
-      "version": "1.0.0-bcse",
-      "capabilities": {
-        "streaming": True,
-        "pushNotifications": False,
-        "stateTransitionHistory": True
-      },
-      "defaultInputModes": ["application/json", "text/plain"],
-      "defaultOutputModes": ["application/json", "application/fhir+json"],
-      "skills": [
-        {
-          "id": "bcse",
-          "name": "Breast Cancer Screening Evaluator", 
-          "description": "Evaluates BCS eligibility using FHIR data and healthcare protocols.",
-          "tags": ["healthcare", "fhir", "breast-cancer", "screening", "eligibility"],
-          "examples": [
-            "Evaluate breast cancer screening eligibility for patient",
-            "Process FHIR patient bundle for BCS eligibility determination"
-          ],
-          "inputModes": ["application/fhir+json", "application/json"],
-          "outputModes": ["application/json", "application/fhir+json"],
-          "a2a.config64": base64.b64encode(b'{"scenario":"bcse"}').decode()
-        }
-      ],
       "protocolVersion": "0.2.9",
       "preferredTransport": "JSONRPC",
-      "endpoints": {
-        "jsonrpc": f"{base}/api/bridge/demo/a2a"
-      },
-      "x-demo-endpoints": {
-        "canonical_a2a": f"{base}/api/bridge/demo/a2a",
-        "a2a_alias": f"{base}/a2a",
-        "jsonrpc_legacy": f"{base}/api/a2a/bridge/eyJzY2VuYXJpbyI6ImJjc2UifQ==/a2a",
-        "bcse_simple": f"{base}/api/bridge/bcse/a2a",
-        "mcp_bcse": f"{base}/api/mcp/bcse/",
-        "swagger_docs": f"{base}/docs",
-        "openapi_schema": f"{base}/openapi.json"
-      }
+      "capabilities": {"streaming": True},
+      "skills": [
+        {
+          "id": "scenario",
+          "discovery": {
+            "url": f"{base}/api/bridge/demo/a2a"
+          },
+          "a2a": {
+            "config64": base64.b64encode(b'{"scenario":"demo"}').decode()
+          }
+        }
+      ]
     }
     return JSONResponse(card)
 

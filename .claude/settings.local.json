@@ -17,7 +17,11 @@
       "Bash(vercel:*)",
       "Bash(npm install:*)",
       "WebFetch(domain:agent-inter-dn9af5rs4-aks129s-projects.vercel.app)",
-      "WebFetch(domain:care-commons.meteorapp.com)"
+      "WebFetch(domain:care-commons.meteorapp.com)",
+      "Read(//c/**)",
+      "Bash(cat:*)",
+      "Bash(git clean:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

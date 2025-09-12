@@ -1,103 +1,166 @@
+# app/a2a_router.py
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from typing import Dict, Any
+import asyncio, json, uuid, time
+
+from app.a2a_store import STORE
 
 router = APIRouter()
 
-# Import or implement your existing JSON-RPC dispatcher
-# This should return a dict envelope: {"jsonrpc":"2.0","id":...,"result":{...}} or {"error":{...}}
-async def handle_jsonrpc(payload: dict) -> dict:
-    """Handle JSON-RPC A2A requests with proper routing to existing logic."""
-    method = payload.get("method")
-    jid = payload.get("id")
-    params = payload.get("params", {})
-    
-    try:
-        # Route to existing A2A protocol handling
-        if method == "message/send":
-            # Extract message content
-            content = params.get("content", "")
-            if not content and "message" in params:
-                message_parts = params["message"].get("parts", [])
-                if message_parts and message_parts[0].get("kind") == "text":
-                    content = message_parts[0].get("text", "")
-            
-            # Create A2A task response compatible with existing system
-            return {
-                "jsonrpc": "2.0",
-                "id": jid,
-                "result": {
-                    "id": f"task_{jid}",
-                    "contextId": f"ctx_{jid}",
-                    "status": {"state": "submitted"},
-                    "artifacts": [],
-                    "history": [
-                        {
-                            "role": "user",
-                            "parts": [{"kind": "text", "text": content}] if content else [],
-                            "messageId": f"msg_{jid}",
-                            "taskId": f"task_{jid}",
-                            "contextId": f"ctx_{jid}",
-                            "kind": "message",
-                            "metadata": {}
-                        }
-                    ],
-                    "kind": "task",
-                    "metadata": {
-                        "autoRespond": False,
-                        "scenario": params.get("metadata", {}).get("scenario", "unknown")
-                    }
-                }
-            }
-        elif method == "message/stream":
-            return {
-                "jsonrpc": "2.0",
-                "id": jid,
-                "result": {
-                    "streamUrl": f"/api/stream/{jid}",
-                    "status": "streaming"
-                }
-            }
-        elif method == "tasks/get":
-            task_id = params.get("taskId")
-            return {
-                "jsonrpc": "2.0",
-                "id": jid,
-                "result": {
-                    "id": task_id,
-                    "status": {"state": "completed"},
-                    "kind": "task"
-                }
-            }
-        else:
-            return {
-                "jsonrpc": "2.0",
-                "id": jid,
-                "error": {
-                    "code": -32601,
-                    "message": f"Method not found: {method}",
-                    "data": {"supported_methods": ["message/send", "message/stream", "tasks/get"]}
-                }
-            }
-    except Exception as e:
-        return {
-            "jsonrpc": "2.0",
-            "id": jid,
-            "error": {
-                "code": -32603,
-                "message": "Internal error",
-                "data": {"error": str(e)}
-            }
-        }
+def _new_context_id() -> str:
+    return f"ctx_{uuid.uuid4().hex[:8]}"
+
+async def _simulate_admin_reply(user_text: str) -> Dict[str, Any]:
+    """
+    Minimal demo: if user sent text, reply once and require input.
+    Replace with your real admin/applicant logic later.
+    """
+    reply = f"Thanks. You said: {user_text}. Please provide last mammogram date."
+    return {
+        "role": "agent",
+        "parts": [{"kind": "text", "text": reply}],
+        "status": {"state": "input-required"}
+    }
+
+def _rpc_ok(id_, payload):
+    return {"jsonrpc": "2.0", "id": id_, "result": payload}
+
+def _rpc_err(id_, code, msg):
+    return {"jsonrpc": "2.0", "id": id_, "error": {"code": code, "message": msg}}
 
 @router.post("/api/bridge/demo/a2a")
 async def a2a_jsonrpc(request: Request):
-    """Canonical A2A JSON-RPC endpoint."""
-    payload = await request.json()
-    result = await handle_jsonrpc(payload)
-    return JSONResponse(result)
+    """
+    Supports message/send, message/stream, tasks/get, tasks/cancel (JSON body).
+    If Accept: text/event-stream AND method=message/stream => SSE stream.
+    """
+    # SSE path
+    if "text/event-stream" in request.headers.get("accept", ""):
+        body = await request.json()
+        if body.get("method") != "message/stream":
+            return JSONResponse(_rpc_err(body.get("id"), -32601, "Use method=message/stream for SSE"), status_code=400)
+        return await _handle_stream(request, body)
 
-# Convenience alias for quick partner testing
+    # Non-SSE path
+    body = await request.json()
+    m = body.get("method")
+    rid = body.get("id")
+
+    if m == "message/send":
+        params = body.get("params", {}) or {}
+        msg = params.get("message", {})
+        parts = msg.get("parts", [])
+        text = ""
+        for p in parts:
+            if p.get("kind") == "text":
+                text = p.get("text", "")
+                break
+
+        # Handle direct content parameter for inspector compatibility
+        if not text and "content" in params:
+            text = params["content"]
+            parts = [{"kind": "text", "text": text}]
+
+        # new task if no taskId
+        task = None
+        task_id = msg.get("taskId")
+        if task_id and STORE.get(task_id):
+            task = STORE.get(task_id)
+        else:
+            task = STORE.new_task(_new_context_id())
+
+        # record user message
+        user_mid = f"msg_{uuid.uuid4().hex[:8]}"
+        STORE.add_history(task["id"], "user", parts, user_mid)
+        STORE.update_status(task["id"], "working")
+
+        # simulate an admin turn (sync; keep it short)
+        admin = await _simulate_admin_reply(text)
+        admin_mid = f"msg_{uuid.uuid4().hex[:8]}"
+        STORE.add_history(task["id"], admin["role"], admin["parts"], admin_mid)
+        STORE.update_status(task["id"], admin["status"]["state"])
+
+        return JSONResponse(_rpc_ok(rid, STORE.get(task["id"])))
+
+    elif m == "message/stream":
+        # This should not happen in non-SSE path, but handle gracefully
+        return JSONResponse(_rpc_err(rid, -32602, "message/stream requires Accept: text/event-stream header"), status_code=400)
+
+    elif m == "tasks/get":
+        params = body.get("params", {}) or {}
+        tid = params.get("id")
+        t = STORE.get(tid) if tid else None
+        if not t:
+            return JSONResponse(_rpc_ok(rid, {"id": None, "status": {"state": "failed"}, "kind": "task"}))
+        return JSONResponse(_rpc_ok(rid, t))
+
+    elif m == "tasks/cancel":
+        params = body.get("params", {}) or {}
+        tid = params.get("id")
+        t = STORE.get(tid)
+        if not t:
+            return JSONResponse(_rpc_err(rid, -32001, "Task not found"), status_code=404)
+        STORE.update_status(tid, "canceled")
+        return JSONResponse(_rpc_ok(rid, STORE.get(tid)))
+
+    elif m == "tasks/resubscribe":
+        # Optional method - return the current task state
+        params = body.get("params", {}) or {}
+        tid = params.get("id")
+        t = STORE.get(tid)
+        if not t:
+            return JSONResponse(_rpc_err(rid, -32001, "Task not found"), status_code=404)
+        return JSONResponse(_rpc_ok(rid, t))
+
+    else:
+        return JSONResponse(_rpc_err(rid, -32601, "Method not found"), status_code=404)
+
+async def _handle_stream(request: Request, body: Dict[str, Any]):
+    rid = body.get("id")
+    params = body.get("params", {}) or {}
+    msg = params.get("message", {})
+    parts = msg.get("parts", [])
+    text = ""
+    for p in parts:
+        if p.get("kind") == "text":
+            text = p.get("text", "")
+            break
+
+    # Handle direct content parameter
+    if not text and "content" in params:
+        text = params["content"]
+        parts = [{"kind": "text", "text": text}]
+
+    # create task
+    task = STORE.new_task(_new_context_id())
+    user_mid = f"msg_{uuid.uuid4().hex[:8]}"
+    STORE.add_history(task["id"], "user", parts, user_mid)
+    STORE.update_status(task["id"], "working")
+
+    async def event_gen():
+        # initial snapshot
+        snap = STORE.get(task["id"]).copy()
+        yield f"data: {json.dumps({'jsonrpc':'2.0','id':rid,'result':snap})}\n\n"
+        await asyncio.sleep(0.2)
+
+        # admin reply
+        admin = await _simulate_admin_reply(text)
+        admin_mid = f"msg_{uuid.uuid4().hex[:8]}"
+        STORE.add_history(task["id"], admin["role"], admin["parts"], admin_mid)
+        STORE.update_status(task["id"], admin["status"]["state"])
+        msg_frame = {"jsonrpc":"2.0","id":rid,"result":{"role":"agent","parts":admin["parts"],"kind":"message"}}
+        yield f"data: {json.dumps(msg_frame)}\n\n"
+        await asyncio.sleep(0.1)
+
+        # terminal status-update
+        final_state = STORE.get(task["id"])["status"]
+        term = {"jsonrpc":"2.0","id":rid,"result":{"kind":"status-update","status":final_state,"final": True}}
+        yield f"data: {json.dumps(term)}\n\n"
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+# Short alias still supported
 @router.post("/a2a")
 async def a2a_alias(request: Request):
-    """Convenience alias for A2A endpoint."""
     return await a2a_jsonrpc(request)
