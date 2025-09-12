@@ -115,6 +115,10 @@ from app.experimental_v2.router import router as experimental_v2_router
 app.include_router(experimental_router)
 app.include_router(experimental_v2_router)
 
+# Include canonical A2A router for Vercel deployment
+from app.a2a_router import router as canonical_a2a_router
+app.include_router(canonical_a2a_router)
+
 # In-memory artifact storage for demo
 demo_artifacts = {
     "demo-task": {
@@ -171,8 +175,15 @@ def agent_card(request: Request):
           "a2a.config64": base64.b64encode(b'{"scenario":"bcse"}').decode()
         }
       ],
+      "protocolVersion": "0.2.9",
+      "preferredTransport": "JSONRPC",
+      "endpoints": {
+        "jsonrpc": f"{base}/api/bridge/demo/a2a"
+      },
       "x-demo-endpoints": {
-        "jsonrpc": f"{base}/api/a2a/bridge/eyJzY2VuYXJpbyI6ImJjc2UifQ==/a2a",
+        "canonical_a2a": f"{base}/api/bridge/demo/a2a",
+        "a2a_alias": f"{base}/a2a",
+        "jsonrpc_legacy": f"{base}/api/a2a/bridge/eyJzY2VuYXJpbyI6ImJjc2UifQ==/a2a",
         "bcse_simple": f"{base}/api/bridge/bcse/a2a",
         "mcp_bcse": f"{base}/api/mcp/bcse/",
         "swagger_docs": f"{base}/docs",
@@ -375,6 +386,20 @@ async def start_conversation(request: Request):
 async def health():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+# Friendly guidance for partners
+@app.post("/")
+def root_post_hint():
+    """Guidance for partners posting to root."""
+    return {
+        "ok": False, 
+        "hint": "POST to /api/bridge/demo/a2a (canonical JSON-RPC) or /a2a (alias).",
+        "endpoints": {
+            "canonical": "/api/bridge/demo/a2a",
+            "alias": "/a2a",
+            "agent_card": "/.well-known/agent-card.json"
+        }
+    }
 
 if __name__ == "__main__":
     import uvicorn, os
