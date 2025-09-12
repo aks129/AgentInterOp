@@ -84,7 +84,8 @@ class A2AInspector {
 
     setupWebSocket() {
         try {
-            const wsUrl = `ws://${window.location.host}/inspectortest/ws/${this.clientId}`;
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/inspectortest/ws/${this.clientId}`;
             this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = () => {
@@ -206,11 +207,29 @@ class A2AInspector {
 
         if (message.success) {
             this.displayAgentCard(message.data);
+            
+            // Enable chat interface
+            this.enableChatInterface();
+            
             if (message.debug) {
                 this.logDebug('Agent Card Fetch', message.debug);
             }
         } else {
             this.showError(`Failed to fetch agent card: ${message.error}`);
+        }
+    }
+    
+    enableChatInterface() {
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        
+        if (messageInput) {
+            messageInput.disabled = false;
+            messageInput.placeholder = 'Type a message to send to the agent...';
+        }
+        
+        if (sendBtn) {
+            sendBtn.disabled = false;
         }
     }
 
