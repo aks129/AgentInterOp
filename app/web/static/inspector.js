@@ -7,6 +7,7 @@ class A2AInspector {
         this.ws = null;
         this.clientId = this.generateUUID();
         this.connected = false;
+        this.currentTaskId = null; // Track current conversation task ID
     }
 
     generateUUID() {
@@ -223,6 +224,10 @@ class A2AInspector {
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
         
+        // Reset conversation state when enabling chat
+        this.currentTaskId = null;
+        this.clearMessages();
+        
         if (messageInput) {
             messageInput.disabled = false;
             messageInput.placeholder = 'Type a message to send to the agent...';
@@ -230,6 +235,13 @@ class A2AInspector {
         
         if (sendBtn) {
             sendBtn.disabled = false;
+        }
+    }
+
+    clearMessages() {
+        const messagesDiv = document.getElementById('messages');
+        if (messagesDiv) {
+            messagesDiv.innerHTML = '';
         }
     }
 
@@ -316,10 +328,16 @@ class A2AInspector {
                 id: this.generateUUID(),
                 method: 'message/send',
                 params: {
-                    content: message,
-                    metadata: { inspector: true }
+                    message: {
+                        parts: [{ kind: 'text', text: message }]
+                    }
                 }
             };
+
+            // Add taskId if we have a current conversation
+            if (this.currentTaskId) {
+                payload.params.message.taskId = this.currentTaskId;
+            }
 
             const response = await fetch(a2aUrl, {
                 method: 'POST',
@@ -364,6 +382,11 @@ class A2AInspector {
             // Extract and display agent response
             const responseData = message.data;
             if (responseData.result) {
+                // Store the task ID for subsequent messages
+                if (responseData.result.id) {
+                    this.currentTaskId = responseData.result.id;
+                }
+                
                 const agentMessage = this.extractMessageFromResult(responseData.result);
                 this.addChatMessage('agent', agentMessage, true);
             }
