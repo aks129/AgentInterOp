@@ -107,20 +107,21 @@ async def _search_appointments(location_text: str) -> Dict[str, Any]:
                             else:
                                 formatted_time = "Next available appointment"
                             
-                            # Generate Smart Scheduling link
+                            # Generate Smart Scheduling link with Family Practice specialty
                             slot_id = slot.get("id", f"slot_{i}")
-                            booking_link = f"https://zocdoc-smartscheduling.netlify.app/book?slot={slot_id}&service=mammography&location={location_text.replace(' ', '%20')}"
+                            booking_link = f"https://zocdoc-smartscheduling.netlify.app/book?slot={slot_id}&specialty=family-practice&service=mammography&location={location_text.replace(' ', '%20')}"
                             
-                            slots_text += f"**{i}. {org}**\\n"
-                            slots_text += f"   📅 {formatted_time}\\n"
-                            slots_text += f"   🏥 {service_type}\\n"
-                            slots_text += f"   📍 {address}\\n"
-                            slots_text += f"   🔗 [Book Appointment]({booking_link})\\n\\n"
+                            slots_text += f"**Option {i}: {formatted_time}**\\n"
+                            slots_text += f"   🏥 **Provider:** {org}\\n"
+                            slots_text += f"   👩‍⚕️ **Specialty:** Family Practice\\n"
+                            slots_text += f"   📍 **Location:** {address}\\n"
+                            slots_text += f"   🔗 **[Click Here to Book This Time Slot]({booking_link})**\\n\\n"
                         
-                        slots_text += "**Next Steps:**\\n"
-                        slots_text += "• Click any booking link above to schedule online\\n"
-                        slots_text += "• Or reply with the appointment number (1, 2, or 3) to get booking details\\n"
-                        slots_text += "• Need different times? Let me know your preferred days/times"
+                        slots_text += "**📋 How to Book Your Preferred Appointment:**\\n"
+                        slots_text += "\\n**Option 1:** Click any **'Click Here to Book This Time Slot'** link above\\n"
+                        slots_text += "**Option 2:** Reply with just the option number (1, 2, or 3) for booking instructions\\n"
+                        slots_text += "**Option 3:** Need different dates/times? Let me search again with your preferences\\n\\n"
+                        slots_text += "All appointments are with **Family Practice** providers for mammography screening."
                         
                         return {
                             "success": True,
@@ -237,15 +238,21 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
     slot_selection_match = re.search(r'\b([123])\b', user_text.strip())
     if slot_selection_match:
         slot_number = int(slot_selection_match.group(1))
-        # Generate booking confirmation for selected slot
-        booking_link = f"https://zocdoc-smartscheduling.netlify.app/book?slot=slot_{slot_number}&service=mammography"
-        reply = f"🎯 **Appointment #{slot_number} Selected**\\n\\n"
-        reply += f"To complete your booking:\\n"
-        reply += f"1. Click this link: [Book Appointment #{slot_number}]({booking_link})\\n"
-        reply += f"2. Fill in your contact information\\n"
-        reply += f"3. Confirm your insurance details\\n"
-        reply += f"4. You'll receive a confirmation email\\n\\n"
-        reply += f"**Important:** Please bring your insurance card and arrive 15 minutes early for your mammography appointment.\\n\\n"
+        # Generate booking confirmation for selected slot with Family Practice specialty
+        booking_link = f"https://zocdoc-smartscheduling.netlify.app/book?slot=slot_{slot_number}&specialty=family-practice&service=mammography"
+        reply = f"🎯 **Appointment Option #{slot_number} Selected**\\n\\n"
+        reply += f"📅 **Your Selected Time Slot:** Option {slot_number}\\n"
+        reply += f"👩‍⚕️ **Specialty:** Family Practice\\n"
+        reply += f"🩺 **Service:** Mammography Screening\\n\\n"
+        reply += f"**📋 To Complete Your Booking:**\\n"
+        reply += f"1. 🔗 **[Click Here to Book Your Appointment]({booking_link})**\\n"
+        reply += f"2. 📝 Fill in your contact information\\n"
+        reply += f"3. 🏥 Confirm your insurance details\\n"
+        reply += f"4. 📧 You'll receive a confirmation email\\n\\n"
+        reply += f"**⚠️ Important Reminders:**\\n"
+        reply += f"• Bring your insurance card and ID\\n"
+        reply += f"• Arrive 15 minutes early\\n"
+        reply += f"• Wear comfortable, two-piece clothing\\n\\n"
         reply += f"Is there anything else I can help you with regarding your breast cancer screening?"
         
         return {
