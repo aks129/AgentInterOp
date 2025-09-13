@@ -13,61 +13,180 @@ def _new_context_id() -> str:
     return f"ctx_{uuid.uuid4().hex[:8]}"
 
 async def _search_appointments(location_text: str) -> Dict[str, Any]:
-    """Search for mammography appointments near the specified location."""
+    """Search for mammography appointments using Zocdoc SmartScheduling reference server."""
+    import httpx
+    
     try:
-        from app.scheduling.discovery import SlotQuery, discover_slots
+        # Try Zocdoc SmartScheduling reference server first
+        zocdoc_url = "https://zocdoc-smartscheduling.netlify.app/$bulk-publish"
         
-        # Create search query for mammography
-        query = SlotQuery(
-            specialty="mammography",
-            location_text=location_text,
-            start=datetime.now(),
-            end=datetime.now() + timedelta(days=30),  # Search next 30 days
-            limit=5  # Limit to top 5 results
-        )
-        
-        # Search for slots
-        results = await discover_slots(query)
-        
-        if results.get("slots"):
-            slots_text = "Here are available mammography appointments near you:\\n\\n"
-            for i, slot in enumerate(results["slots"][:3], 1):  # Show top 3
-                start_time = slot.get("start", "")
-                org = slot.get("org", "Healthcare Provider")
-                location = slot.get("location", {})
-                address = location.get("address", "Address not available")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                # Fetch FHIR Schedule resources from reference server
+                response = await client.get(
+                    zocdoc_url,
+                    headers={
+                        'Accept': 'application/fhir+json',
+                        'User-Agent': 'AgentInterOp-Scheduler/1.0'
+                    }
+                )
                 
-                # Format the date/time
-                if start_time:
-                    try:
-                        dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-                        formatted_time = dt.strftime("%A, %B %d at %I:%M %p")
-                    except:
-                        formatted_time = start_time
-                else:
-                    formatted_time = "Time TBD"
+                if response.status_code == 200:
+                    fhir_data = response.json()
+                    
+                    # Process FHIR Bundle to extract mammography appointments
+                    slots = []
+                    if fhir_data.get("resourceType") == "Bundle":
+                        for entry in fhir_data.get("entry", []):
+                            resource = entry.get("resource", {})
+                            
+                            # Look for Schedule or Slot resources
+                            if resource.get("resourceType") == "Schedule":
+                                # Extract schedule info
+                                service_type = resource.get("serviceType", [])
+                                service_category = resource.get("serviceCategory", [])
+                                
+                                # Check if it's mammography-related
+                                is_mammography = any(
+                                    "mammogr" in str(stype).lower() or 
+                                    "breast" in str(stype).lower() or
+                                    "screening" in str(stype).lower()
+                                    for stype in [service_type, service_category]
+                                )
+                                
+                                if is_mammography:
+                                    # Extract practitioner and location info
+                                    actor_refs = resource.get("actor", [])
+                                    schedule_period = resource.get("planningHorizon", {})
+                                    
+                                    slots.append({
+                                        "id": resource.get("id"),
+                                        "serviceType": "Mammography Screening",
+                                        "start": schedule_period.get("start"),
+                                        "end": schedule_period.get("end"),
+                                        "org": "Healthcare Provider",
+                                        "location": {"address": f"Near {location_text}"}
+                                    })
+                            
+                            elif resource.get("resourceType") == "Slot":
+                                # Process individual slots
+                                service_type = resource.get("serviceType", [])
+                                if any("mammogr" in str(stype).lower() or "breast" in str(stype).lower() 
+                                      for stype in service_type):
+                                    slots.append({
+                                        "id": resource.get("id"),
+                                        "serviceType": "Mammography",
+                                        "start": resource.get("start"),
+                                        "end": resource.get("end"),
+                                        "status": resource.get("status"),
+                                        "org": "SmartScheduling Provider",
+                                        "location": {"address": f"Location near {location_text}"}
+                                    })
+                    
+                    # Format successful response with real data
+                    if slots:
+                        slots_text = "Here are available mammography appointments from SmartScheduling providers:\\n\\n"
+                        
+                        for i, slot in enumerate(slots[:3], 1):  # Show top 3
+                            start_time = slot.get("start", "")
+                            org = slot.get("org", "Healthcare Provider")
+                            service_type = slot.get("serviceType", "Mammography")
+                            location_info = slot.get("location", {})
+                            address = location_info.get("address", f"Near {location_text}")
+                            
+                            # Format the date/time
+                            if start_time:
+                                try:
+                                    if "T" in start_time:
+                                        dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                                        formatted_time = dt.strftime("%A, %B %d at %I:%M %p")
+                                    else:
+                                        formatted_time = start_time
+                                except:
+                                    formatted_time = start_time
+                            else:
+                                formatted_time = "Next available appointment"
+                            
+                            slots_text += f"{i}. {org}\\n   {service_type}\\n   {formatted_time}\\n   {address}\\n\\n"
+                        
+                        slots_text += "These appointments are available through the SmartScheduling network. To book, please contact the provider directly or use their online scheduling system."
+                        
+                        return {
+                            "success": True,
+                            "message": slots_text,
+                            "found_slots": len(slots),
+                            "source": "zocdoc_smartscheduling"
+                        }
+                    else:
+                        # No mammography slots found in SmartScheduling data
+                        pass  # Fall through to local search
+                        
+            except (httpx.TimeoutException, httpx.ConnectError):
+                # SmartScheduling server unavailable, fall through to local search
+                pass
+        
+        # Fallback to local scheduling system
+        try:
+            from app.scheduling.discovery import SlotQuery, discover_slots
+            
+            # Create search query for mammography
+            query = SlotQuery(
+                specialty="mammography",
+                location_text=location_text,
+                start=datetime.now(),
+                end=datetime.now() + timedelta(days=30),  # Search next 30 days
+                limit=5  # Limit to top 5 results
+            )
+            
+            # Search for slots
+            results = await discover_slots(query)
+            
+            if results.get("slots"):
+                slots_text = "Here are available mammography appointments (local providers):\\n\\n"
+                for i, slot in enumerate(results["slots"][:3], 1):  # Show top 3
+                    start_time = slot.get("start", "")
+                    org = slot.get("org", "Healthcare Provider")
+                    location = slot.get("location", {})
+                    address = location.get("address", "Address not available")
+                    
+                    # Format the date/time
+                    if start_time:
+                        try:
+                            dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                            formatted_time = dt.strftime("%A, %B %d at %I:%M %p")
+                        except:
+                            formatted_time = start_time
+                    else:
+                        formatted_time = "Time TBD"
+                    
+                    slots_text += f"{i}. {org}\\n   {formatted_time}\\n   {address}\\n\\n"
                 
-                slots_text += f"{i}. {org}\\n   {formatted_time}\\n   {address}\\n\\n"
-            
-            slots_text += "To book an appointment, please contact the provider directly or visit their website. Would you like me to search for more options?"
-            
-            return {
-                "success": True,
-                "message": slots_text,
-                "found_slots": len(results["slots"])
-            }
-        else:
-            return {
-                "success": True, 
-                "message": f"I searched for mammography appointments near {location_text} but didn't find any available slots in the next 30 days. This might be because:\\n\\n1. The location wasn't recognized\\n2. No providers are currently offering online scheduling\\n3. All nearby slots are booked\\n\\nI recommend calling local healthcare providers or imaging centers directly to check availability.",
-                "found_slots": 0
-            }
+                slots_text += "To book an appointment, please contact the provider directly or visit their website."
+                
+                return {
+                    "success": True,
+                    "message": slots_text,
+                    "found_slots": len(results["slots"]),
+                    "source": "local_discovery"
+                }
+                
+        except Exception:
+            pass  # Fall through to default message
+        
+        # Default response when no appointments found
+        return {
+            "success": True, 
+            "message": f"I searched multiple scheduling networks for mammography appointments near {location_text} but didn't find any available slots in the next 30 days.\\n\\nThis might be because:\\n1. The location wasn't recognized\\n2. No providers are currently offering online scheduling\\n3. All nearby slots are booked\\n\\nI recommend:\\n- Calling local healthcare providers directly\\n- Checking with imaging centers in your area\\n- Contacting your primary care physician for referrals",
+            "found_slots": 0,
+            "source": "no_results"
+        }
             
     except Exception as e:
         return {
             "success": False,
-            "message": f"I had trouble searching for appointments. This might be a temporary issue with the scheduling system. Please try contacting local healthcare providers directly.",
-            "error": str(e)
+            "message": f"I had trouble searching for appointments. This might be a temporary issue with the scheduling systems. Please try contacting local healthcare providers directly.\\n\\nFor immediate assistance, you can:\\n- Call your healthcare provider\\n- Visit imaging center websites\\n- Use healthcare apps like Zocdoc",
+            "error": str(e),
+            "source": "error"
         }
 
 async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str, Any]:
@@ -87,6 +206,39 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
     conversation_stage = len(user_messages)
     
     # Debug logging (removed for production)
+    
+    # Check for scheduling keywords early (works across all conversation stages)
+    scheduling_keywords = ['schedule', 'book', 'appointment', 'yes', 'find', 'search', 'available', 'when', 'where']
+    wants_scheduling = any(word in user_text.lower() for word in scheduling_keywords)
+    
+    # Check for location/ZIP code patterns for appointment search
+    location_patterns = [
+        r'\b\d{5}\b',  # ZIP code
+        r'\b[A-Za-z\s]+,\s*[A-Z]{2}\b',  # City, State
+        r'\b[A-Za-z\s]+\s+\d{5}\b',  # City ZIP
+    ]
+    location_provided = any(re.search(pattern, user_text) for pattern in location_patterns)
+    
+    # If user wants scheduling and provides location, search immediately
+    if wants_scheduling and location_provided:
+        # Extract location from user input
+        location = user_text.strip()
+        search_result = await _search_appointments(location)
+        reply = search_result["message"]
+        return {
+            "role": "agent",
+            "parts": [{"kind": "text", "text": reply}],
+            "status": {"state": "completed"}
+        }
+    
+    # If user wants scheduling but no location, ask for it
+    elif wants_scheduling and not location_provided:
+        reply = "Great! I'll help you find available mammography appointments. To search for the best options, could you please tell me your ZIP code or city/state? For example: '10001' or 'New York, NY'"
+        return {
+            "role": "agent", 
+            "parts": [{"kind": "text", "text": reply}],
+            "status": {"state": "location-request"}
+        }
     
     # Parse potential dates from user input
     date_patterns = [
