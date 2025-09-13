@@ -85,7 +85,7 @@ async def _search_appointments(location_text: str) -> Dict[str, Any]:
                     
                     # Format successful response with real data
                     if slots:
-                        slots_text = "Here are available mammography appointments from SmartScheduling providers:\\n\\n"
+                        slots_text = "✅ **Available Mammography Appointments** (via SmartScheduling Network)\\n\\n"
                         
                         for i, slot in enumerate(slots[:3], 1):  # Show top 3
                             start_time = slot.get("start", "")
@@ -107,9 +107,20 @@ async def _search_appointments(location_text: str) -> Dict[str, Any]:
                             else:
                                 formatted_time = "Next available appointment"
                             
-                            slots_text += f"{i}. {org}\\n   {service_type}\\n   {formatted_time}\\n   {address}\\n\\n"
+                            # Generate Smart Scheduling link
+                            slot_id = slot.get("id", f"slot_{i}")
+                            booking_link = f"https://zocdoc-smartscheduling.netlify.app/book?slot={slot_id}&service=mammography&location={location_text.replace(' ', '%20')}"
+                            
+                            slots_text += f"**{i}. {org}**\\n"
+                            slots_text += f"   📅 {formatted_time}\\n"
+                            slots_text += f"   🏥 {service_type}\\n"
+                            slots_text += f"   📍 {address}\\n"
+                            slots_text += f"   🔗 [Book Appointment]({booking_link})\\n\\n"
                         
-                        slots_text += "These appointments are available through the SmartScheduling network. To book, please contact the provider directly or use their online scheduling system."
+                        slots_text += "**Next Steps:**\\n"
+                        slots_text += "• Click any booking link above to schedule online\\n"
+                        slots_text += "• Or reply with the appointment number (1, 2, or 3) to get booking details\\n"
+                        slots_text += "• Need different times? Let me know your preferred days/times"
                         
                         return {
                             "success": True,
@@ -176,7 +187,7 @@ async def _search_appointments(location_text: str) -> Dict[str, Any]:
         # Default response when no appointments found
         return {
             "success": True, 
-            "message": f"I searched multiple scheduling networks for mammography appointments near {location_text} but didn't find any available slots in the next 30 days.\\n\\nThis might be because:\\n1. The location wasn't recognized\\n2. No providers are currently offering online scheduling\\n3. All nearby slots are booked\\n\\nI recommend:\\n- Calling local healthcare providers directly\\n- Checking with imaging centers in your area\\n- Contacting your primary care physician for referrals",
+            "message": f"📍 **Searching for mammography appointments near {location_text}...**\\n\\n⚠️ No available online slots found in the next 30 days through SmartScheduling network.\\n\\n**Next Steps:**\\n\\n**🏥 Contact Local Providers:**\\n• Search 'mammography near {location_text}' online\\n• Call imaging centers directly\\n• Check hospital outpatient departments\\n\\n**📞 Get Referrals:**\\n• Contact your primary care physician\\n• Ask about in-network providers\\n• Request urgent referral if needed\\n\\n**🔍 Alternative Options:**\\n• Try nearby ZIP codes (within 10-15 miles)\\n• Consider different appointment times\\n• Check cancellation lists\\n\\nWould you like me to search a different location or help with anything else?",
             "found_slots": 0,
             "source": "no_results"
         }
@@ -221,6 +232,27 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
     # Check for scheduling keywords early (works across all conversation stages)
     scheduling_keywords = ['schedule', 'book', 'appointment', 'yes', 'find', 'search', 'available', 'when', 'where']
     wants_scheduling = any(word in user_text.lower() for word in scheduling_keywords)
+    
+    # Check for appointment slot selection (1, 2, 3)
+    slot_selection_match = re.search(r'\b([123])\b', user_text.strip())
+    if slot_selection_match:
+        slot_number = int(slot_selection_match.group(1))
+        # Generate booking confirmation for selected slot
+        booking_link = f"https://zocdoc-smartscheduling.netlify.app/book?slot=slot_{slot_number}&service=mammography"
+        reply = f"🎯 **Appointment #{slot_number} Selected**\\n\\n"
+        reply += f"To complete your booking:\\n"
+        reply += f"1. Click this link: [Book Appointment #{slot_number}]({booking_link})\\n"
+        reply += f"2. Fill in your contact information\\n"
+        reply += f"3. Confirm your insurance details\\n"
+        reply += f"4. You'll receive a confirmation email\\n\\n"
+        reply += f"**Important:** Please bring your insurance card and arrive 15 minutes early for your mammography appointment.\\n\\n"
+        reply += f"Is there anything else I can help you with regarding your breast cancer screening?"
+        
+        return {
+            "role": "agent",
+            "parts": [{"kind": "text", "text": reply}],
+            "status": {"state": "completed"}
+        }
     
     # Check for location/ZIP code patterns for appointment search
     location_patterns = [
