@@ -375,8 +375,10 @@ async def a2a_jsonrpc(request: Request):
         task_id = msg.get("taskId")
         if task_id and STORE.get(task_id):
             task = STORE.get(task_id)
+            # Debug: continuing conversation
         else:
             task = STORE.new_task(_new_context_id())
+            # Debug: new conversation created
 
         # record user message
         user_mid = f"msg_{uuid.uuid4().hex[:8]}"
