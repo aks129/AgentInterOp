@@ -86,6 +86,9 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
     user_messages = [msg for msg in history if msg["role"] == "user"]
     conversation_stage = len(user_messages)
     
+    # Debug logging
+    print(f"[DEBUG] conversation_stage={conversation_stage}, patient_age={patient_age}, user_text='{user_text[:50]}'", flush=True)
+    
     # Parse potential dates from user input
     date_patterns = [
         r'\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b',  # MM/DD/YYYY or MM-DD-YYYY
