@@ -136,41 +136,52 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                     if patient_age:
                         break
     
-    # Stage 1: Initial greeting/inquiry
-    if conversation_stage <= 1:
-        reply = "Hello! I'm here to help evaluate your breast cancer screening eligibility. To get started, I'll need some information. What is your age?"
+    # Stage 1: Initial greeting (first user message, regardless of content)
+    if conversation_stage == 1:
+        # If user included age in first message, acknowledge and ask for mammogram date
+        if patient_age:
+            if patient_age < 40:
+                reply = f"Hello! At age {patient_age}, routine mammography screening is typically not recommended unless you have specific risk factors. When was your last mammogram? Please provide the date (MM/DD/YYYY) or let me know if you've never had one."
+            elif patient_age >= 50 and patient_age <= 74:
+                reply = f"Hello! At age {patient_age}, you fall within the recommended age range for breast cancer screening. When was your last mammogram? Please provide the date (MM/DD/YYYY)."
+            else:
+                reply = f"Hello! At age {patient_age}, screening recommendations may vary. When was your last mammogram? Please provide the date (MM/DD/YYYY)."
+        else:
+            # No age detected, ask for age
+            reply = "Hello! I'm here to help evaluate your breast cancer screening eligibility. To get started, I'll need some information. What is your age?"
+        
         return {
-            "role": "agent", 
+            "role": "agent",
             "parts": [{"kind": "text", "text": reply}],
             "status": {"state": "input-required"}
         }
     
-    # Stage 2: Process age and ask for mammogram date
-    elif conversation_stage == 2:
-        if patient_age:
-            if patient_age < 40:
-                reply = f"Thank you. At age {patient_age}, routine mammography screening is typically not recommended unless you have specific risk factors. When was your last mammogram? Please provide the date (MM/DD/YYYY) or let me know if you've never had one."
-            elif patient_age >= 50 and patient_age <= 74:
-                reply = f"Thank you. At age {patient_age}, you fall within the recommended age range for breast cancer screening. When was your last mammogram? Please provide the date (MM/DD/YYYY)."
-            else:
-                reply = f"Thank you. At age {patient_age}, screening recommendations may vary. When was your last mammogram? Please provide the date (MM/DD/YYYY)."
-            
-            return {
-                "role": "agent",
-                "parts": [{"kind": "text", "text": reply}],
-                "status": {"state": "input-required"}
-            }
+    # Stage 2: Process age (if not provided in first message)
+    elif conversation_stage == 2 and patient_age:
+        if patient_age < 40:
+            reply = f"Thank you. At age {patient_age}, routine mammography screening is typically not recommended unless you have specific risk factors. When was your last mammogram? Please provide the date (MM/DD/YYYY) or let me know if you've never had one."
+        elif patient_age >= 50 and patient_age <= 74:
+            reply = f"Thank you. At age {patient_age}, you fall within the recommended age range for breast cancer screening. When was your last mammogram? Please provide the date (MM/DD/YYYY)."
         else:
-            # Age not detected, ask again but more specifically
-            reply = "I didn't catch your age. Could you please tell me how old you are? For example, just say the number like '45' or '60'."
-            return {
-                "role": "agent",
-                "parts": [{"kind": "text", "text": reply}],
-                "status": {"state": "input-required"}
-            }
+            reply = f"Thank you. At age {patient_age}, screening recommendations may vary. When was your last mammogram? Please provide the date (MM/DD/YYYY)."
+        
+        return {
+            "role": "agent",
+            "parts": [{"kind": "text", "text": reply}],
+            "status": {"state": "input-required"}
+        }
     
-    # Stage 3: Process mammogram date and eligibility determination
-    elif conversation_stage == 3:
+    # Age not detected, ask again
+    elif conversation_stage == 2 and not patient_age:
+        reply = "I didn't catch your age. Could you please tell me how old you are? For example, just say the number like '45' or '60'."
+        return {
+            "role": "agent",
+            "parts": [{"kind": "text", "text": reply}],
+            "status": {"state": "input-required"}
+        }
+    
+    # Stage 3: Process mammogram date and eligibility determination (conversation continues after age provided)
+    elif conversation_stage >= 3:
         # Handle "never" case  
         if any(word in user_text.lower() for word in ['never', 'none', 'no', "haven't"]):
             age = patient_age or 55
@@ -256,7 +267,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
             "status": {"state": "input-required"}
         }
     
-    # Stage 4+: Handle scheduling and location requests
+    # Stage 3+: Handle scheduling and location requests  
     else:
         # Check if the last agent message offered scheduling
         last_agent_message = None
