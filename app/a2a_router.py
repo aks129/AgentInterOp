@@ -150,7 +150,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                 reply = f"Hello! At age {patient_age}, screening recommendations may vary. When was your last mammogram? Please provide the date (MM/DD/YYYY)."
         else:
             # No age detected, ask for age
-            reply = "Hello! I'm here to help evaluate your breast cancer screening eligibility. To get started, I'll need some information. What is your age?"
+            reply = f"[STAGE1] Hello! I'm here to help evaluate your breast cancer screening eligibility. To get started, I'll need some information. What is your age?"
         
         return {
             "role": "agent",
@@ -175,7 +175,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
     
     # Age not detected, ask again
     elif conversation_stage == 2 and not patient_age:
-        reply = "I didn't catch your age. Could you please tell me how old you are? For example, just say the number like '45' or '60'."
+        reply = f"[STAGE2] I didn't catch your age. Could you please tell me how old you are? For example, just say the number like '45' or '60'."
         return {
             "role": "agent",
             "parts": [{"kind": "text", "text": reply}],
