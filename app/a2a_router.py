@@ -161,73 +161,12 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
     # Check for conversation end/thanks keywords first
     end_keywords = ['thanks', 'thank you', 'thx', 'bye', 'goodbye', 'no thanks', 'nothing else', 'that\'s all', 'done', 'good', 'ok', 'okay']
     wants_to_end = any(phrase in user_text.lower() for phrase in end_keywords)
-    
+
     if wants_to_end and len(user_text.strip()) < 50:  # Short thank you messages
         return {
             "role": "agent",
             "parts": [{"kind": "text", "text": "You're welcome! Take care of your health and remember to keep up with your recommended screening schedule. Have a great day!"}],
             "status": {"state": "completed"}
-        }
-    
-    # Check for scheduling keywords early (works across all conversation stages)
-    scheduling_keywords = ['schedule', 'book', 'appointment', 'yes', 'find', 'search', 'available', 'when', 'where']
-    wants_scheduling = any(word in user_text.lower() for word in scheduling_keywords)
-    
-    # Check for appointment slot selection (1, 2, 3)
-    slot_selection_match = re.search(r'\b([123])\b', user_text.strip())
-    if slot_selection_match:
-        slot_number = int(slot_selection_match.group(1))
-        # Generate booking confirmation for selected slot with Family Practice specialty
-        booking_link = f"https://zocdoc-smartscheduling.netlify.app/book?slot=slot_{slot_number}&specialty=family-practice&service=mammography"
-        reply = f"🎯 **Appointment Option #{slot_number} Selected**\\n\\n"
-        reply += f"📅 **Your Selected Time Slot:** Option {slot_number}\\n"
-        reply += f"👩‍⚕️ **Specialty:** Family Practice\\n"
-        reply += f"🩺 **Service:** Mammography Screening\\n\\n"
-        reply += f"**📋 To Complete Your Booking:**\\n"
-        reply += f"1. 🔗 **[Click Here to Book Your Appointment]({booking_link})**\\n"
-        reply += f"2. 📝 Fill in your contact information\\n"
-        reply += f"3. 🏥 Confirm your insurance details\\n"
-        reply += f"4. 📧 You'll receive a confirmation email\\n\\n"
-        reply += f"**⚠️ Important Reminders:**\\n"
-        reply += f"• Bring your insurance card and ID\\n"
-        reply += f"• Arrive 15 minutes early\\n"
-        reply += f"• Wear comfortable, two-piece clothing\\n\\n"
-        reply += f"Is there anything else I can help you with regarding your breast cancer screening?"
-        
-        return {
-            "role": "agent",
-            "parts": [{"kind": "text", "text": reply}],
-            "status": {"state": "completed"}
-        }
-    
-    # Check for location/ZIP code patterns for appointment search
-    location_patterns = [
-        r'\b\d{5}\b',  # ZIP code
-        r'\b[A-Za-z\s]+,\s*[A-Z]{2}\b',  # City, State
-        r'\b[A-Za-z\s]+\s+\d{5}\b',  # City ZIP
-        r'\b[A-Za-z]{3,}(?:\s+[A-Za-z]+)*\b',  # Simple city names (3+ letters, may have spaces)
-    ]
-    location_provided = any(re.search(pattern, user_text) for pattern in location_patterns)
-    
-    # If user wants scheduling and provides location, search immediately
-    if wants_scheduling and location_provided:
-        # Extract location from user input
-        location = user_text.strip()
-        search_result = await _search_appointments(location)
-        reply = search_result["message"] + "\\n\\nIs there anything else I can help you with regarding breast cancer screening?"
-        return {
-            "role": "agent",
-            "parts": [{"kind": "text", "text": reply}],
-            "status": {"state": "completed"}
-        }
-    
-    # If user wants scheduling but no location, ask for it
-    elif wants_scheduling and not location_provided:
-        reply = "Great! I'll help you find available mammography appointments near you. Please tell me your location - either your ZIP code or city name works perfectly. For example: '10001' or 'Boston' or 'New York, NY'"
-        return {
-            "role": "agent", 
-            "parts": [{"kind": "text", "text": reply}],
-            "status": {"state": "input-required"}
         }
     
     # Parse potential dates from user input
@@ -342,8 +281,17 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
         if offered_scheduling:
             # Check for yes/schedule response
             if any(word in user_text.lower() for word in ['schedule', 'book', 'appointment', 'yes', 'find', 'sure', 'ok', 'okay']):
-                # Ask for location to search for appointments
-                reply = "Great! I'll help you find available mammography appointments near you. Please tell me your location - either your ZIP code or city name works perfectly. For example: '10001' or 'Boston' or 'New York, NY'"
+                # Ask for date preference within 2 weeks
+                reply = "Perfect! I'll help you schedule a mammography appointment. When would be the best time for you? Please let me know your preferred timeframe (for example: 'next week', 'in 2 weeks', 'weekday mornings', or specific dates)."
+                return {
+                    "role": "agent",
+                    "parts": [{"kind": "text", "text": reply}],
+                    "status": {"state": "input-required"}
+                }
+            # Check if we're collecting date preferences
+            elif "timeframe" in last_agent_message.lower() or "best time" in last_agent_message.lower():
+                # User provided timing preference, ask for location
+                reply = f"Great! I'll look for appointments {user_text.strip()}. Please tell me your location - either your ZIP code or city name works perfectly. For example: '10001' or 'Boston' or 'New York, NY'"
                 return {
                     "role": "agent",
                     "parts": [{"kind": "text", "text": reply}],
@@ -355,11 +303,46 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                 location = user_text.strip()
                 if location:
                     search_result = await _search_appointments(location)
-                    reply = search_result["message"] + "\\n\\nIs there anything else I can help you with regarding breast cancer screening?"
+                    # Store the slots for selection
+                    reply = search_result["message"] + "\\n\\n**To book an appointment, please reply with the option number (1, 2, or 3) that works best for you.**"
+                    return {
+                        "role": "agent",
+                        "parts": [{"kind": "text", "text": reply}],
+                        "status": {"state": "input-required"}
+                    }
+            # Check for slot selection (1, 2, 3) - only when slots have been shown
+            elif "option number" in last_agent_message.lower() or "reply with" in last_agent_message.lower():
+                slot_selection_match = re.search(r'\b([123])\b', user_text.strip())
+                if slot_selection_match:
+                    slot_number = int(slot_selection_match.group(1))
+                    # Generate booking confirmation for selected slot
+                    booking_link = f"https://zocdoc-smartscheduling.netlify.app/book?slot=slot_{slot_number}&specialty=family-practice&service=mammography"
+                    reply = f"🎯 **Appointment Option #{slot_number} Selected**\\n\\n"
+                    reply += f"📅 **Your Selected Time Slot:** Option {slot_number}\\n"
+                    reply += f"👩‍⚕️ **Specialty:** Family Practice\\n"
+                    reply += f"🩺 **Service:** Mammography Screening\\n\\n"
+                    reply += f"**📋 To Complete Your Booking:**\\n"
+                    reply += f"1. 🔗 **[Click Here to Book Your Appointment]({booking_link})**\\n"
+                    reply += f"2. 📝 Fill in your contact information\\n"
+                    reply += f"3. 🏥 Confirm your insurance details\\n"
+                    reply += f"4. 📧 You'll receive a confirmation email\\n\\n"
+                    reply += f"**⚠️ Important Reminders:**\\n"
+                    reply += f"• Bring your insurance card and ID\\n"
+                    reply += f"• Arrive 15 minutes early\\n"
+                    reply += f"• Wear comfortable, two-piece clothing\\n\\n"
+                    reply += f"Is there anything else I can help you with regarding your breast cancer screening?"
+
                     return {
                         "role": "agent",
                         "parts": [{"kind": "text", "text": reply}],
                         "status": {"state": "completed"}
+                    }
+                else:
+                    reply = "Please select one of the appointment options by replying with just the number (1, 2, or 3)."
+                    return {
+                        "role": "agent",
+                        "parts": [{"kind": "text", "text": reply}],
+                        "status": {"state": "input-required"}
                     }
             # User declines scheduling
             elif any(word in user_text.lower() for word in ['no', 'not now', 'later']):
