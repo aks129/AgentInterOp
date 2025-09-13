@@ -165,7 +165,18 @@ def agent_card(request: Request):
       "version": "1.0.0-bcse",
       "protocolVersion": "0.2.9",
       "preferredTransport": "JSONRPC",
+      "url": f"{base}/api/bridge/demo/a2a",
       "capabilities": {"streaming": True},
+      "defaultInputModes": [
+        "text/plain",
+        "application/json",
+        "application/fhir+json"
+      ],
+      "defaultOutputModes": [
+        "text/plain", 
+        "application/json",
+        "application/fhir+json"
+      ],
       "endpoints": {
         "jsonrpc": f"{base}/api/bridge/demo/a2a"
       },
@@ -174,6 +185,7 @@ def agent_card(request: Request):
           "id": "scenario",
           "name": "Healthcare Scenario Processing",
           "description": "Processes healthcare scenarios including breast cancer screening eligibility evaluation",
+          "tags": ["healthcare", "interoperability", "bcs", "eligibility"],
           "discovery": {
             "url": f"{base}/api/bridge/demo/a2a"
           },
