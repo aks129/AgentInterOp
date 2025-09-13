@@ -149,6 +149,13 @@ def healthz():
 def version():
     return {"name": "AgentInterOp", "version": app.version, "scenario": "bcse"}
 
+# Compatibility route for broken external inspectors that append /agent.json incorrectly
+@app.get("/.well-known/agent-card.json/.well-known/agent.json")
+@app.get("/.well-known/agent-card.json/agent.json")
+def agent_card_compatibility_fallback(request: Request):
+    """Handle malformed URLs from external inspectors that incorrectly append paths"""
+    return agent_card(request)
+
 @app.get("/.well-known/agent-card.json")
 def agent_card(request: Request):
     base = str(request.base_url).rstrip("/")
