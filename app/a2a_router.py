@@ -239,7 +239,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
         return {
             "role": "agent",
             "parts": [{"kind": "text", "text": reply}],
-            "status": {"state": "follow-up"}
+            "status": {"state": "completed"}
         }
     
     # If user wants scheduling but no location, ask for it
@@ -248,7 +248,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
         return {
             "role": "agent", 
             "parts": [{"kind": "text", "text": reply}],
-            "status": {"state": "location-request"}
+            "status": {"state": "input-required"}
         }
     
     # Parse potential dates from user input
@@ -355,7 +355,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                 return {
                     "role": "agent",
                     "parts": [{"kind": "text", "text": reply}],
-                    "status": {"state": "scheduling-offer"}
+                    "status": {"state": "input-required"}
                 }
             elif age >= 40:
                 reply = f"Based on your information:\\n- Age: {age}\\n- No previous mammograms\\n\\nDISCUSS WITH DOCTOR: You're in the 40-49 age group. Some guidelines suggest annual screening starting at 40. Please discuss with your healthcare provider about what's right for you."
@@ -453,7 +453,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
             return {
                 "role": "agent", 
                 "parts": [{"kind": "text", "text": reply}],
-                "status": {"state": "location-request"}
+                "status": {"state": "input-required"}
             }
         
         # If we asked for location and got a response
@@ -473,7 +473,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                 return {
                     "role": "agent",
                     "parts": [{"kind": "text", "text": reply}],
-                    "status": {"state": "location-request"}
+                    "status": {"state": "input-required"}
                 }
         
         # If user declines scheduling
@@ -499,7 +499,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
             return {
                 "role": "agent",
                 "parts": [{"kind": "text", "text": reply}],
-                "status": {"state": "scheduling-offer"}
+                "status": {"state": "input-required"}
             }
 
 def _rpc_ok(id_, payload):
