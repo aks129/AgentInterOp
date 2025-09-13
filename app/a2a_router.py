@@ -573,15 +573,26 @@ async def a2a_jsonrpc(request: Request):
             text = params["content"]
             parts = [{"kind": "text", "text": text}]
 
-        # new task if no taskId
+        # new task if no taskId (check multiple possible locations)
         task = None
-        task_id = msg.get("taskId")
+        task_id = msg.get("taskId") or params.get("taskId") or msg.get("contextId")
+        
+        # Also check if there's a contextId that matches an existing task
+        if not task_id:
+            context_id = msg.get("contextId")
+            if context_id:
+                # Look for existing task with this contextId
+                for existing_task_id, existing_task in STORE.tasks.items():
+                    if existing_task.get("contextId") == context_id:
+                        task_id = existing_task_id
+                        break
+        
         if task_id and STORE.get(task_id):
             task = STORE.get(task_id)
-            # Debug: continuing conversation
+            # Debug: continuing conversation with task {task_id}
         else:
             task = STORE.new_task(_new_context_id())
-            # Debug: new conversation created
+            # Debug: new conversation created with task {task["id"]}
 
         # record user message
         user_mid = f"msg_{uuid.uuid4().hex[:8]}"
@@ -645,8 +656,27 @@ async def _handle_stream(request: Request, body: Dict[str, Any]):
         text = params["content"]
         parts = [{"kind": "text", "text": text}]
 
-    # create task
-    task = STORE.new_task(_new_context_id())
+    # check for existing task (same logic as non-streaming)
+    task = None
+    task_id = msg.get("taskId") or params.get("taskId") or msg.get("contextId")
+    
+    # Also check if there's a contextId that matches an existing task
+    if not task_id:
+        context_id = msg.get("contextId")
+        if context_id:
+            # Look for existing task with this contextId
+            for existing_task_id, existing_task in STORE.tasks.items():
+                if existing_task.get("contextId") == context_id:
+                    task_id = existing_task_id
+                    break
+    
+    if task_id and STORE.get(task_id):
+        task = STORE.get(task_id)
+        # Debug: continuing conversation with task {task_id}
+    else:
+        task = STORE.new_task(_new_context_id())
+        # Debug: new conversation created with task {task["id"]}
+    
     user_mid = f"msg_{uuid.uuid4().hex[:8]}"
     STORE.add_history(task["id"], "user", parts, user_mid)
     STORE.update_status(task["id"], "working")
