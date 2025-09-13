@@ -207,6 +207,17 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
     
     # Debug logging (removed for production)
     
+    # Check for conversation end/thanks keywords first
+    end_keywords = ['thanks', 'thank you', 'thx', 'bye', 'goodbye', 'no thanks', 'nothing else', 'that\'s all', 'done', 'good', 'ok', 'okay']
+    wants_to_end = any(phrase in user_text.lower() for phrase in end_keywords)
+    
+    if wants_to_end and len(user_text.strip()) < 50:  # Short thank you messages
+        return {
+            "role": "agent",
+            "parts": [{"kind": "text", "text": "You're welcome! Take care of your health and remember to keep up with your recommended screening schedule. Have a great day!"}],
+            "status": {"state": "completed"}
+        }
+    
     # Check for scheduling keywords early (works across all conversation stages)
     scheduling_keywords = ['schedule', 'book', 'appointment', 'yes', 'find', 'search', 'available', 'when', 'where']
     wants_scheduling = any(word in user_text.lower() for word in scheduling_keywords)
@@ -224,11 +235,11 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
         # Extract location from user input
         location = user_text.strip()
         search_result = await _search_appointments(location)
-        reply = search_result["message"]
+        reply = search_result["message"] + "\\n\\nIs there anything else I can help you with regarding breast cancer screening?"
         return {
             "role": "agent",
             "parts": [{"kind": "text", "text": reply}],
-            "status": {"state": "completed"}
+            "status": {"state": "follow-up"}
         }
     
     # If user wants scheduling but no location, ask for it
@@ -474,9 +485,17 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                 "status": {"state": "completed"}
             }
         
-        # Default response for post-evaluation 
+        # Default response for post-evaluation or general questions
         else:
-            reply = "I've completed your breast cancer screening eligibility evaluation. Would you like me to help you schedule an appointment, or do you have any other questions?"
+            # Check if user is asking a general health question
+            health_keywords = ['health', 'screening', 'mammogram', 'breast', 'cancer', 'when', 'how often', 'guidelines']
+            is_health_question = any(keyword in user_text.lower() for keyword in health_keywords)
+            
+            if is_health_question:
+                reply = "For breast cancer screening, women aged 50-74 should have mammograms every 1-2 years according to AMA guidelines. Women aged 40-49 should discuss with their healthcare provider about individual risk factors.\\n\\nWould you like me to help you find available appointments?"
+            else:
+                reply = "I'm here to help with breast cancer screening eligibility and appointment scheduling. Would you like me to help you schedule a mammography appointment, or do you have questions about screening guidelines?"
+            
             return {
                 "role": "agent",
                 "parts": [{"kind": "text", "text": reply}],
