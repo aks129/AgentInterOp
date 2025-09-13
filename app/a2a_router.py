@@ -444,13 +444,29 @@ async def _handle_stream(request: Request, body: Dict[str, Any]):
         admin_mid = f"msg_{uuid.uuid4().hex[:8]}"
         STORE.add_history(task["id"], admin["role"], admin["parts"], admin_mid)
         STORE.update_status(task["id"], admin["status"]["state"])
-        msg_frame = {"jsonrpc":"2.0","id":rid,"result":{"role":"agent","parts":admin["parts"],"kind":"message"}}
+        # Message response with required fields
+        message_result = {
+            "role": "agent",
+            "parts": admin["parts"],
+            "kind": "message", 
+            "messageId": admin_mid,
+            "taskId": task["id"],
+            "contextId": task["contextId"]
+        }
+        msg_frame = {"jsonrpc":"2.0","id":rid,"result":message_result}
         yield f"data: {json.dumps(msg_frame)}\n\n"
         await asyncio.sleep(0.1)
 
-        # terminal status-update
+        # terminal status-update with required fields
         final_state = STORE.get(task["id"])["status"]
-        term = {"jsonrpc":"2.0","id":rid,"result":{"kind":"status-update","status":final_state,"final": True}}
+        status_result = {
+            "kind": "status-update",
+            "status": final_state,
+            "final": True,
+            "taskId": task["id"],
+            "contextId": task["contextId"]
+        }
+        term = {"jsonrpc":"2.0","id":rid,"result":status_result}
         yield f"data: {json.dumps(term)}\n\n"
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
