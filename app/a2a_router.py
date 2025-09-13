@@ -205,6 +205,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
         r'\b\d{5}\b',  # ZIP code
         r'\b[A-Za-z\s]+,\s*[A-Z]{2}\b',  # City, State
         r'\b[A-Za-z\s]+\s+\d{5}\b',  # City ZIP
+        r'\b[A-Za-z]{3,}(?:\s+[A-Za-z]+)*\b',  # Simple city names (3+ letters, may have spaces)
     ]
     location_provided = any(re.search(pattern, user_text) for pattern in location_patterns)
     
@@ -222,7 +223,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
     
     # If user wants scheduling but no location, ask for it
     elif wants_scheduling and not location_provided:
-        reply = "Great! I'll help you find available mammography appointments. To search for the best options, could you please tell me your ZIP code or city/state? For example: '10001' or 'New York, NY'"
+        reply = "Great! I'll help you find available mammography appointments near you. Please tell me your location - either your ZIP code or city name works perfectly. For example: '10001' or 'Boston' or 'New York, NY'"
         return {
             "role": "agent", 
             "parts": [{"kind": "text", "text": reply}],
@@ -342,7 +343,7 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
             # Check for yes/schedule response
             if any(word in user_text.lower() for word in ['schedule', 'book', 'appointment', 'yes', 'find', 'sure', 'ok', 'okay']):
                 # Ask for location to search for appointments
-                reply = "Great! I'll help you find available mammography appointments. To search for the best options, could you please tell me your ZIP code or city/state? For example: '10001' or 'New York, NY'"
+                reply = "Great! I'll help you find available mammography appointments near you. Please tell me your location - either your ZIP code or city name works perfectly. For example: '10001' or 'Boston' or 'New York, NY'"
                 return {
                     "role": "agent",
                     "parts": [{"kind": "text", "text": reply}],
