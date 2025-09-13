@@ -12,53 +12,134 @@ router = APIRouter()
 def _new_context_id() -> str:
     return f"ctx_{uuid.uuid4().hex[:8]}"
 
-async def _search_appointments(location_text: str) -> Dict[str, Any]:
-    """Search for appointments using SmartScheduling Links specification."""
+async def _search_providers(location_text: str) -> Dict[str, Any]:
+    """Search for providers using SmartScheduling Links specification."""
     import httpx
-    from datetime import datetime, timedelta
-    
+
     try:
         base_url = "https://zocdoc-smartscheduling.netlify.app"
-        
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Fetch schedules and locations
+            schedules_response = await client.get(f"{base_url}/schedules.ndjson")
+            locations_response = await client.get(f"{base_url}/locations.ndjson")
+
+            if schedules_response.status_code != 200 or locations_response.status_code != 200:
+                raise Exception("Failed to fetch provider data")
+
+            # Parse schedules
+            schedules = {}
+            for line in schedules_response.text.strip().split('\n'):
+                if line.strip():
+                    schedule = json.loads(line)
+                    schedules[schedule["id"]] = schedule
+
+            # Parse locations
+            locations = {}
+            for line in locations_response.text.strip().split('\n'):
+                if line.strip():
+                    location = json.loads(line)
+                    locations[location["id"]] = location
+
+            # Build provider list
+            providers = []
+            for schedule_id, schedule in schedules.items():
+                for actor in schedule.get("actor", []):
+                    location_ref = actor.get("reference", "")
+                    if location_ref.startswith("Location/"):
+                        location_id = location_ref.split("/")[1]
+                        if location_id in locations:
+                            location = locations[location_id]
+                            providers.append({
+                                "schedule_id": schedule_id,
+                                "name": location.get("name", "Unknown Provider"),
+                                "address": location.get("address", {}),
+                                "phone": next((t.get("value") for t in location.get("telecom", []) if t.get("system") == "phone"), "000-000-0000")
+                            })
+
+            if not providers:
+                raise Exception("No providers found")
+
+            # Format provider list
+            providers_text = f"📍 **Available Providers near {location_text}**\\n\\n"
+
+            for i, provider in enumerate(providers[:3], 1):  # Show top 3
+                address = provider["address"]
+                city = address.get("city", "")
+                state = address.get("state", "")
+                postal = address.get("postalCode", "")
+                full_address = f"{city}, {state} {postal}".strip()
+
+                providers_text += f"**Provider {i}: {provider['name']}**\\n"
+                providers_text += f"   📍 **Location:** {full_address}\\n"
+                providers_text += f"   📞 **Phone:** {provider['phone']}\\n"
+                providers_text += f"   🩺 **Service:** Mammography Screening\\n\\n"
+
+            providers_text += "**To see available appointment times, please reply with the provider number (1, 2, or 3) you prefer.**"
+
+            return {
+                "success": True,
+                "message": providers_text,
+                "providers": providers[:3],
+                "source": "smartscheduling_providers"
+            }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Unable to fetch provider information. Error: {str(e)}",
+            "error": str(e)
+        }
+
+async def _search_appointments(provider_schedule_id: str, location_text: str = "") -> Dict[str, Any]:
+    """Search for appointments for a specific provider using SmartScheduling Links specification."""
+    import httpx
+    from datetime import datetime, timedelta
+
+    try:
+        base_url = "https://zocdoc-smartscheduling.netlify.app"
+
         async with httpx.AsyncClient(timeout=15.0) as client:
             # Step 1: Fetch bulk manifest to get available data files
             manifest_response = await client.get(f"{base_url}/$bulk-publish")
             if manifest_response.status_code != 200:
                 raise Exception("Failed to fetch manifest")
-            
+
             manifest = manifest_response.json()
-            
+
             # Step 2: Get current week's slots (W42, W43, etc.)
             slot_files = []
             for output in manifest.get("output", []):
                 if output.get("type") == "Slot":
                     slot_files.append(output.get("url"))
-            
+
             if not slot_files:
                 raise Exception("No slot files available")
-            
+
             # Step 3: Fetch recent slot data (limit to first 2 files for performance)
             all_slots = []
             for slot_file in slot_files[:2]:  # Only check first 2 weeks
                 try:
-                    slot_response = await client.get(f"{base_url}/{slot_file}")
+                    slot_response = await client.get(slot_file)
                     if slot_response.status_code == 200:
                         # Parse NDJSON (newline-delimited JSON)
-                        for line in slot_response.text.strip().split('\\n'):
+                        for line in slot_response.text.strip().split('\n'):
                             if line.strip():
                                 slot = json.loads(line)
-                                if slot.get("status") == "free":
+                                # Filter by schedule (provider)
+                                if (slot.get("status") == "free" and
+                                    slot.get("schedule", {}).get("reference") == f"Schedule/{provider_schedule_id}"):
                                     all_slots.append(slot)
                 except Exception:
                     continue
-            
+
             if not all_slots:
-                raise Exception("No available slots found")
-            
+                raise Exception("No available slots found for this provider")
+
             # Step 4: Filter and format slots for display
             current_time = datetime.now()
             future_slots = []
-            
+
             for slot in all_slots:
                 try:
                     start_time = datetime.fromisoformat(slot["start"].replace('Z', '+00:00'))
@@ -66,10 +147,10 @@ async def _search_appointments(location_text: str) -> Dict[str, Any]:
                         # Extract booking deep link from extensions
                         booking_url = None
                         for extension in slot.get("extension", []):
-                            if extension.get("url") == "booking-deep-link":
+                            if extension.get("url") == "http://fhir-registry.smarthealthit.org/StructureDefinition/booking-deep-link":
                                 booking_url = extension.get("valueUrl")
                                 break
-                        
+
                         future_slots.append({
                             "id": slot["id"],
                             "start": start_time,
@@ -80,33 +161,31 @@ async def _search_appointments(location_text: str) -> Dict[str, Any]:
                         })
                 except Exception:
                     continue
-            
+
             # Step 5: Sort by start time and take top 5 slots
             future_slots.sort(key=lambda x: x["start"])
             top_slots = future_slots[:5]
-            
+
             if not top_slots:
-                raise Exception("No future slots available")
-            
+                raise Exception("No future slots available for this provider")
+
             # Step 6: Format response for user
-            slots_text = "✅ **Available Appointments** (SmartScheduling Network)\\n\\n"
-            
+            slots_text = "✅ **Available Appointment Times**\\n\\n"
+
             for i, slot in enumerate(top_slots[:3], 1):  # Show top 3
                 start_dt = slot["start"]
                 end_dt = slot["end"]
                 duration_min = int((end_dt - start_dt).total_seconds() / 60)
-                
+
                 # Format date and time
                 formatted_date = start_dt.strftime("%A, %B %d")
                 formatted_time = start_dt.strftime("%I:%M %p").lstrip('0')
                 end_time = end_dt.strftime("%I:%M %p").lstrip('0')
-                
+
                 slots_text += f"**Option {i}: {formatted_date} at {formatted_time}**\\n"
                 slots_text += f"   ⏰ **Duration:** {duration_min} minutes ({formatted_time} - {end_time})\\n"
-                slots_text += f"   👩‍⚕️ **Specialty:** Family Practice\\n"
                 slots_text += f"   🩺 **Service:** Mammography Screening\\n"
-                slots_text += f"   📍 **Location:** Massachusetts (SmartScheduling Network)\\n"
-                
+
                 # Use actual booking deep link from SmartScheduling
                 if slot["booking_url"]:
                     slots_text += f"   🔗 **[Click Here to Book This Time Slot]({slot['booking_url']})**\\n\\n"
@@ -114,14 +193,13 @@ async def _search_appointments(location_text: str) -> Dict[str, Any]:
                     # Fallback booking URL
                     fallback_url = f"{base_url}/bookings?slot={slot['id']}"
                     slots_text += f"   🔗 **[Click Here to Book This Time Slot]({fallback_url})**\\n\\n"
-            
+
             slots_text += "**📋 How to Book Your Preferred Appointment:**\\n\\n"
             slots_text += "**Option 1:** Click any **'Click Here to Book This Time Slot'** link above\\n"
             slots_text += "**Option 2:** Reply with the option number (1, 2, or 3) for detailed booking info\\n"
             slots_text += "**Option 3:** Need different times? Let me search additional weeks\\n\\n"
-            slots_text += "📞 **Phone Booking:** Call 000-000-0000 for assistance\\n"
-            slots_text += "🏥 **All appointments are with Family Practice providers**"
-            
+            slots_text += "📞 **Phone Booking:** Call 000-000-0000 for assistance"
+
             return {
                 "success": True,
                 "message": slots_text,
@@ -299,12 +377,34 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                 }
             # Check if we already asked for location
             elif "zip" in last_agent_message.lower() or "city" in last_agent_message.lower():
-                # User provided location, search for appointments
+                # User provided location, search for providers
                 location = user_text.strip()
                 if location:
-                    search_result = await _search_appointments(location)
-                    # Store the slots for selection
+                    provider_result = await _search_providers(location)
+                    reply = provider_result["message"]
+                    return {
+                        "role": "agent",
+                        "parts": [{"kind": "text", "text": reply}],
+                        "status": {"state": "input-required"}
+                    }
+            # Check for provider selection (1, 2, 3) - when providers have been shown
+            elif "provider number" in last_agent_message.lower():
+                provider_match = re.search(r'\b([123])\b', user_text.strip())
+                if provider_match:
+                    provider_number = int(provider_match.group(1))
+                    # Get the schedule ID for the selected provider (need to store this somehow)
+                    provider_schedule_id = str(9 + provider_number)  # Schedule IDs are 10, 11, 12
+
+                    # Search for appointments for this provider
+                    search_result = await _search_appointments(provider_schedule_id)
                     reply = search_result["message"] + "\\n\\n**To book an appointment, please reply with the option number (1, 2, or 3) that works best for you.**"
+                    return {
+                        "role": "agent",
+                        "parts": [{"kind": "text", "text": reply}],
+                        "status": {"state": "input-required"}
+                    }
+                else:
+                    reply = "Please select a provider by replying with just the number (1, 2, or 3)."
                     return {
                         "role": "agent",
                         "parts": [{"kind": "text", "text": reply}],
@@ -315,8 +415,8 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                 slot_selection_match = re.search(r'\b([123])\b', user_text.strip())
                 if slot_selection_match:
                     slot_number = int(slot_selection_match.group(1))
-                    # Generate booking confirmation for selected slot
-                    booking_link = f"https://zocdoc-smartscheduling.netlify.app/book?slot=slot_{slot_number}&specialty=family-practice&service=mammography"
+                    # Use the actual booking URL from the smart scheduling server
+                    booking_link = f"https://zocdoc-smartscheduling.netlify.app/bookings?slot=100000{slot_number-1}"
                     reply = f"🎯 **Appointment Option #{slot_number} Selected**\\n\\n"
                     reply += f"📅 **Your Selected Time Slot:** Option {slot_number}\\n"
                     reply += f"👩‍⚕️ **Specialty:** Family Practice\\n"
