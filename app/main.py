@@ -56,10 +56,17 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Configure for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for docs to work properly
+    allow_origins=["*"],  # Allow all origins for A2A interoperability
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],  # Include OPTIONS for preflight
+    allow_headers=[
+        "Content-Type",
+        "Accept",
+        "Authorization",
+        "Transfer-Encoding",
+        "X-Requested-With",
+        "Cache-Control"
+    ],
     max_age=600,
 )
 
@@ -185,7 +192,7 @@ def agent_card(request: Request):
       "name": "AgentInterOp Healthcare Platform",
       "description": "A healthcare interoperability platform supporting A2A protocol for agent-to-agent communication with specialized healthcare scenarios including FHIR integration and BCS eligibility evaluation.",
       "version": "1.0.0-bcse",
-      "protocolVersion": "0.2.9",
+      "protocolVersion": "0.3.0",
       "preferredTransport": "JSONRPC",
       "url": f"{base}/api/bridge/demo/a2a",
       "capabilities": {"streaming": True},
@@ -195,10 +202,11 @@ def agent_card(request: Request):
         "application/fhir+json"
       ],
       "defaultOutputModes": [
-        "text/plain", 
+        "text/plain",
         "application/json",
         "application/fhir+json"
       ],
+      "supportsAuthenticatedExtendedCard": False,
       "endpoints": {
         "jsonrpc": f"{base}/api/bridge/demo/a2a"
       },

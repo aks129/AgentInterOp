@@ -13,6 +13,13 @@
       }
     },
     {
+      "src": "/.well-known/agent-card.json",
+      "dest": "api/index.py",
+      "headers": {
+        "Cache-Control": "no-cache"
+      }
+    },
+    {
       "src": "/(.*)",
       "dest": "api/index.py"
     }

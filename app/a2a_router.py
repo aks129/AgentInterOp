@@ -1,7 +1,7 @@
 # app/a2a_router.py
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
-from typing import Dict, Any, Callable, Awaitable
+from typing import Dict, Any, Callable, Awaitable, AsyncIterator
 import asyncio, json, uuid, time, re
 from datetime import datetime, timedelta
 
@@ -11,18 +11,46 @@ router = APIRouter()
 
 async def read_request_bytes(request: Request) -> bytes:
     """
-    Robustly read the request body from ASGI receive channel.
-    Works for both Content-Length and Transfer-Encoding: chunked.
-    Avoids double-reads (reads at most once).
+    Read body regardless of Content-Length.
+    Works with chunked transfer via ASGI receive.
     """
-    # Always use the standard request.body() method first
-    # This already handles both Content-Length and chunked encoding correctly
+    # First try the framework cache (covers length-delimited & many clients)
     try:
-        body = await request.body()
-        return body
-    except Exception as e:
-        # If request.body() fails, return empty bytes
-        return b""
+        cached = await request.body()
+        if cached:
+            return cached
+    except Exception:
+        pass
+
+    # Fallback to raw ASGI receive for true chunked
+    body = bytearray()
+    receive: Callable[[], Awaitable[dict]] = request._receive  # starlette internal
+    more = True
+    frames = 0
+    while more and frames < 2000:
+        try:
+            message = await receive()
+            if message.get("type") != "http.request":
+                break
+            chunk = message.get("body", b"")
+            if chunk:
+                body.extend(chunk)
+            more = message.get("more_body", False)
+            frames += 1
+        except Exception:
+            break
+    return bytes(body)
+
+def sse_headers():
+    """Return headers for Server-Sent Events streaming"""
+    return {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+    }
+
+async def sse_hello() -> AsyncIterator[str]:
+    """Minimal valid SSE stream for basic compliance"""
+    yield "event: open\ndata: {}\n\n"
 
 def _new_context_id() -> str:
     return f"ctx_{uuid.uuid4().hex[:8]}"
@@ -558,6 +586,13 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
             "status": {"state": "input-required"}
         }
 
+def jsonrpc_error(id_value, code, message, data=None):
+    """Create JSON-RPC 2.0 error response"""
+    err = {"code": code, "message": message}
+    if data is not None:
+        err["data"] = data
+    return JSONResponse({"jsonrpc": "2.0", "id": id_value, "error": err}, status_code=400)
+
 def _rpc_ok(id_, payload):
     return {"jsonrpc": "2.0", "id": id_, "result": payload}
 
@@ -584,48 +619,58 @@ async def a2a_jsonrpc_demo(request: Request):
 
     Example with chunked encoding:
     ```bash
-    curl --http1.1 -X POST "$BASE/api/bridge/demo/a2a" \\
+    curl --http1.1 -i -N -X POST "$BASE/api/bridge/demo/a2a" \\
       -H "Content-Type: application/json" \\
+      -H "Accept: text/event-stream" \\
       -H "Transfer-Encoding: chunked" \\
       -H "Content-Length:" \\
-      --data-binary '{"jsonrpc":"2.0","method":"tasks/get","params":{},"id":1}'
+      --data-binary @<(printf '%s' '{"jsonrpc":"2.0","method":"message/stream","params":{},"id":1}')
     ```
+
+    **Important**: If you uncheck Content-Length in Postman, you must add header Transfer-Encoding: chunked (HTTP/1.1).
     """
     # Read body using robust ASGI reader
     try:
         raw = await read_request_bytes(request)
         if not raw:
-            # If content-type says json but body is empty, return clear diagnostics
             ct = (request.headers.get("content-type") or "").lower()
             te = (request.headers.get("transfer-encoding") or "").lower()
             detail = "Empty body"
             if "application/json" in ct and "chunked" not in te and "content-length" not in {k.lower() for k in request.headers.keys()}:
-                detail = ("Empty body. For clients that do not send Content-Length, "
-                         "you must send Transfer-Encoding: chunked per HTTP/1.1.")
-            return JSONResponse(_rpc_err(None, -32700, detail), status_code=400)
+                detail = "Empty body. If you omit Content-Length, send Transfer-Encoding: chunked."
+            return jsonrpc_error(None, -32700, detail)
 
         # Optional size guard
         if len(raw) > 5_000_000:  # 5MB limit
-            return JSONResponse(_rpc_err(None, -32700, "Request body too large"), status_code=413)
+            return jsonrpc_error(None, -32700, "Request body too large")
 
-        body = json.loads(raw)
+        data = json.loads(raw)
     except json.JSONDecodeError:
-        return JSONResponse(_rpc_err(None, -32700, "Invalid JSON"), status_code=400)
+        return jsonrpc_error(None, -32700, "Parse error")
     except Exception as e:
-        # Catch any other unexpected errors
-        return JSONResponse(_rpc_err(None, -32603, f"Internal error: {str(e)}"), status_code=500)
+        return jsonrpc_error(None, -32603, f"Internal error: {str(e)}")
 
-    # SSE path
-    if "text/event-stream" in request.headers.get("accept", ""):
-        if body.get("method") != "message/stream":
-            return JSONResponse(_rpc_err(body.get("id"), -32601, "Use method=message/stream for SSE"), status_code=400)
+    # Validate JSON-RPC 2.0
+    if data.get("jsonrpc") != "2.0":
+        return jsonrpc_error(data.get("id"), -32600, "Invalid Request")
+
+    body = data
+
+    # SSE path - support both v0.3.x and legacy method names
+    accept_sse = "text/event-stream" in request.headers.get("accept", "")
+    method = body.get("method", "").lower()
+
+    if accept_sse:
+        # A2A v0.3.x streaming methods
+        if method not in ["message/stream", "message/submit", "tasks/resubscribe"]:
+            return jsonrpc_error(body.get("id"), -32601, "For SSE, use method: message/stream, message/submit, or tasks/resubscribe")
         return await _handle_stream(request, body)
 
-    # Non-SSE path
-    m = body.get("method")
+    # Non-SSE path - support v0.3.x method names with aliases
     rid = body.get("id")
 
-    if m == "message/send":
+    # Normalize method names (v0.3.x compatibility)
+    if method in ["message/send", "message/submit"]:
         params = body.get("params", {}) or {}
         msg = params.get("message", {})
         parts = msg.get("parts", [])
@@ -674,11 +719,11 @@ async def a2a_jsonrpc_demo(request: Request):
 
         return JSONResponse(_rpc_ok(rid, STORE.get(task["id"])))
 
-    elif m == "message/stream":
+    elif method in ["message/stream"]:
         # This should not happen in non-SSE path, but handle gracefully
-        return JSONResponse(_rpc_err(rid, -32602, "message/stream requires Accept: text/event-stream header"), status_code=400)
+        return jsonrpc_error(rid, -32602, "message/stream requires Accept: text/event-stream header")
 
-    elif m == "tasks/get":
+    elif method == "tasks/get":
         params = body.get("params", {}) or {}
         tid = params.get("id")
         t = STORE.get(tid) if tid else None
@@ -686,26 +731,35 @@ async def a2a_jsonrpc_demo(request: Request):
             return JSONResponse(_rpc_ok(rid, {"id": None, "status": {"state": "failed"}, "kind": "task"}))
         return JSONResponse(_rpc_ok(rid, t))
 
-    elif m == "tasks/cancel":
+    elif method == "tasks/cancel":
         params = body.get("params", {}) or {}
         tid = params.get("id")
         t = STORE.get(tid)
         if not t:
-            return JSONResponse(_rpc_err(rid, -32001, "Task not found"), status_code=404)
+            return jsonrpc_error(rid, -32001, "Task not found")
         STORE.update_status(tid, "canceled")
         return JSONResponse(_rpc_ok(rid, STORE.get(tid)))
 
-    elif m == "tasks/resubscribe":
-        # Optional method - return the current task state
+    elif method == "tasks/resubscribe":
+        # A2A v0.3.x method - return the current task state for SSE resumption
         params = body.get("params", {}) or {}
         tid = params.get("id")
         t = STORE.get(tid)
         if not t:
-            return JSONResponse(_rpc_err(rid, -32001, "Task not found"), status_code=404)
+            return jsonrpc_error(rid, -32001, "Task not found")
         return JSONResponse(_rpc_ok(rid, t))
 
+    elif method == "agent/info":
+        # A2A v0.3.x optional method - return agent information
+        return JSONResponse(_rpc_ok(rid, {
+            "name": "AgentInterOp",
+            "version": "1.0.0-bcse",
+            "protocolVersion": "0.3.0",
+            "capabilities": {"streaming": True, "tasks": True}
+        }))
+
     else:
-        return JSONResponse(_rpc_err(rid, -32601, "Method not found"), status_code=404)
+        return jsonrpc_error(rid, -32601, "Method not found")
 
 # General context-based A2A endpoint (after demo route)
 @router.post("/api/bridge/{context}/a2a")
@@ -721,24 +775,26 @@ async def a2a_context(context: str, request: Request):
     try:
         raw = await read_request_bytes(request)
         if not raw:
-            # If content-type says json but body is empty, return clear diagnostics
             ct = (request.headers.get("content-type") or "").lower()
             te = (request.headers.get("transfer-encoding") or "").lower()
             detail = "Empty body"
             if "application/json" in ct and "chunked" not in te and "content-length" not in {k.lower() for k in request.headers.keys()}:
-                detail = ("Empty body. For clients that do not send Content-Length, "
-                         "you must send Transfer-Encoding: chunked per HTTP/1.1.")
-            return JSONResponse(_rpc_err(None, -32700, detail), status_code=400)
+                detail = "Empty body. If you omit Content-Length, send Transfer-Encoding: chunked."
+            return jsonrpc_error(None, -32700, detail)
 
         # Optional size guard
         if len(raw) > 5_000_000:  # 5MB limit
-            return JSONResponse(_rpc_err(None, -32700, "Request body too large"), status_code=413)
+            return jsonrpc_error(None, -32700, "Request body too large")
 
         data = json.loads(raw)
     except json.JSONDecodeError:
-        return JSONResponse(_rpc_err(None, -32700, "Invalid JSON"), status_code=400)
+        return jsonrpc_error(None, -32700, "Parse error")
     except Exception as e:
-        return JSONResponse(_rpc_err(None, -32603, f"Internal error: {str(e)}"), status_code=500)
+        return jsonrpc_error(None, -32603, f"Internal error: {str(e)}")
+
+    # Validate JSON-RPC 2.0
+    if data.get("jsonrpc") != "2.0":
+        return jsonrpc_error(data.get("id"), -32600, "Invalid Request")
 
     method = (data.get("method") or "").lower()
     req_id = data.get("id")
@@ -761,14 +817,12 @@ async def a2a_context(context: str, request: Request):
             }
             yield f"data: {json.dumps(result)}\n\n"
 
+        headers = sse_headers()
+        headers["X-Accel-Buffering"] = "no"  # Disable nginx buffering
         return StreamingResponse(
             gen(),
             media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no"  # Disable nginx buffering
-            }
+            headers=headers
         )
 
     # Normal JSON-RPC response (no Content-Length requirement)
@@ -857,14 +911,12 @@ async def _handle_stream(request: Request, body: Dict[str, Any]):
         term = {"jsonrpc":"2.0","id":rid,"result":status_result}
         yield f"data: {json.dumps(term)}\n\n"
 
+    headers = sse_headers()
+    headers["X-Accel-Buffering"] = "no"  # Disable nginx buffering
     return StreamingResponse(
         event_gen(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable nginx buffering
-        }
+        headers=headers
     )
 
 # Short alias still supported

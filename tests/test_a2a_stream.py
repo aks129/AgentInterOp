@@ -162,3 +162,115 @@ def test_context_endpoint_chunked():
     data = resp.json()
     assert "jsonrpc" in data
     assert data["jsonrpc"] == "2.0"
+
+def test_a2a_v03_message_submit():
+    """Test A2A v0.3.x message/submit method"""
+    client = TestClient(app)
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "message/submit",
+        "params": {"message": {"parts": [{"kind": "text", "text": "Test message"}]}},
+        "id": 10
+    }
+
+    resp = client.post("/api/bridge/demo/a2a", json=payload)
+    assert resp.status_code == 200
+
+    data = resp.json()
+    assert data["jsonrpc"] == "2.0"
+    assert "result" in data
+
+def test_a2a_v03_agent_info():
+    """Test A2A v0.3.x agent/info method"""
+    client = TestClient(app)
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "agent/info",
+        "params": {},
+        "id": 11
+    }
+
+    resp = client.post("/api/bridge/demo/a2a", json=payload)
+    assert resp.status_code == 200
+
+    data = resp.json()
+    assert data["jsonrpc"] == "2.0"
+    assert "result" in data
+    assert data["result"]["protocolVersion"] == "0.3.0"
+
+def test_jsonrpc_validation():
+    """Test JSON-RPC 2.0 validation"""
+    client = TestClient(app)
+
+    # Test invalid JSON-RPC version
+    payload = {
+        "jsonrpc": "1.0",  # Invalid version
+        "method": "tasks/get",
+        "params": {},
+        "id": 12
+    }
+
+    resp = client.post("/api/bridge/demo/a2a", json=payload)
+    assert resp.status_code == 400
+
+    data = resp.json()
+    assert data["jsonrpc"] == "2.0"
+    assert "error" in data
+    assert data["error"]["code"] == -32600  # Invalid Request
+
+def test_canonical_error_codes():
+    """Test canonical JSON-RPC 2.0 error codes"""
+    client = TestClient(app)
+
+    # Test -32700 Parse error
+    resp = client.post(
+        "/api/bridge/demo/a2a",
+        content=b'{"invalid": json}',
+        headers={"Content-Type": "application/json"}
+    )
+    assert resp.status_code == 400
+    data = resp.json()
+    assert data["error"]["code"] == -32700
+
+    # Test -32601 Method not found
+    payload = {"jsonrpc": "2.0", "method": "unknown/method", "params": {}, "id": 13}
+    resp = client.post("/api/bridge/demo/a2a", json=payload)
+    assert resp.status_code == 400
+    data = resp.json()
+    assert data["error"]["code"] == -32601
+
+def test_sse_without_content_length():
+    """Test SSE streaming without Content-Length"""
+    client = TestClient(app)
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "message/stream",
+        "params": {"message": {"parts": [{"kind": "text", "text": "Streaming test"}]}},
+        "id": 14
+    }
+
+    with client as c:
+        resp = c.post(
+            "/api/bridge/demo/a2a",
+            json=payload,
+            headers={"Accept": "text/event-stream"}
+        )
+
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+        # Streaming responses should NOT have Content-Length
+        assert "content-length" not in resp.headers
+        assert resp.headers.get("cache-control") == "no-cache"
+        assert resp.headers.get("connection") == "keep-alive"
+
+def test_agent_card_v03():
+    """Test agent card conforms to v0.3.x specification"""
+    client = TestClient(app)
+
+    resp = client.get("/.well-known/agent-card.json")
+    assert resp.status_code == 200
+
+    card = resp.json()
+    assert card["protocolVersion"] == "0.3.0"
+    assert "supportsAuthenticatedExtendedCard" in card
+    assert "skills" in card or "capabilities" in card  # v0.3.x can have either/both
