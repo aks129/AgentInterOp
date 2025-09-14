@@ -1,13 +1,52 @@
 # app/a2a_router.py
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
-from typing import Dict, Any
+from typing import Dict, Any, Callable, Awaitable
 import asyncio, json, uuid, time, re
 from datetime import datetime, timedelta
 
 from app.a2a_store import STORE
 
 router = APIRouter()
+
+async def read_request_bytes(request: Request) -> bytes:
+    """
+    Robustly read the request body from ASGI receive channel.
+    Works for both Content-Length and Transfer-Encoding: chunked.
+    Avoids double-reads (reads at most once).
+    """
+    # If FastAPI already buffered it, use that
+    try:
+        cached = await request.body()
+        if cached:
+            return cached
+    except Exception:
+        # Fallback to manual channel reading
+        pass
+
+    # Fallback: directly consume the receive channel
+    body = bytearray()
+    receive: Callable[[], Awaitable[dict]] = request._receive  # Starlette provides this
+    more = True
+    # Protect against accidental infinite loops
+    max_frames = 1_000
+
+    while more and max_frames > 0:
+        try:
+            message = await receive()
+            if message["type"] != "http.request":
+                # Unexpected; bail safely
+                break
+            chunk = message.get("body", b"")
+            if chunk:
+                body.extend(chunk)
+            more = message.get("more_body", False)
+            max_frames -= 1
+        except Exception:
+            # If receive fails, return what we have
+            break
+
+    return bytes(body)
 
 def _new_context_id() -> str:
     return f"ctx_{uuid.uuid4().hex[:8]}"
@@ -553,17 +592,46 @@ def _rpc_err(id_, code, msg):
 @router.post("/api/bridge/demo/a2a")
 async def a2a_jsonrpc_demo(request: Request):
     """
+    A2A JSON-RPC 2.0 endpoint supporting chunked/no-length requests.
+
     Supports message/send, message/stream, tasks/get, tasks/cancel (JSON body).
     If Accept: text/event-stream AND method=message/stream => SSE stream.
+
+    **Clients must send either `Content-Length` OR `Transfer-Encoding: chunked`.**
+
+    Example with Content-Length (curl default):
+    ```bash
+    curl -X POST "$BASE/api/bridge/demo/a2a" \\
+      -H "Content-Type: application/json" \\
+      -d '{"jsonrpc":"2.0","method":"tasks/get","params":{},"id":1}'
+    ```
+
+    Example with chunked encoding:
+    ```bash
+    curl --http1.1 -X POST "$BASE/api/bridge/demo/a2a" \\
+      -H "Content-Type: application/json" \\
+      -H "Transfer-Encoding: chunked" \\
+      -H "Content-Length:" \\
+      --data-binary '{"jsonrpc":"2.0","method":"tasks/get","params":{},"id":1}'
+    ```
     """
-    # Read body without requiring Content-Length
+    # Read body using robust ASGI reader
     try:
-        raw = await request.body()
+        raw = await read_request_bytes(request)
         if not raw:
-            return JSONResponse(_rpc_err(None, -32700, "Empty body"), status_code=400)
+            # If content-type says json but body is empty, return clear diagnostics
+            ct = (request.headers.get("content-type") or "").lower()
+            te = (request.headers.get("transfer-encoding") or "").lower()
+            detail = "Empty body"
+            if "application/json" in ct and "chunked" not in te and "content-length" not in {k.lower() for k in request.headers.keys()}:
+                detail = ("Empty body. For clients that do not send Content-Length, "
+                         "you must send Transfer-Encoding: chunked per HTTP/1.1.")
+            return JSONResponse(_rpc_err(None, -32700, detail), status_code=400)
+
         # Optional size guard
         if len(raw) > 5_000_000:  # 5MB limit
             return JSONResponse(_rpc_err(None, -32700, "Request body too large"), status_code=413)
+
         body = json.loads(raw)
     except json.JSONDecodeError:
         return JSONResponse(_rpc_err(None, -32700, "Invalid JSON"), status_code=400)
@@ -668,20 +736,33 @@ async def a2a_jsonrpc_demo(request: Request):
 async def a2a_context(context: str, request: Request):
     """
     Context-aware A2A endpoint that handles different scenarios.
-    Supports streaming without Content-Length requirement.
+    Supports chunked transfer encoding and streaming without Content-Length requirement.
+
+    **Clients must send either `Content-Length` OR `Transfer-Encoding: chunked`.**
     """
 
-    # Read body without requiring Content-Length
+    # Read body using robust ASGI reader
     try:
-        raw = await request.body()
+        raw = await read_request_bytes(request)
         if not raw:
-            return JSONResponse(_rpc_err(None, -32700, "Empty body"), status_code=400)
+            # If content-type says json but body is empty, return clear diagnostics
+            ct = (request.headers.get("content-type") or "").lower()
+            te = (request.headers.get("transfer-encoding") or "").lower()
+            detail = "Empty body"
+            if "application/json" in ct and "chunked" not in te and "content-length" not in {k.lower() for k in request.headers.keys()}:
+                detail = ("Empty body. For clients that do not send Content-Length, "
+                         "you must send Transfer-Encoding: chunked per HTTP/1.1.")
+            return JSONResponse(_rpc_err(None, -32700, detail), status_code=400)
+
         # Optional size guard
         if len(raw) > 5_000_000:  # 5MB limit
             return JSONResponse(_rpc_err(None, -32700, "Request body too large"), status_code=413)
+
         data = json.loads(raw)
     except json.JSONDecodeError:
         return JSONResponse(_rpc_err(None, -32700, "Invalid JSON"), status_code=400)
+    except Exception as e:
+        return JSONResponse(_rpc_err(None, -32603, f"Internal error: {str(e)}"), status_code=500)
 
     method = (data.get("method") or "").lower()
     req_id = data.get("id")
@@ -720,6 +801,10 @@ async def a2a_context(context: str, request: Request):
 
 
 async def _handle_stream(request: Request, body: Dict[str, Any]):
+    """
+    Handle streaming A2A responses without Content-Length.
+    Returns Server-Sent Events with proper headers to prevent buffering.
+    """
     rid = body.get("id")
     params = body.get("params", {}) or {}
     msg = params.get("message", {})

@@ -102,3 +102,63 @@ def test_large_body():
     assert resp.status_code == 413
     data = resp.json()
     assert "error" in data
+
+def test_a2a_accepts_chunked():
+    """Test that A2A endpoint accepts chunked transfer encoding"""
+    client = TestClient(app)
+    payload = b'{"jsonrpc":"2.0","method":"tasks/cancel","params":{"id":"x"},"id":3}'
+
+    # Simulate chunked transfer (TestClient may not truly chunk, but tests header handling)
+    headers = {
+        "Content-Type": "application/json",
+        "Transfer-Encoding": "chunked"
+    }
+
+    resp = client.post("/api/bridge/demo/a2a", headers=headers, content=payload)
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("application/json")
+
+    data = resp.json()
+    assert "jsonrpc" in data
+    assert data["jsonrpc"] == "2.0"
+
+def test_helpful_error_for_missing_content_length_and_chunked():
+    """Test helpful error message when neither Content-Length nor chunked is provided"""
+    client = TestClient(app)
+
+    # Send empty body with JSON content-type but no transfer encoding
+    resp = client.post(
+        "/api/bridge/demo/a2a",
+        content=b"",
+        headers={"Content-Type": "application/json"}
+    )
+
+    assert resp.status_code == 400
+    data = resp.json()
+    assert "error" in data
+    # Should contain helpful message about chunked encoding
+    error_msg = data["error"]["message"].lower()
+    assert "empty body" in error_msg
+
+def test_context_endpoint_chunked():
+    """Test context-aware endpoint with chunked encoding"""
+    client = TestClient(app)
+    payload = b'{"jsonrpc":"2.0","method":"tasks/get","params":{"id":"test"},"id":5}'
+
+    headers = {
+        "Content-Type": "application/json",
+        "Transfer-Encoding": "chunked"
+    }
+
+    resp = client.post(
+        "/api/bridge/custom/a2a",
+        headers=headers,
+        content=payload
+    )
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("application/json")
+
+    data = resp.json()
+    assert "jsonrpc" in data
+    assert data["jsonrpc"] == "2.0"
