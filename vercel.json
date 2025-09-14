@@ -4,7 +4,18 @@
     { "src": "api/index.py", "use": "@vercel/python" }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "api/index.py" }
+    {
+      "src": "/api/bridge/.*",
+      "dest": "api/index.py",
+      "headers": {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "api/index.py"
+    }
   ],
   "framework": null
 }
