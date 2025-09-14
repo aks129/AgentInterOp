@@ -352,8 +352,12 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
 
         offered_scheduling = (last_agent_message and
                             ("would you like me to help" in last_agent_message.lower() or
+                             "best time" in last_agent_message.lower() or
+                             "timeframe" in last_agent_message.lower() or
                              "zip code" in last_agent_message.lower() or
-                             "city" in last_agent_message.lower()))
+                             "city" in last_agent_message.lower() or
+                             "provider number" in last_agent_message.lower() or
+                             "option number" in last_agent_message.lower()))
 
         # If user is responding to scheduling offer
         if offered_scheduling:
@@ -453,8 +457,9 @@ async def _simulate_admin_reply(user_text: str, task_id: str = None) -> Dict[str
                     "status": {"state": "completed"}
                 }
 
-        # Handle "never" case
-        if any(word in user_text.lower() for word in ['never', 'none', 'no', "haven't"]):
+        # Handle "never" case (only for direct responses to mammogram questions)
+        never_phrases = ['never had', 'never got', 'never been', 'no mammogram', 'haven\'t had', 'haven\'t been', 'none', 'never']
+        if any(phrase in user_text.lower() for phrase in never_phrases):
             age = patient_age or 55
             if age >= 50:
                 reply = f"Based on your information:\\n- Age: {age}\\n- No previous mammograms\\n\\nELIGIBLE: Since you are {age} years old and have never had a mammogram, you should schedule one. Guidelines recommend mammography every 1-2 years for women aged 50-74.\\n\\nWould you like me to help you find available screening appointments in your area?"
