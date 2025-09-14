@@ -56,6 +56,8 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
     "flake8>=6.0.0",
     "isort>=5.12.0",
     "pre-commit>=3.0.0"
@@ -155,3 +157,18 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.ruff]
+line-length = 100
+select = ["E","F","I","UP"]
+ignore = ["E501"]
+target-version = "py311"
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

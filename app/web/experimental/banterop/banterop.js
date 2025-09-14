@@ -13,7 +13,8 @@ class BanteropRunner {
         // Initialize UI
         this.initializeEventListeners();
         this.loadBcsRules();
-        
+        this.checkLlmStatus();
+
         // Check for URL parameters
         this.checkUrlParameters();
     }
@@ -691,6 +692,192 @@ class BanteropRunner {
         div.textContent = text;
         return div.innerHTML;
     }
+
+    // Claude/LLM Integration
+    async checkLlmStatus() {
+        try {
+            const response = await fetch('/api/experimental/banterop/llm/status');
+            const result = await response.json();
+
+            const statusEl = document.getElementById('llm-status-text');
+            if (result.success && result.data.enabled) {
+                statusEl.textContent = `Claude available (${result.data.model})`;
+                statusEl.parentElement.className = 'info-card';
+
+                // Enable LLM buttons
+                document.getElementById('narrative-applicant-btn').disabled = false;
+                document.getElementById('narrative-admin-btn').disabled = false;
+                document.getElementById('rationale-btn').disabled = false;
+            } else {
+                statusEl.textContent = 'Claude disabled - ANTHROPIC_API_KEY not configured';
+                statusEl.parentElement.className = 'info-card warning';
+            }
+        } catch (error) {
+            document.getElementById('llm-status-text').textContent = 'Claude status check failed';
+            document.getElementById('llm-status').className = 'info-card error';
+        }
+    }
+
+    async generateNarrative(role) {
+        if (!this.currentRun || !this.currentRun.transcript || this.currentRun.transcript.length === 0) {
+            this.showError('No conversation transcript available for analysis');
+            return;
+        }
+
+        const btn = document.getElementById(`narrative-${role}-btn`);
+        const originalText = btn.textContent;
+        btn.textContent = 'Analyzing...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch('/api/experimental/banterop/llm/narrative', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    role: role,
+                    transcript: this.currentRun.transcript,
+                    patient_facts: this.fhirFacts,
+                    guidelines: this.bcsEvaluation
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                this.displayLlmAnalysis(`${role.charAt(0).toUpperCase() + role.slice(1)} Analysis`, result.data.analysis);
+            } else if (result.disabled) {
+                this.showError('Claude integration is disabled');
+            } else {
+                throw new Error(result.error || 'Failed to generate narrative');
+            }
+        } catch (error) {
+            this.showError('Failed to generate narrative: ' + error.message);
+        } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    async generateRationale() {
+        if (!this.bcsEvaluation || !this.fhirFacts) {
+            this.showError('Need BCS evaluation and FHIR facts for rationale generation');
+            return;
+        }
+
+        const btn = document.getElementById('rationale-btn');
+        const originalText = btn.textContent;
+        btn.textContent = 'Analyzing...';
+        btn.disabled = true;
+
+        try {
+            const bcsRules = await this.getCurrentBcsRules();
+
+            const response = await fetch('/api/experimental/banterop/llm/rationale', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    patient_facts: this.fhirFacts,
+                    evaluation: this.bcsEvaluation,
+                    guidelines: bcsRules
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                this.displayLlmAnalysis('Guideline Rationale', result.data.analysis);
+            } else if (result.disabled) {
+                this.showError('Claude integration is disabled');
+            } else {
+                throw new Error(result.error || 'Failed to generate rationale');
+            }
+        } catch (error) {
+            this.showError('Failed to generate rationale: ' + error.message);
+        } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    async getCurrentBcsRules() {
+        try {
+            const response = await fetch('/api/experimental/banterop/bcs/rules');
+            const result = await response.json();
+            return result.success ? result.data : {};
+        } catch (error) {
+            return {};
+        }
+    }
+
+    displayLlmAnalysis(title, analysis) {
+        const analysisEl = document.getElementById('llm-analysis');
+        const contentEl = document.getElementById('llm-analysis-content');
+
+        let html = `<strong>${title}</strong><hr style="margin: 0.5rem 0;">`;
+
+        if (analysis.narrative) {
+            html += `<p><strong>Summary:</strong> ${this.escapeHtml(analysis.narrative)}</p>`;
+        }
+
+        if (analysis.summary) {
+            html += `<p><strong>Clinical Summary:</strong> ${this.escapeHtml(analysis.summary)}</p>`;
+        }
+
+        if (analysis.rationale) {
+            html += `<p><strong>Rationale:</strong> ${this.escapeHtml(analysis.rationale)}</p>`;
+        }
+
+        if (analysis.takeaways && analysis.takeaways.length > 0) {
+            html += '<p><strong>Key Takeaways:</strong></p><ul>';
+            analysis.takeaways.forEach(item => {
+                html += `<li>${this.escapeHtml(item)}</li>`;
+            });
+            html += '</ul>';
+        }
+
+        if (analysis.next_steps && analysis.next_steps.length > 0) {
+            html += '<p><strong>Next Steps:</strong></p><ul>';
+            analysis.next_steps.forEach(item => {
+                html += `<li>${this.escapeHtml(item)}</li>`;
+            });
+            html += '</ul>';
+        }
+
+        if (analysis.recommendations && analysis.recommendations.length > 0) {
+            html += '<p><strong>Recommendations:</strong></p><ul>';
+            analysis.recommendations.forEach(item => {
+                html += `<li>${this.escapeHtml(item)}</li>`;
+            });
+            html += '</ul>';
+        }
+
+        if (analysis.criteria_met && analysis.criteria_met.length > 0) {
+            html += '<p><strong>Criteria Met:</strong></p><ul>';
+            analysis.criteria_met.forEach(item => {
+                html += `<li>${this.escapeHtml(item)}</li>`;
+            });
+            html += '</ul>';
+        }
+
+        if (analysis.key_factors && analysis.key_factors.length > 0) {
+            html += '<p><strong>Key Factors:</strong></p><ul>';
+            analysis.key_factors.forEach(item => {
+                html += `<li>${this.escapeHtml(item)}</li>`;
+            });
+            html += '</ul>';
+        }
+
+        if (analysis.caveats && analysis.caveats.length > 0) {
+            html += '<p><strong>Caveats:</strong></p><ul>';
+            analysis.caveats.forEach(item => {
+                html += `<li>${this.escapeHtml(item)}</li>`;
+            });
+            html += '</ul>';
+        }
+
+        contentEl.innerHTML = html;
+        analysisEl.classList.remove('hidden');
+    }
 }
 
 // Tab Management
@@ -740,3 +927,5 @@ window.startRun = () => banteropRunner.startRun();
 window.sendMessage = () => banteropRunner.sendMessage();
 window.runSmokeTest = () => banteropRunner.runSmokeTest();
 window.exportTrace = () => banteropRunner.exportTrace();
+window.generateNarrative = (role) => banteropRunner.generateNarrative(role);
+window.generateRationale = () => banteropRunner.generateRationale();

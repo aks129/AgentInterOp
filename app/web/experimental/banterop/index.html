@@ -512,11 +512,28 @@
             <!-- BCS Helper -->
             <div class="section">
                 <div class="section-title">🎯 BCS Helper</div>
-                
+
                 <button class="button" onclick="evaluateBcs()" disabled id="evaluate-bcs-btn">Evaluate BCS</button>
-                
+
                 <div id="bcs-evaluation" class="info-card hidden">
                     <div id="bcs-evaluation-content"></div>
+                </div>
+            </div>
+
+            <!-- LLM Analysis -->
+            <div class="section">
+                <div class="section-title">🤖 Claude Analysis</div>
+
+                <div id="llm-status" class="info-card">
+                    <span id="llm-status-text">Checking Claude availability...</span>
+                </div>
+
+                <button class="button" onclick="generateNarrative('applicant')" disabled id="narrative-applicant-btn">Applicant Summary</button>
+                <button class="button" onclick="generateNarrative('administrator')" disabled id="narrative-admin-btn">Admin Assessment</button>
+                <button class="button" onclick="generateRationale()" disabled id="rationale-btn">Guideline Rationale</button>
+
+                <div id="llm-analysis" class="info-card hidden">
+                    <div id="llm-analysis-content"></div>
                 </div>
             </div>
         </div>

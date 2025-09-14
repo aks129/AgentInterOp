@@ -15,9 +15,13 @@ from .bcs_guidelines import (
 )
 from .a2a_proxy import proxy_a2a_message, create_message_send_payload, create_tasks_get_payload
 from .scenario_runner import (
-    start_scenario_run, send_message_in_run, get_run_status, 
+    start_scenario_run, send_message_in_run, get_run_status,
     cancel_run, list_active_runs, cleanup_old_runs
 )
+from .claude_integration import (
+    is_claude_available, synthesize_narrative, evaluate_guideline_rationale, complete_conversation
+)
+import asyncio
 
 router = APIRouter(prefix="/api/experimental/banterop", tags=["banterop-ui"])
 
@@ -62,6 +66,25 @@ class SmokeTestRequest(BaseModel):
 
 class BcsEvaluationRequest(BaseModel):
     patientFacts: Dict[str, Any]
+
+
+class LlmCompleteRequest(BaseModel):
+    messages: List[Dict[str, Any]]
+    system_prompt: Optional[str] = None
+    max_tokens: int = 500
+
+
+class LlmNarrativeRequest(BaseModel):
+    role: str  # "applicant" or "administrator"
+    transcript: List[Dict[str, Any]]
+    patient_facts: Optional[Dict[str, Any]] = None
+    guidelines: Optional[Dict[str, Any]] = None
+
+
+class LlmRationaleRequest(BaseModel):
+    patient_facts: Dict[str, Any]
+    evaluation: Dict[str, Any]
+    guidelines: Dict[str, Any]
 
 
 # Scenario endpoints
@@ -404,6 +427,90 @@ async def run_smoke_test(request: SmokeTestRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# LLM/Claude endpoints
+
+@router.get("/llm/status")
+async def get_llm_status():
+    """Check if Claude integration is available"""
+    return {
+        "success": True,
+        "data": {
+            "enabled": is_claude_available(),
+            "model": "claude-3-haiku-20240307" if is_claude_available() else None
+        }
+    }
+
+
+@router.post("/llm/complete")
+async def llm_complete(request: LlmCompleteRequest):
+    """General Claude completion endpoint"""
+    result = complete_conversation(
+        request.messages,
+        request.system_prompt,
+        request.max_tokens
+    )
+
+    if result.get("disabled"):
+        return {
+            "success": False,
+            "disabled": True,
+            "message": result.get("message")
+        }
+
+    return {
+        "success": result.get("success", False),
+        "data": result
+    }
+
+
+@router.post("/llm/narrative")
+async def llm_narrative(request: LlmNarrativeRequest):
+    """Generate narrative summary from transcript"""
+    if request.role not in ["applicant", "administrator"]:
+        raise HTTPException(status_code=400, detail="Role must be 'applicant' or 'administrator'")
+
+    result = synthesize_narrative(
+        request.role,
+        request.transcript,
+        request.patient_facts,
+        request.guidelines
+    )
+
+    if result.get("disabled"):
+        return {
+            "success": False,
+            "disabled": True,
+            "message": result.get("message")
+        }
+
+    return {
+        "success": result.get("success", False),
+        "data": result
+    }
+
+
+@router.post("/llm/rationale")
+async def llm_rationale(request: LlmRationaleRequest):
+    """Generate guideline evaluation rationale"""
+    result = evaluate_guideline_rationale(
+        request.patient_facts,
+        request.evaluation,
+        request.guidelines
+    )
+
+    if result.get("disabled"):
+        return {
+            "success": False,
+            "disabled": True,
+            "message": result.get("message")
+        }
+
+    return {
+        "success": result.get("success", False),
+        "data": result
+    }
 
 
 # Utility endpoints
