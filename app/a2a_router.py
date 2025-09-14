@@ -15,38 +15,14 @@ async def read_request_bytes(request: Request) -> bytes:
     Works for both Content-Length and Transfer-Encoding: chunked.
     Avoids double-reads (reads at most once).
     """
-    # If FastAPI already buffered it, use that
+    # Always use the standard request.body() method first
+    # This already handles both Content-Length and chunked encoding correctly
     try:
-        cached = await request.body()
-        if cached:
-            return cached
-    except Exception:
-        # Fallback to manual channel reading
-        pass
-
-    # Fallback: directly consume the receive channel
-    body = bytearray()
-    receive: Callable[[], Awaitable[dict]] = request._receive  # Starlette provides this
-    more = True
-    # Protect against accidental infinite loops
-    max_frames = 1_000
-
-    while more and max_frames > 0:
-        try:
-            message = await receive()
-            if message["type"] != "http.request":
-                # Unexpected; bail safely
-                break
-            chunk = message.get("body", b"")
-            if chunk:
-                body.extend(chunk)
-            more = message.get("more_body", False)
-            max_frames -= 1
-        except Exception:
-            # If receive fails, return what we have
-            break
-
-    return bytes(body)
+        body = await request.body()
+        return body
+    except Exception as e:
+        # If request.body() fails, return empty bytes
+        return b""
 
 def _new_context_id() -> str:
     return f"ctx_{uuid.uuid4().hex[:8]}"
