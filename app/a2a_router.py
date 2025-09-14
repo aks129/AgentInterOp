@@ -549,64 +549,7 @@ def _rpc_ok(id_, payload):
 def _rpc_err(id_, code, msg):
     return {"jsonrpc": "2.0", "id": id_, "error": {"code": code, "message": msg}}
 
-# Additional route for context-based A2A endpoint (must be before demo route)
-@router.post("/api/bridge/{context}/a2a")
-async def a2a_context(context: str, request: Request):
-    """
-    Context-aware A2A endpoint that handles different scenarios.
-    Supports streaming without Content-Length requirement.
-    """
-    # Special handling for demo context
-    if context == "demo":
-        return await a2a_jsonrpc_demo(request)
-
-    # Read body without requiring Content-Length
-    try:
-        raw = await request.body()
-        if not raw:
-            return JSONResponse(_rpc_err(None, -32700, "Empty body"), status_code=400)
-        # Optional size guard
-        if len(raw) > 5_000_000:  # 5MB limit
-            return JSONResponse(_rpc_err(None, -32700, "Request body too large"), status_code=413)
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return JSONResponse(_rpc_err(None, -32700, "Invalid JSON"), status_code=400)
-
-    method = (data.get("method") or "").lower()
-    req_id = data.get("id")
-    accept = (request.headers.get("accept") or "").lower()
-
-    # Streaming branch (no Content-Length)
-    if method in {"message/stream", "tasks/resubscribe"} or "text/event-stream" in accept:
-        async def gen():
-            # Initial open event
-            yield "event: open\ndata: {}\n\n"
-
-            # Generic response for other contexts
-            result = {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {
-                    "status": "ok",
-                    "context": context
-                }
-            }
-            yield f"data: {json.dumps(result)}\n\n"
-
-        return StreamingResponse(
-            gen(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no"  # Disable nginx buffering
-            }
-        )
-
-    # Normal JSON-RPC response (no Content-Length requirement)
-    result = {"jsonrpc": "2.0", "id": req_id, "result": {"ok": True, "context": context}}
-    return JSONResponse(result, media_type="application/json")
-
+# Specific demo route (must come before context route for proper matching)
 @router.post("/api/bridge/demo/a2a")
 async def a2a_jsonrpc_demo(request: Request):
     """
@@ -624,6 +567,9 @@ async def a2a_jsonrpc_demo(request: Request):
         body = json.loads(raw)
     except json.JSONDecodeError:
         return JSONResponse(_rpc_err(None, -32700, "Invalid JSON"), status_code=400)
+    except Exception as e:
+        # Catch any other unexpected errors
+        return JSONResponse(_rpc_err(None, -32603, f"Internal error: {str(e)}"), status_code=500)
 
     # SSE path
     if "text/event-stream" in request.headers.get("accept", ""):
@@ -653,7 +599,7 @@ async def a2a_jsonrpc_demo(request: Request):
         # new task if no taskId (check multiple possible locations)
         task = None
         task_id = msg.get("taskId") or params.get("taskId") or msg.get("contextId")
-        
+
         # Also check if there's a contextId that matches an existing task
         if not task_id:
             context_id = msg.get("contextId")
@@ -663,7 +609,7 @@ async def a2a_jsonrpc_demo(request: Request):
                     if existing_task.get("contextId") == context_id:
                         task_id = existing_task_id
                         break
-        
+
         if task_id and STORE.get(task_id):
             task = STORE.get(task_id)
             # Debug: continuing conversation with task {task_id}
@@ -716,6 +662,62 @@ async def a2a_jsonrpc_demo(request: Request):
 
     else:
         return JSONResponse(_rpc_err(rid, -32601, "Method not found"), status_code=404)
+
+# General context-based A2A endpoint (after demo route)
+@router.post("/api/bridge/{context}/a2a")
+async def a2a_context(context: str, request: Request):
+    """
+    Context-aware A2A endpoint that handles different scenarios.
+    Supports streaming without Content-Length requirement.
+    """
+
+    # Read body without requiring Content-Length
+    try:
+        raw = await request.body()
+        if not raw:
+            return JSONResponse(_rpc_err(None, -32700, "Empty body"), status_code=400)
+        # Optional size guard
+        if len(raw) > 5_000_000:  # 5MB limit
+            return JSONResponse(_rpc_err(None, -32700, "Request body too large"), status_code=413)
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return JSONResponse(_rpc_err(None, -32700, "Invalid JSON"), status_code=400)
+
+    method = (data.get("method") or "").lower()
+    req_id = data.get("id")
+    accept = (request.headers.get("accept") or "").lower()
+
+    # Streaming branch (no Content-Length)
+    if method in {"message/stream", "tasks/resubscribe"} or "text/event-stream" in accept:
+        async def gen():
+            # Initial open event
+            yield "event: open\ndata: {}\n\n"
+
+            # Generic response for other contexts
+            result = {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "status": "ok",
+                    "context": context
+                }
+            }
+            yield f"data: {json.dumps(result)}\n\n"
+
+        return StreamingResponse(
+            gen(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # Disable nginx buffering
+            }
+        )
+
+    # Normal JSON-RPC response (no Content-Length requirement)
+    result = {"jsonrpc": "2.0", "id": req_id, "result": {"ok": True, "context": context}}
+    return JSONResponse(result, media_type="application/json")
+
 
 async def _handle_stream(request: Request, body: Dict[str, Any]):
     rid = body.get("id")

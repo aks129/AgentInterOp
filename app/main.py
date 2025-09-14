@@ -23,12 +23,34 @@ def validate_json_size(content: bytes) -> None:
 
 # Create FastAPI app
 app = FastAPI(
-    title="AgentInterOp", 
+    title="AgentInterOp",
     version="1.0.0-bcse",
     docs_url="/docs",
-    redoc_url="/redoc", 
+    redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
+
+# Global exception handler for unhandled errors
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle any unhandled exceptions and return JSON-RPC error for A2A endpoints"""
+    # Check if this is an A2A endpoint
+    if "/api/bridge/" in str(request.url.path) and request.url.path.endswith("/a2a"):
+        error_response = {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {
+                "code": -32603,
+                "message": f"Internal error: {str(exc)}"
+            }
+        }
+        return JSONResponse(content=error_response, status_code=500)
+
+    # For other endpoints, return generic error
+    return JSONResponse(
+        content={"error": "Internal server error"},
+        status_code=500
+    )
 
 # Security middleware
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Configure for production
