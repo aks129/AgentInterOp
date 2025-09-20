@@ -3,8 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scenario Runner (Experimental) - AgentInterOp</title>
+    <title>Banterop V2 - Agent Interoperability Platform</title>
     <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #22c55e;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --text-tertiary: #9ca3af;
+            --border: #e5e7eb;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,608 +32,649 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            line-height: 1.4;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .header h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
+            font-size: 1.875rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .header .subtitle {
-            opacity: 0.9;
-            font-size: 0.9rem;
-            margin-top: 0.25rem;
-        }
-
-        .main-container {
+        .header-controls {
             display: flex;
-            height: calc(100vh - 80px);
             gap: 1rem;
-            padding: 1rem;
-        }
-
-        .left-panel {
-            width: 400px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 1.5rem;
-            overflow-y: auto;
-        }
-
-        .right-panel {
-            flex: 1;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .section {
-            margin-bottom: 1.5rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid #eee;
-        }
-
-        .section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-
-        .section-title {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            color: #555;
-            display: flex;
             align-items: center;
-            gap: 0.5rem;
-        }
-
-        .input-group {
-            margin-bottom: 1rem;
-        }
-
-        .input-group label {
-            display: block;
-            font-size: 0.875rem;
-            font-weight: 500;
-            margin-bottom: 0.25rem;
-            color: #666;
-        }
-
-        .input-group input,
-        .input-group select,
-        .input-group textarea {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.875rem;
-        }
-
-        .input-group input:focus,
-        .input-group select:focus,
-        .input-group textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
-        }
-
-        .input-group textarea {
-            min-height: 80px;
-            resize: vertical;
-        }
-
-        .button {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .button:hover {
-            background: #5a67d8;
-        }
-
-        .button:disabled {
-            background: #cbd5e0;
-            cursor: not-allowed;
-        }
-
-        .button.secondary {
-            background: #e2e8f0;
-            color: #4a5568;
-        }
-
-        .button.secondary:hover {
-            background: #cbd5e0;
-        }
-
-        .button.small {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .preset-buttons {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
         }
 
         .status-indicator {
-            display: inline-block;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
         }
 
-        .status-ready { background: #48bb78; }
-        .status-working { background: #ed8936; }
-        .status-error { background: #f56565; }
-        .status-offline { background: #a0aec0; }
+        .status-dot.online { background: var(--success); }
+        .status-dot.offline { background: var(--text-tertiary); }
+        .status-dot.error { background: var(--danger); }
 
-        .conversation-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 1.5rem;
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
-        .conversation-header {
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #eee;
-        }
-
-        .conversation-tabs {
-            display: flex;
-            border-bottom: 1px solid #eee;
-            margin-bottom: 1rem;
-        }
-
-        .tab {
-            padding: 0.5rem 1rem;
-            background: none;
-            border: none;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            color: #666;
-        }
-
-        .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-        }
-
-        .tab-content {
-            flex: 1;
-            overflow-y: auto;
-            margin-bottom: 1rem;
-        }
-
-        .transcript {
+        .stats-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(4, 1fr);
             gap: 1rem;
-            height: 100%;
+            margin-bottom: 2rem;
         }
 
-        .transcript-column {
-            background: #f8f9fa;
-            border-radius: 6px;
+        .stat-card {
+            background: var(--bg-primary);
             padding: 1rem;
-            overflow-y: auto;
-        }
-
-        .transcript-column h3 {
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            color: #555;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
             text-align: center;
         }
 
-        .message {
-            background: white;
-            padding: 0.75rem;
-            border-radius: 6px;
-            margin-bottom: 0.75rem;
-            border-left: 3px solid #667eea;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
         }
 
-        .message.remote {
-            border-left-color: #48bb78;
-        }
-
-        .message-meta {
+        .stat-label {
             font-size: 0.75rem;
-            color: #666;
-            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
         }
 
-        .message-content {
-            color: #333;
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
         }
 
-        .message-composer {
-            border-top: 1px solid #eee;
-            padding: 1rem 1.5rem;
+        .panel {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-lg);
         }
 
-        .composer-input {
-            width: 100%;
-            min-height: 60px;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            resize: vertical;
-            margin-bottom: 0.75rem;
-        }
-
-        .composer-actions {
+        .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
         }
 
-        .json-viewer {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 4px;
-            padding: 1rem;
-            font-family: 'Monaco', 'Consolas', monospace;
-            font-size: 0.75rem;
-            overflow-x: auto;
-            white-space: pre-wrap;
+        .panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
         }
 
-        .collapsible {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-bottom: 0.5rem;
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
         }
 
-        .collapsible-header {
-            background: #f8f9fa;
-            padding: 0.5rem;
-            cursor: pointer;
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-secondary);
             font-size: 0.875rem;
             font-weight: 500;
-            border: none;
-            width: 100%;
-            text-align: left;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
-        .collapsible-content {
-            padding: 1rem;
+        .tab:hover {
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
             display: none;
+            animation: fadeIn 0.3s ease-in;
         }
 
-        .collapsible.expanded .collapsible-content {
+        .tab-content.active {
             display: block;
         }
 
-        .collapsible.expanded .collapsible-header::after {
-            transform: rotate(180deg);
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .collapsible-header::after {
-            content: '▼';
-            font-size: 0.75rem;
-            transition: transform 0.2s;
+        .form-group {
+            margin-bottom: 1.25rem;
         }
 
-        .info-card {
-            background: #e6fffa;
-            border: 1px solid #81e6d9;
-            border-radius: 4px;
-            padding: 0.75rem;
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: monospace;
+        }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .conversation-container {
+            height: 400px;
+            overflow-y: auto;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
             margin-bottom: 1rem;
         }
 
-        .info-card.warning {
-            background: #fefcbf;
-            border-color: #f6e05e;
+        .message {
+            margin-bottom: 1rem;
+            animation: slideIn 0.3s ease-out;
         }
 
-        .info-card.error {
-            background: #fed7d7;
-            border-color: #fc8181;
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-role {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .message-role.user {
+            color: var(--primary);
+        }
+
+        .message-role.assistant {
+            color: var(--secondary);
+        }
+
+        .message-timestamp {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+
+        .message-content {
+            padding: 0.75rem;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .message-input-container {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .message-input {
+            flex: 1;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .config-card {
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .config-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .config-card.selected {
+            border-color: var(--primary);
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .alert-success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: var(--success);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--danger);
         }
 
         .loading {
             display: inline-block;
             width: 16px;
             height: 16px;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #667eea;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.6s linear infinite;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-text {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .json-viewer {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.75rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
         }
 
         .hidden {
-            display: none;
+            display: none !important;
         }
 
-        @media (max-width: 768px) {
-            .main-container {
-                flex-direction: column;
-                height: auto;
-            }
-            
-            .left-panel {
-                width: 100%;
-                order: 2;
-            }
-            
-            .transcript {
+        @media (max-width: 1024px) {
+            .main-grid {
                 grid-template-columns: 1fr;
+            }
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 1rem;
+            }
+            .header {
+                flex-direction: column;
+                gap: 1rem;
             }
         }
     </style>
 </head>
 <body>
-    <header class="header">
-        <h1>🧪 Scenario Runner (Experimental)</h1>
-        <div class="subtitle">Banterop-style A2A Interoperability Testing</div>
-    </header>
+    <div class="container">
+        <div class="header">
+            <h1>Banterop V2</h1>
+            <div class="header-controls">
+                <div class="status-indicator">
+                    <div class="status-dot online" id="statusDot"></div>
+                    <span id="statusText">Ready</span>
+                </div>
+                <button class="btn btn-secondary" onclick="BanteropV2.cleanup()">
+                    Cleanup Old Runs
+                </button>
+            </div>
+        </div>
 
-    <div class="main-container">
-        <!-- Left Panel: Configuration -->
-        <div class="left-panel">
-            <!-- Scenario Config -->
-            <div class="section">
-                <div class="section-title">📋 Scenario Configuration</div>
-                
-                <div class="input-group">
-                    <label>Scenario JSON URL</label>
-                    <input type="text" id="scenario-url" placeholder="https://example.com/scenario.json">
-                    <div class="preset-buttons">
-                        <button class="button small secondary" onclick="loadSampleScenario()">Sample BCS</button>
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-value" id="activeRuns">0</div>
+                <div class="stat-label">Active Runs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="messagesCount">0</div>
+                <div class="stat-label">Messages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="scenariosLoaded">0</div>
+                <div class="stat-label">Scenarios</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="agentsConnected">0</div>
+                <div class="stat-label">Agents</div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Configuration</h2>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" data-tab="scenario">Scenario</button>
+                    <button class="tab" data-tab="agents">Agents</button>
+                    <button class="tab" data-tab="fhir">FHIR</button>
+                    <button class="tab" data-tab="guidelines">Guidelines</button>
+                </div>
+
+                <div id="tab-scenario" class="tab-content active">
+                    <div class="form-group">
+                        <label class="form-label">Scenario URL</label>
+                        <input type="text" class="form-input" id="scenarioUrl"
+                               placeholder="https://example.com/scenario.json">
                     </div>
-                </div>
-                
-                <button class="button" id="load-scenario-btn" onclick="loadScenario()">Load Scenario</button>
-                
-                <div id="scenario-info" class="info-card hidden">
-                    <strong id="scenario-name">Scenario Name</strong>
-                    <div id="scenario-description"></div>
-                    <div id="scenario-agents"></div>
+                    <div class="form-group">
+                        <label class="form-label">Preset Scenarios</label>
+                        <select class="form-select" id="scenarioPreset">
+                            <option value="">Custom URL</option>
+                            <option value="sample-bcs">Breast Cancer Screening</option>
+                            <option value="clinical-trial">Clinical Trial</option>
+                            <option value="prior-auth">Prior Authorization</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="BanteropV2.loadScenario()">
+                        <span class="loading hidden" id="scenarioLoading"></span>
+                        Load Scenario
+                    </button>
+                    <div id="scenarioInfo" class="alert alert-success hidden" style="margin-top: 1rem;"></div>
                 </div>
 
-                <div class="input-group">
-                    <label>My Role</label>
-                    <select id="my-role">
-                        <option value="">Select from scenario...</option>
-                        <option value="applicant">Applicant</option>
-                        <option value="administrator">Administrator</option>
+                <div id="tab-agents" class="tab-content">
+                    <div class="form-group">
+                        <label class="form-label">Agent Card URL</label>
+                        <input type="text" class="form-input" id="agentCardUrl"
+                               placeholder="https://example.com/.well-known/agent-card.json">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Preset Agents</label>
+                        <div class="btn-group">
+                            <button class="btn btn-secondary" onclick="BanteropV2.setPresetAgent('carecommons')">
+                                CareCommons
+                            </button>
+                            <button class="btn btn-secondary" onclick="BanteropV2.setPresetAgent('local')">
+                                Local
+                            </button>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="BanteropV2.loadAgentCard()">
+                        Load Agent Card
+                    </button>
+                    <div id="agentInfo" class="hidden" style="margin-top: 1rem;"></div>
+                </div>
+
+                <div id="tab-fhir" class="tab-content">
+                    <div class="form-group">
+                        <label class="form-label">FHIR Server Base URL</label>
+                        <input type="text" class="form-input" id="fhirBase"
+                               value="https://api.carecommonsdev.org/fhir">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Patient ID</label>
+                        <input type="text" class="form-input" id="patientId"
+                               placeholder="Patient/123">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Bearer Token (optional)</label>
+                        <input type="password" class="form-input" id="bearerToken"
+                               placeholder="Optional authentication token">
+                    </div>
+                    <button class="btn" onclick="BanteropV2.fetchFhirData()">
+                        Fetch Patient Data
+                    </button>
+                    <div id="fhirFacts" class="json-viewer hidden" style="margin-top: 1rem;"></div>
+                </div>
+
+                <div id="tab-guidelines" class="tab-content">
+                    <div class="form-group">
+                        <label class="form-label">BCS Guidelines JSON</label>
+                        <textarea class="form-textarea" id="guidelinesJson"
+                                  placeholder='{"rules": [], "metadata": {}}'></textarea>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn" onclick="BanteropV2.loadGuidelines()">
+                            Load Guidelines
+                        </button>
+                        <button class="btn btn-secondary" onclick="BanteropV2.resetGuidelines()">
+                            Reset to Default
+                        </button>
+                    </div>
+                    <div id="guidelinesInfo" class="alert alert-success hidden" style="margin-top: 1rem;"></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Conversation</h2>
+                    <select class="form-select" id="runSelect" style="width: 200px;">
+                        <option value="">New Run</option>
                     </select>
                 </div>
-            </div>
 
-            <!-- Remote Agent Config -->
-            <div class="section">
-                <div class="section-title">🌐 Remote Agent</div>
-                
-                <div class="input-group">
-                    <label>Agent Card URL</label>
-                    <input type="text" id="agent-card-url" placeholder="https://care-commons.meteorapp.com">
-                    <div class="preset-buttons">
-                        <button class="button small secondary" onclick="setPresetAgent('carecommons')">CareCommons</button>
-                        <button class="button small secondary" onclick="setPresetAgent('local')">Local</button>
+                <div class="conversation-container" id="conversationContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-text">No conversation started</div>
+                        <button class="btn" onclick="BanteropV2.startNewRun()">
+                            Start New Conversation
+                        </button>
                     </div>
                 </div>
-                
-                <button class="button" id="load-agent-card-btn" onclick="loadAgentCard()">Load Agent Card</button>
-                
-                <div id="agent-card-info" class="info-card hidden">
-                    <strong id="agent-name">Agent Name</strong>
-                    <div id="agent-details"></div>
-                </div>
-            </div>
 
-            <!-- FHIR Config -->
-            <div class="collapsible">
-                <button class="collapsible-header" onclick="toggleCollapsible(this)">
-                    🏥 FHIR Configuration
-                </button>
-                <div class="collapsible-content">
-                    <div class="input-group">
-                        <label>Base URL</label>
-                        <input type="text" id="fhir-base" placeholder="https://fhir.server.com/R4">
-                    </div>
-                    
-                    <div class="input-group">
-                        <label>Patient ID</label>
-                        <input type="text" id="fhir-patient-id" placeholder="patient-123">
-                    </div>
-                    
-                    <div class="input-group">
-                        <label>Bearer Token (optional)</label>
-                        <input type="password" id="fhir-token" placeholder="Bearer token">
-                    </div>
-                    
-                    <button class="button" onclick="fetchFhirData()">Fetch $everything</button>
-                    
-                    <div id="fhir-facts" class="info-card hidden">
-                        <strong>Patient Facts</strong>
-                        <div id="fhir-facts-content"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- BCS Rules -->
-            <div class="collapsible">
-                <button class="collapsible-header" onclick="toggleCollapsible(this)">
-                    📊 BCS Rules Editor
-                </button>
-                <div class="collapsible-content">
-                    <div class="button-group">
-                        <button class="button small" onclick="loadBcsRules()">Load Rules</button>
-                        <button class="button small secondary" onclick="resetBcsRules()">Reset</button>
-                    </div>
-                    <textarea id="bcs-rules" placeholder="BCS rules JSON..."></textarea>
-                    <button class="button" onclick="saveBcsRules()">Save Rules</button>
-                </div>
-            </div>
-
-            <!-- Run Configuration -->
-            <div class="section">
-                <div class="section-title">🚀 Run Configuration</div>
-                
-                <div class="input-group">
-                    <label>Conversation Mode</label>
-                    <select id="conversation-mode">
-                        <option value="remote">Remote (via A2A)</option>
-                        <option value="local">Local (simulate)</option>
-                    </select>
-                </div>
-                
-                <button class="button" id="start-run-btn" onclick="startRun()">Start Run</button>
-                
-                <div id="run-status" class="info-card hidden">
-                    <div class="status-indicator status-offline"></div>
-                    <span id="run-status-text">Not started</span>
-                </div>
-            </div>
-
-            <!-- BCS Helper -->
-            <div class="section">
-                <div class="section-title">🎯 BCS Helper</div>
-
-                <button class="button" onclick="evaluateBcs()" disabled id="evaluate-bcs-btn">Evaluate BCS</button>
-
-                <div id="bcs-evaluation" class="info-card hidden">
-                    <div id="bcs-evaluation-content"></div>
-                </div>
-            </div>
-
-            <!-- LLM Analysis -->
-            <div class="section">
-                <div class="section-title">🤖 Claude Analysis</div>
-
-                <div id="llm-status" class="info-card">
-                    <span id="llm-status-text">Checking Claude availability...</span>
-                </div>
-
-                <button class="button" onclick="generateNarrative('applicant')" disabled id="narrative-applicant-btn">Applicant Summary</button>
-                <button class="button" onclick="generateNarrative('administrator')" disabled id="narrative-admin-btn">Admin Assessment</button>
-                <button class="button" onclick="generateRationale()" disabled id="rationale-btn">Guideline Rationale</button>
-
-                <div id="llm-analysis" class="info-card hidden">
-                    <div id="llm-analysis-content"></div>
+                <div class="message-input-container">
+                    <input type="text" class="form-input message-input" id="messageInput"
+                           placeholder="Type your message..."
+                           onkeypress="if(event.key==='Enter') BanteropV2.sendMessage()">
+                    <button class="btn" onclick="BanteropV2.sendMessage()" id="sendBtn">
+                        Send
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Right Panel: Conversation & Tools -->
-        <div class="right-panel">
-            <div class="conversation-container">
-                <div class="conversation-header">
-                    <h2 id="conversation-title">Conversation</h2>
-                    <div id="conversation-status">Ready to start</div>
-                </div>
-
-                <div class="conversation-tabs">
-                    <button class="tab active" onclick="switchTab('transcript')">Transcript</button>
-                    <button class="tab" onclick="switchTab('trace')">Trace</button>
-                    <button class="tab" onclick="switchTab('artifacts')">Artifacts</button>
-                    <button class="tab" onclick="switchTab('scenario')">Scenario</button>
-                    <button class="tab" onclick="switchTab('facts')">Facts</button>
-                    <button class="tab" onclick="switchTab('test')">Test</button>
-                </div>
-
-                <div class="tab-content" id="transcript-content">
-                    <div class="transcript">
-                        <div class="transcript-column">
-                            <h3>Mine</h3>
-                            <div id="my-messages"></div>
-                        </div>
-                        <div class="transcript-column">
-                            <h3>Remote</h3>
-                            <div id="remote-messages"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tab-content hidden" id="trace-content">
-                    <div class="json-viewer" id="trace-viewer">No trace data yet...</div>
-                    <button class="button small" onclick="exportTrace()">Export JSON</button>
-                </div>
-
-                <div class="tab-content hidden" id="artifacts-content">
-                    <div id="artifacts-list">No artifacts yet...</div>
-                </div>
-
-                <div class="tab-content hidden" id="scenario-content">
-                    <div class="json-viewer" id="scenario-viewer">No scenario loaded...</div>
-                </div>
-
-                <div class="tab-content hidden" id="facts-content">
-                    <div class="json-viewer" id="facts-viewer">No FHIR facts loaded...</div>
-                </div>
-
-                <div class="tab-content hidden" id="test-content">
-                    <div class="section">
-                        <div class="section-title">🧪 Smoke Test Runner</div>
-                        <div class="input-group">
-                            <label>Remote A2A URL</label>
-                            <input type="text" id="smoke-test-url" placeholder="https://care-commons.meteorapp.com/api/a2a">
-                        </div>
-                        <div class="input-group">
-                            <label>Script Length</label>
-                            <select id="smoke-test-length">
-                                <option value="2">2 exchanges</option>
-                                <option value="3">3 exchanges</option>
-                            </select>
-                        </div>
-                        <button class="button" onclick="runSmokeTest()">Run Test</button>
-                        <div id="smoke-test-results" class="json-viewer hidden"></div>
-                    </div>
-                </div>
+        <div class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Testing & Analysis</h2>
             </div>
 
-            <div class="message-composer" id="message-composer" style="display: none;">
-                <textarea class="composer-input" id="message-input" placeholder="Type your message here..."></textarea>
-                <div class="composer-actions">
-                    <div>
-                        <label>
-                            <input type="checkbox" id="stream-mode"> Stream response
-                        </label>
-                    </div>
-                    <button class="button" id="send-btn" onclick="sendMessage()">Send</button>
+            <div class="tabs">
+                <button class="tab active" data-tab="smoke">Smoke Test</button>
+                <button class="tab" data-tab="evaluation">Evaluation</button>
+                <button class="tab" data-tab="llm">LLM Analysis</button>
+                <button class="tab" data-tab="logs">Logs</button>
+            </div>
+
+            <div id="tab-smoke" class="tab-content active">
+                <div class="form-group">
+                    <label class="form-label">Remote A2A Endpoint</label>
+                    <input type="text" class="form-input" id="smokeTestUrl"
+                           placeholder="https://example.com/api/bridge/bcse/a2a">
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Script Length</label>
+                    <select class="form-select" id="scriptLength">
+                        <option value="2">2 messages</option>
+                        <option value="3">3 messages</option>
+                        <option value="5">5 messages</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="BanteropV2.runSmokeTest()">
+                    Run Smoke Test
+                </button>
+                <div id="smokeTestResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
+            </div>
+
+            <div id="tab-evaluation" class="tab-content">
+                <div class="form-group">
+                    <label class="form-label">Patient Facts JSON</label>
+                    <textarea class="form-textarea" id="patientFactsJson"
+                              placeholder='{"sex": "female", "birthDate": "1970-01-01"}'></textarea>
+                </div>
+                <button class="btn" onclick="BanteropV2.evaluateGuidelines()">
+                    Evaluate Guidelines
+                </button>
+                <div id="evaluationResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
+            </div>
+
+            <div id="tab-llm" class="tab-content">
+                <div id="llmStatus" class="alert alert-success">
+                    Checking LLM availability...
+                </div>
+                <div class="btn-group" style="margin-top: 1rem;">
+                    <button class="btn" onclick="BanteropV2.generateNarrative('applicant')" id="narrativeApplicantBtn" disabled>
+                        Applicant Summary
+                    </button>
+                    <button class="btn" onclick="BanteropV2.generateNarrative('administrator')" id="narrativeAdminBtn" disabled>
+                        Admin Assessment
+                    </button>
+                    <button class="btn btn-secondary" onclick="BanteropV2.generateRationale()" id="rationaleBtn" disabled>
+                        Guideline Rationale
+                    </button>
+                </div>
+                <div id="llmResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
+            </div>
+
+            <div id="tab-logs" class="tab-content">
+                <div class="json-viewer" id="logsContainer" style="max-height: 400px;">
+                    No logs yet...
+                </div>
+                <button class="btn btn-secondary" onclick="BanteropV2.clearLogs()" style="margin-top: 1rem;">
+                    Clear Logs
+                </button>
             </div>
         </div>
     </div>
