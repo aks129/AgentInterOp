@@ -13,7 +13,8 @@ class BanteropV2 {
             guidelines: null,
             messages: [],
             runs: [],
-            logs: []
+            logs: [],
+            apiAvailable: false
         };
 
         this.api = {
@@ -25,12 +26,71 @@ class BanteropV2 {
     }
 
     async init() {
-        this.setupEventListeners();
-        this.setupTabSwitching();
-        await this.checkLlmStatus();
-        await this.updateStats();
-        this.checkUrlParameters();
-        this.addLog('System initialized', 'success');
+        try {
+            this.addLog('Starting Banterop V2 initialization...', 'info');
+            this.setupEventListeners();
+            this.setupTabSwitching();
+
+            // Check if API is available
+            this.addLog('Checking API availability...', 'info');
+            await this.checkApiAvailability();
+
+            if (this.state.apiAvailable) {
+                this.addLog('Checking LLM status...', 'info');
+                await this.checkLlmStatus();
+
+                this.addLog('Updating statistics...', 'info');
+                await this.updateStats();
+
+                this.checkUrlParameters();
+                this.addLog('System initialized successfully', 'success');
+                this.updateStatus('Ready', 'online');
+            } else {
+                this.addLog('API not available - running in limited mode', 'warning');
+                this.updateStatus('Limited Mode', 'offline');
+                this.showApiUnavailableMessage();
+            }
+        } catch (error) {
+            this.addLog(`Initialization failed: ${error.message}`, 'error');
+            this.updateStatus('Error', 'error');
+            console.error('Banterop V2 initialization error:', error);
+        }
+    }
+
+    async checkApiAvailability() {
+        try {
+            // Try a simple API call to check if the backend is available
+            const response = await fetch(`${this.api.baseUrl}/llm/status`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            this.state.apiAvailable = response.ok;
+            if (this.state.apiAvailable) {
+                this.addLog('API is available', 'success');
+            } else {
+                this.addLog(`API returned status ${response.status}`, 'warning');
+            }
+        } catch (error) {
+            this.state.apiAvailable = false;
+            this.addLog(`API unavailable: ${error.message}`, 'warning');
+        }
+    }
+
+    showApiUnavailableMessage() {
+        // Show a message to users about limited functionality
+        const container = document.querySelector('.main-grid');
+        if (container) {
+            const message = document.createElement('div');
+            message.className = 'alert alert-warning';
+            message.innerHTML = `
+                <strong>Limited Mode</strong><br>
+                The Banterop API is currently unavailable. Some features may not work correctly.<br>
+                <small>This may be due to server startup time or configuration issues.</small><br>
+                <button class="btn btn-secondary" onclick="location.reload()">Retry</button>
+            `;
+            container.insertBefore(message, container.firstChild);
+        }
     }
 
     setupEventListeners() {
@@ -101,6 +161,8 @@ class BanteropV2 {
 
     // API Methods
     async apiCall(endpoint, method = 'GET', body = null) {
+        const fullUrl = `${this.api.baseUrl}${endpoint}`;
+
         try {
             const options = {
                 method,
@@ -111,22 +173,40 @@ class BanteropV2 {
                 options.body = JSON.stringify(body);
             }
 
-            const response = await fetch(`${this.api.baseUrl}${endpoint}`, options);
-            const data = await response.json();
+            this.addLog(`API Call: ${method} ${fullUrl}`, 'info');
+            const response = await fetch(fullUrl, options);
 
             if (!response.ok) {
-                throw new Error(data.detail || data.message || 'API call failed');
+                const errorText = await response.text();
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = { message: errorText };
+                }
+
+                const errorMsg = errorData.detail || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+                throw new Error(errorMsg);
             }
 
+            const data = await response.json();
+            this.addLog(`API Success: ${method} ${endpoint}`, 'success');
             return data;
         } catch (error) {
-            this.addLog(`API Error: ${error.message}`, 'error');
+            const errorMsg = `API Error (${method} ${endpoint}): ${error.message}`;
+            this.addLog(errorMsg, 'error');
+            console.error('API call details:', { fullUrl, method, body, error });
             throw error;
         }
     }
 
     // Scenario Management
     async loadScenario() {
+        if (!this.state.apiAvailable) {
+            this.showAlert('API is not available. Please check your connection and try again.', 'error');
+            return;
+        }
+
         const url = document.getElementById('scenarioUrl').value.trim();
         const preset = document.getElementById('scenarioPreset').value;
 
@@ -525,6 +605,7 @@ class BanteropV2 {
                 this.updateLlmStatus(false);
             }
         } catch (error) {
+            this.addLog(`LLM status check failed: ${error.message}`, 'warning');
             this.updateLlmStatus(false);
         }
     }
@@ -601,27 +682,43 @@ class BanteropV2 {
     async updateStats() {
         try {
             // Update active runs
-            const runsResult = await this.apiCall('/run/list');
-            if (runsResult.success) {
-                document.getElementById('activeRuns').textContent = runsResult.data.count || 0;
-                this.state.runs = runsResult.data.runs || [];
+            try {
+                const runsResult = await this.apiCall('/run/list');
+                if (runsResult.success) {
+                    document.getElementById('activeRuns').textContent = runsResult.data.count || 0;
+                    this.state.runs = runsResult.data.runs || [];
+                }
+            } catch (error) {
+                this.addLog(`Failed to load runs: ${error.message}`, 'warning');
+                document.getElementById('activeRuns').textContent = '?';
             }
 
             // Update messages count
             document.getElementById('messagesCount').textContent = this.state.messages.length;
 
             // Update scenarios loaded
-            const scenariosResult = await this.apiCall('/scenario/cached');
-            if (scenariosResult.success) {
-                document.getElementById('scenariosLoaded').textContent = scenariosResult.data.count || 0;
+            try {
+                const scenariosResult = await this.apiCall('/scenario/cached');
+                if (scenariosResult.success) {
+                    document.getElementById('scenariosLoaded').textContent = scenariosResult.data.count || 0;
+                }
+            } catch (error) {
+                this.addLog(`Failed to load scenarios: ${error.message}`, 'warning');
+                document.getElementById('scenariosLoaded').textContent = '?';
             }
 
             // Update agents connected
-            const agentsResult = await this.apiCall('/agentcard/cached');
-            if (agentsResult.success) {
-                document.getElementById('agentsConnected').textContent = agentsResult.data.count || 0;
+            try {
+                const agentsResult = await this.apiCall('/agentcard/cached');
+                if (agentsResult.success) {
+                    document.getElementById('agentsConnected').textContent = agentsResult.data.count || 0;
+                }
+            } catch (error) {
+                this.addLog(`Failed to load agent cards: ${error.message}`, 'warning');
+                document.getElementById('agentsConnected').textContent = '?';
             }
         } catch (error) {
+            this.addLog(`Stats update failed: ${error.message}`, 'error');
             console.error('Failed to update stats:', error);
         }
     }
