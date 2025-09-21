@@ -20,6 +20,28 @@
       }
     },
     {
+      "src": "/.well-known/agent.json",
+      "dest": "api/index.py",
+      "headers": {
+        "Cache-Control": "no-cache"
+      }
+    },
+    {
+      "src": "/banterop.js",
+      "dest": "api/index.py",
+      "headers": {
+        "Cache-Control": "public, max-age=3600",
+        "Content-Type": "application/javascript"
+      }
+    },
+    {
+      "src": "/api/experimental/banterop/.*",
+      "dest": "api/index.py",
+      "headers": {
+        "Cache-Control": "no-cache"
+      }
+    },
+    {
       "src": "/(.*)",
       "dest": "api/index.py"
     }
