@@ -251,11 +251,29 @@ def create_tasks_cancel_payload(
     """Create a tasks/cancel JSON-RPC payload"""
     if not request_id:
         request_id = str(uuid.uuid4())
-    
+
     return {
         "jsonrpc": "2.0",
         "id": request_id,
         "method": "tasks/cancel",
+        "params": {
+            "taskId": task_id
+        }
+    }
+
+
+def create_tasks_resubscribe_payload(
+    task_id: str,
+    request_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Create a tasks/resubscribe JSON-RPC payload for A2A specification compliance"""
+    if not request_id:
+        request_id = str(uuid.uuid4())
+
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": "tasks/resubscribe",
         "params": {
             "taskId": task_id
         }

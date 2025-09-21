@@ -13,7 +13,7 @@ from .bcs_guidelines import (
     get_bcs_rules, update_bcs_rules, reset_bcs_rules, 
     evaluate_bcs_eligibility, generate_bcs_summary
 )
-from .a2a_proxy import proxy_a2a_message, create_message_send_payload, create_tasks_get_payload
+from .a2a_proxy import proxy_a2a_message, create_message_send_payload, create_tasks_get_payload, create_tasks_resubscribe_payload
 from .scenario_runner import (
     start_scenario_run, send_message_in_run, get_run_status,
     cancel_run, list_active_runs, cleanup_old_runs

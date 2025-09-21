@@ -191,11 +191,20 @@ def agent_card(request: Request):
     card = {
       "name": "AgentInterOp Healthcare Platform",
       "description": "A healthcare interoperability platform supporting A2A protocol for agent-to-agent communication with specialized healthcare scenarios including FHIR integration and BCS eligibility evaluation.",
-      "version": "1.0.0-bcse",
-      "protocolVersion": "0.3.0",
+      "version": "2.0.0-banterop",
+      "protocolVersion": "0.4.0",
       "preferredTransport": "JSONRPC",
       "url": f"{base}/api/bridge/demo/a2a",
-      "capabilities": {"streaming": True},
+      "capabilities": {
+        "streaming": True,
+        "supportedMethods": [
+          "message/send",
+          "message/stream",
+          "tasks/get",
+          "tasks/cancel",
+          "tasks/resubscribe"
+        ]
+      },
       "defaultInputModes": [
         "text/plain",
         "application/json",
@@ -207,9 +216,6 @@ def agent_card(request: Request):
         "application/fhir+json"
       ],
       "supportsAuthenticatedExtendedCard": False,
-      "endpoints": {
-        "jsonrpc": f"{base}/api/bridge/demo/a2a"
-      },
       "skills": [
         {
           "id": "scenario",
@@ -219,13 +225,69 @@ def agent_card(request: Request):
           "discovery": {
             "url": f"{base}/api/bridge/demo/a2a"
           },
-          "a2a": {
-            "config64": base64.b64encode(b'{"scenario":"demo"}').decode()
-          }
+          "a2a.config64": base64.b64encode(b'{"scenario":"demo"}').decode()
         }
       ]
     }
     return JSONResponse(card)
+
+@app.get("/.well-known/agent.json")
+def adk_agent_metadata(request: Request):
+    """ADK-compliant agent metadata endpoint for Google Agent Development Kit compliance"""
+    base = str(request.base_url).rstrip("/")
+
+    # ADK-compliant agent metadata
+    adk_metadata = {
+        "name": "AgentInterOp Healthcare Platform",
+        "description": "Healthcare interoperability platform with A2A protocol support and FHIR integration",
+        "version": "2.0.0-adk",
+        "adk_version": "1.0",
+        "endpoints": {
+            "run": f"{base}/api/adk/run",
+            "a2a": f"{base}/api/bridge/demo/a2a"
+        },
+        "capabilities": {
+            "streaming": True,
+            "healthcare_scenarios": True,
+            "fhir_integration": True,
+            "bcs_evaluation": True,
+            "multi_protocol": ["A2A", "MCP"]
+        },
+        "models": ["healthcare-assistant"],
+        "tools": [
+            {
+                "name": "fhir_patient_lookup",
+                "description": "Fetch patient data from FHIR servers"
+            },
+            {
+                "name": "bcs_eligibility_check",
+                "description": "Evaluate breast cancer screening eligibility"
+            },
+            {
+                "name": "healthcare_scheduling",
+                "description": "Schedule healthcare appointments"
+            }
+        ],
+        "protocols": {
+            "a2a": {
+                "version": "0.3.0",
+                "transport": "JSONRPC",
+                "endpoint": f"{base}/api/bridge/demo/a2a"
+            },
+            "mcp": {
+                "version": "1.0",
+                "transport": "HTTP",
+                "endpoint": f"{base}/api/mcp"
+            }
+        },
+        "interoperability": {
+            "agent_discovery": True,
+            "cross_platform": True,
+            "standard_compliance": ["A2A", "FHIR-R4", "HL7"]
+        }
+    }
+
+    return JSONResponse(adk_metadata)
 
 @app.get("/api/selftest")
 def selftest():
@@ -287,7 +349,27 @@ def bcse_evaluate(payload: dict):
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    """GET / renders index.html"""
+    """GET / renders Banterop V2 UI as default interface"""
+    base = Path(__file__).resolve().parent
+    banterop_dir = base / "web" / "experimental" / "banterop"
+
+    if (banterop_dir / "index.html").exists():
+        with open(banterop_dir / "index.html", 'r', encoding='utf-8') as f:
+            content = f.read()
+        return HTMLResponse(content)
+    else:
+        # Fallback to legacy UI if Banterop V2 not available
+        if templates:
+            return templates.TemplateResponse("index.html", {
+                "request": request,
+                "UI_EXPERIMENTAL": UI_EXPERIMENTAL
+            })
+        else:
+            return HTMLResponse("<h1>Multi-Agent Demo</h1><p>Templates not available in this environment</p>")
+
+@app.get("/legacy", response_class=HTMLResponse)
+async def legacy_ui(request: Request):
+    """GET /legacy renders legacy index.html interface"""
     if templates:
         return templates.TemplateResponse("index.html", {
             "request": request,
@@ -301,7 +383,7 @@ async def experimental_banterop(request: Request):
     """GET /experimental/banterop renders Banterop-style scenario UI"""
     base = Path(__file__).resolve().parent
     banterop_dir = base / "web" / "experimental" / "banterop"
-    
+
     if (banterop_dir / "index.html").exists():
         with open(banterop_dir / "index.html", 'r', encoding='utf-8') as f:
             content = f.read()
@@ -314,7 +396,20 @@ async def experimental_banterop_js():
     """Serve banterop.js file"""
     base = Path(__file__).resolve().parent
     js_file = base / "web" / "experimental" / "banterop" / "banterop.js"
-    
+
+    if js_file.exists():
+        with open(js_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return Response(content, media_type="application/javascript")
+    else:
+        return Response("// banterop.js not found", media_type="application/javascript")
+
+@app.get("/banterop.js")
+async def banterop_js():
+    """Serve banterop.js file from root for default UI"""
+    base = Path(__file__).resolve().parent
+    js_file = base / "web" / "experimental" / "banterop" / "banterop.js"
+
     if js_file.exists():
         with open(js_file, 'r', encoding='utf-8') as f:
             content = f.read()
