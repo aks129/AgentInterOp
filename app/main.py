@@ -417,6 +417,19 @@ async def banterop_js():
     else:
         return Response("// banterop.js not found", media_type="application/javascript")
 
+@app.get("/debug", response_class=HTMLResponse)
+async def debug_console(request: Request):
+    """Debug console for troubleshooting Banterop V2 configuration"""
+    base = Path(__file__).resolve().parent
+    debug_file = base / "web" / "debug.html"
+
+    if debug_file.exists():
+        with open(debug_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return HTMLResponse(content)
+    else:
+        return HTMLResponse("<h1>Debug Console</h1><p>Debug page not found</p>")
+
 @app.get("/partner_connect", response_class=HTMLResponse)
 async def partner_connect(request: Request):
     """Partner Connect UI"""

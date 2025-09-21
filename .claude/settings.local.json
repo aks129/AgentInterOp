@@ -43,7 +43,8 @@
       "Bash(tasklist)",
       "WebFetch(domain:agent-inter-op.vercel.app)",
       "Bash(timeout 10 sleep 10)",
-      "Bash(timeout 3 sleep 3)"
+      "Bash(timeout 3 sleep 3)",
+      "WebFetch(domain:agent-inter-m6tv867oe-aks129s-projects.vercel.app)"
     ],
     "deny": [],
     "ask": []

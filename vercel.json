@@ -42,6 +42,13 @@
       }
     },
     {
+      "src": "/debug",
+      "dest": "api/index.py",
+      "headers": {
+        "Cache-Control": "no-cache"
+      }
+    },
+    {
       "src": "/(.*)",
       "dest": "api/index.py"
     }
