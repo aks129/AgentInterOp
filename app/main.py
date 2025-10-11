@@ -411,6 +411,16 @@ async def agent_studio_ui(request: Request):
     else:
         return HTMLResponse("<h1>Agent Studio</h1><p>Templates not available in this environment</p>")
 
+@app.get("/use-cases", response_class=HTMLResponse)
+async def use_cases_ui(request: Request):
+    """GET /use-cases renders the Healthcare AI Agent Use Cases page"""
+    if templates:
+        return templates.TemplateResponse("use_cases.html", {
+            "request": request
+        })
+    else:
+        return HTMLResponse("<h1>Healthcare AI Agent Use Cases</h1><p>Templates not available in this environment</p>")
+
 @app.get("/experimental/banterop", response_class=HTMLResponse)
 async def experimental_banterop(request: Request):
     """GET /experimental/banterop renders Banterop-style scenario UI"""
