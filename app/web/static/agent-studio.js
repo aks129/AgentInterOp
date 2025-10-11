@@ -429,6 +429,12 @@ function loadConstitution() {
             <input type="text" class="form-input" id="editPurpose" value="${agent.constitution.purpose}" />
         </div>
         <div class="form-group">
+            <label class="form-label">Domain</label>
+            <select class="form-select" id="editDomain">
+                ${state.domains.map(d => `<option value="${d.id}" ${d.id === agent.constitution.domain ? 'selected' : ''}>${d.name}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
             <label class="form-label">Constraints (one per line)</label>
             <textarea class="form-textarea" id="editConstraints">${agent.constitution.constraints.join('\n')}</textarea>
         </div>
@@ -450,9 +456,17 @@ async function saveConstitution() {
         return;
     }
 
+    // Get the full agent to preserve domain
+    const agent = state.agents.find(a => a.id === agentId);
+    if (!agent) {
+        showError('Agent not found');
+        return;
+    }
+
     const updates = {
         constitution: {
             purpose: document.getElementById('editPurpose').value,
+            domain: document.getElementById('editDomain').value,  // Get from editor
             constraints: document.getElementById('editConstraints').value.split('\n').filter(l => l.trim()),
             ethics: document.getElementById('editEthics').value.split('\n').filter(l => l.trim()),
             capabilities: document.getElementById('editCapabilities').value.split('\n').filter(l => l.trim())
