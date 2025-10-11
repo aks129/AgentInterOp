@@ -392,6 +392,16 @@ async def agent_management_ui(request: Request):
     else:
         return HTMLResponse("<h1>Agent Management</h1><p>Templates not available in this environment</p>")
 
+@app.get("/studio", response_class=HTMLResponse)
+async def agent_studio_ui(request: Request):
+    """GET /studio renders the comprehensive Agent Studio UI"""
+    if templates:
+        return templates.TemplateResponse("agent_studio.html", {
+            "request": request
+        })
+    else:
+        return HTMLResponse("<h1>Agent Studio</h1><p>Templates not available in this environment</p>")
+
 @app.get("/experimental/banterop", response_class=HTMLResponse)
 async def experimental_banterop(request: Request):
     """GET /experimental/banterop renders Banterop-style scenario UI"""

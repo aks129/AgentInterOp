@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Studio - Healthcare Agent Development Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --dark: #1f2937;
+            --light: #f9fafb;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f3f4f6;
+            min-height: 100vh;
+        }
+
+        /* Navigation */
+        .top-nav {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 0;
+        }
+
+        .nav-brand h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .nav-subtitle {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .nav-btn {
+            padding: 8px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Layout */
+        .main-container {
+            display: flex;
+            max-width: 1800px;
+            margin: 0 auto;
+            min-height: calc(100vh - 70px);
+        }
+
+        .sidebar {
+            width: 260px;
+            background: white;
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+        }
+
+        .sidebar-section {
+            margin-bottom: 24px;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #6b7280;
+            padding: 0 20px;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+        }
+
+        .sidebar-item {
+            padding: 10px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #374151;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar-item:hover {
+            background: var(--light);
+            color: var(--primary);
+        }
+
+        .sidebar-item.active {
+            background: #f0f4ff;
+            color: var(--primary);
+            border-left-color: var(--primary);
+            font-weight: 600;
+        }
+
+        .sidebar-icon {
+            font-size: 18px;
+            width: 20px;
+        }
+
+        .content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        /* Content Sections */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .section-header {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 8px;
+        }
+
+        .section-description {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Grid Layouts */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        /* Stats Cards */
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .stat-change {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-top: 8px;
+        }
+
+        .stat-change.positive {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .stat-change.negative {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .form-input, .form-textarea, .form-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
+
+        .form-help {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #374151;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6b7280;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: var(--primary);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* List Items */
+        .list-item {
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .list-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary);
+        }
+
+        .list-item-content {
+            flex: 1;
+        }
+
+        .list-item-title {
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 4px;
+        }
+
+        .list-item-meta {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .list-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            gap: 4px;
+        }
+
+        .badge-primary {
+            background: #e0e7ff;
+            color: var(--primary);
+        }
+
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        /* Code Editor */
+        .code-editor {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-bottom: 16px;
+        }
+
+        .code-editor textarea {
+            background: transparent;
+            color: inherit;
+            border: none;
+            width: 100%;
+            min-height: 200px;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        /* Configuration Panel */
+        .config-panel {
+            background: #f9fafb;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .config-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .config-row:last-child {
+            border-bottom: none;
+        }
+
+        .config-label {
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .config-value {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        /* Toggle Switch */
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 24px;
+            background: #d1d5db;
+            border-radius: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .toggle.active {
+            background: var(--success);
+        }
+
+        .toggle-thumb {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .toggle.active .toggle-thumb {
+            left: 26px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        /* Alert */
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.active {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #3b82f6;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        .empty-state-text {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 24px;
+        }
+
+        /* Use Case Card */
+        .usecase-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .usecase-card:hover {
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            transform: translateY(-4px);
+        }
+
+        .usecase-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .usecase-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .usecase-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .usecase-description {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        .usecase-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 220px;
+            }
+
+            .grid-4 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .grid-3 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .spinner {
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <div>
+                    <h1>🏥 Agent Studio</h1>
+                    <div class="nav-subtitle">Healthcare Agent Development Platform</div>
+                </div>
+            </div>
+            <div class="nav-actions">
+                <button class="nav-btn" onclick="window.location.href='/'">🏠 Home</button>
+                <button class="nav-btn" onclick="window.location.href='/docs'">📚 Docs</button>
+                <button class="nav-btn" onclick="saveAll()">💾 Save All</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">Dashboard</div>
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item active" onclick="showSection('overview')">
+                        <span class="sidebar-icon">📊</span>
+                        <span>Overview</span>
+                    </li>
+                    <li class="sidebar-item" onclick="showSection('agents')">
+                        <span class="sidebar-icon">🤖</span>
+                        <span>Agents</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Configuration</div>
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item" onclick="showSection('constitution')">
+                        <span class="sidebar-icon">📜</span>
+                        <span>Constitutions</span>
+                    </li>
+                    <li class="sidebar-item" onclick="showSection('a2a')">
+                        <span class="sidebar-icon">🔄</span>
+                        <span>A2A Protocol</span>
+                    </li>
+                    <li class="sidebar-item" onclick="showSection('adk')">
+                        <span class="sidebar-icon">⚙️</span>
+                        <span>ADK Framework</span>
+                    </li>
+                    <li class="sidebar-item" onclick="showSection('fhir')">
+                        <span class="sidebar-icon">🏥</span>
+                        <span>FHIR MCP</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Data & Logic</div>
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item" onclick="showSection('cql')">
+                        <span class="sidebar-icon">📝</span>
+                        <span>CQL/SQL Framework</span>
+                    </li>
+                    <li class="sidebar-item" onclick="showSection('usecases')">
+                        <span class="sidebar-icon">💼</span>
+                        <span>Use Cases</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Applications</div>
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item" onclick="showSection('catalog')">
+                        <span class="sidebar-icon">📦</span>
+                        <span>App Catalog</span>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <div id="alertContainer"></div>
+
+            <!-- Overview Section -->
+            <section id="overview" class="section active">
+                <div class="section-header">
+                    <h2 class="section-title">Dashboard Overview</h2>
+                    <p class="section-description">Comprehensive view of your healthcare agent ecosystem</p>
+                </div>
+
+                <!-- Stats -->
+                <div class="grid-4" style="margin-bottom: 24px;">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div>
+                                <div class="stat-value" id="totalAgents">0</div>
+                                <div class="stat-label">Total Agents</div>
+                                <div class="stat-change positive">↑ 12% this week</div>
+                            </div>
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                                🤖
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div>
+                                <div class="stat-value" id="activeAgents">0</div>
+                                <div class="stat-label">Active Agents</div>
+                                <div class="stat-change positive">↑ 8% today</div>
+                            </div>
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                                ✓
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div>
+                                <div class="stat-value" id="useCases">0</div>
+                                <div class="stat-label">Use Cases</div>
+                                <div class="stat-change positive">↑ 5 new</div>
+                            </div>
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                                💼
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div>
+                                <div class="stat-value" id="applications">0</div>
+                                <div class="stat-label">Applications</div>
+                                <div class="stat-change positive">↑ 3 added</div>
+                            </div>
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                                📦
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Quick Actions</h3>
+                    </div>
+                    <div class="grid-3">
+                        <button class="btn btn-primary" onclick="openAgentModal()">
+                            ➕ Create New Agent
+                        </button>
+                        <button class="btn btn-primary" onclick="showSection('usecases')">
+                            💼 Browse Use Cases
+                        </button>
+                        <button class="btn btn-primary" onclick="showSection('catalog')">
+                            📦 Explore Catalog
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Agents -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Recent Agents</h3>
+                        <button class="btn btn-small btn-outline" onclick="showSection('agents')">View All</button>
+                    </div>
+                    <div id="recentAgents" class="loading">Loading agents...</div>
+                </div>
+            </section>
+
+            <!-- Agents Section -->
+            <section id="agents" class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Agent Management</h2>
+                    <p class="section-description">Create, configure, and manage your healthcare agents</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">All Agents</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" onclick="openAgentModal()">➕ Create Agent</button>
+                            <button class="btn btn-secondary" onclick="createSampleAgent()">🧪 Sample Agent</button>
+                        </div>
+                    </div>
+                    <div id="agentsList" class="loading">Loading agents...</div>
+                </div>
+            </section>
+
+            <!-- Constitution Explorer Section -->
+            <section id="constitution" class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Constitution Explorer</h2>
+                    <p class="section-description">Define agent purpose, constraints, ethics, and capabilities</p>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Select Agent</h3>
+                        </div>
+                        <div class="form-group">
+                            <select class="form-select" id="constitutionAgentSelect" onchange="loadConstitution()">
+                                <option value="">Select an agent...</option>
+                            </select>
+                        </div>
+                        <div id="constitutionView"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Constitution Editor</h3>
+                            <button class="btn btn-primary btn-small" onclick="saveConstitution()">💾 Save</button>
+                        </div>
+                        <div id="constitutionEditor"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- A2A Configuration Section -->
+            <section id="a2a" class="section">
+                <div class="section-header">
+                    <h2 class="section-title">A2A Protocol Configuration</h2>
+                    <p class="section-description">Configure Agent-to-Agent communication protocol settings</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Protocol Settings</h3>
+                        <button class="btn btn-primary btn-small" onclick="saveA2AConfig()">💾 Save</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Protocol Version</label>
+                        <input type="text" class="form-input" id="a2aVersion" value="0.2.9" />
+                        <div class="form-help">Current A2A protocol version</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Preferred Transport</label>
+                        <select class="form-select" id="a2aTransport">
+                            <option value="JSONRPC">JSON-RPC</option>
+                            <option value="HTTP">HTTP</option>
+                            <option value="WEBSOCKET">WebSocket</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Base URL</label>
+                        <input type="text" class="form-input" id="a2aBaseUrl" placeholder="https://your-agent.example.com" />
+                    </div>
+
+                    <div class="config-panel">
+                        <h4 style="margin-bottom: 16px;">Capabilities</h4>
+                        <div class="config-row">
+                            <span class="config-label">Streaming Support</span>
+                            <div class="toggle active" onclick="toggleSwitch(this)">
+                                <div class="toggle-thumb"></div>
+                            </div>
+                        </div>
+                        <div class="config-row">
+                            <span class="config-label">Multi-Protocol Support</span>
+                            <div class="toggle active" onclick="toggleSwitch(this)">
+                                <div class="toggle-thumb"></div>
+                            </div>
+                        </div>
+                        <div class="config-row">
+                            <span class="config-label">FHIR Integration</span>
+                            <div class="toggle active" onclick="toggleSwitch(this)">
+                                <div class="toggle-thumb"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Agent Discovery Endpoint</label>
+                        <div class="code-editor">
+                            <code>GET /.well-known/agent-card.json</code>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ADK Framework Section -->
+            <section id="adk" class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Agent Development Kit Framework</h2>
+                    <p class="section-description">Google ADK configuration for spec-kit driven development</p>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Framework Settings</h3>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Development Mode</label>
+                            <select class="form-select" id="adkMode">
+                                <option value="constitution">Constitution-Based</option>
+                                <option value="spec-kit">Spec-Kit Driven</option>
+                                <option value="hybrid">Hybrid</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Default Agent Type</label>
+                            <select class="form-select" id="adkAgentType">
+                                <option value="healthcare">Healthcare Agent</option>
+                                <option value="workflow">Workflow Agent</option>
+                                <option value="data">Data Agent</option>
+                                <option value="decision">Decision Agent</option>
+                            </select>
+                        </div>
+
+                        <div class="config-panel">
+                            <h4 style="margin-bottom: 16px;">Features</h4>
+                            <div class="config-row">
+                                <span class="config-label">Auto-validation</span>
+                                <div class="toggle active" onclick="toggleSwitch(this)">
+                                    <div class="toggle-thumb"></div>
+                                </div>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Constitution Templates</span>
+                                <div class="toggle active" onclick="toggleSwitch(this)">
+                                    <div class="toggle-thumb"></div>
+                                </div>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Plan Generation</span>
+                                <div class="toggle active" onclick="toggleSwitch(this)">
+                                    <div class="toggle-thumb"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Task Templates</h3>
+                        </div>
+                        <div id="taskTemplates"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CQL/SQL Framework Section -->
+            <section id="cql" class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Clinical Quality Language (CQL) & SQL Framework</h2>
+                    <p class="section-description">Define logical data use cases with CQL and SQL queries</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Query Editor</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary btn-small" onclick="loadCQLExample()">📝 Load Example</button>
+                            <button class="btn btn-primary btn-small" onclick="validateCQL()">✓ Validate</button>
+                            <button class="btn btn-success btn-small" onclick="executeCQL()">▶ Execute</button>
+                        </div>
+                    </div>
+
+                    <div class="tabs">
+                        <div class="tab active" onclick="switchQueryType('cql')">CQL Query</div>
+                        <div class="tab" onclick="switchQueryType('sql')">SQL Query</div>
+                        <div class="tab" onclick="switchQueryType('results')">Results</div>
+                    </div>
+
+                    <div id="cqlTab" class="tab-content active">
+                        <div class="form-group">
+                            <label class="form-label">CQL Expression</label>
+                            <div class="code-editor">
+                                <textarea id="cqlEditor" placeholder="library BCSEligibility version '1.0.0'
+
+using FHIR version '4.0.1'
+
+context Patient
+
+define &quot;Patient Age&quot;:
+  AgeInYears()
+
+define &quot;Is Eligible Age&quot;:
+  &quot;Patient Age&quot; >= 50 and &quot;Patient Age&quot; <= 74
+
+define &quot;Is Female&quot;:
+  Patient.gender = 'female'
+
+define &quot;Eligible for Screening&quot;:
+  &quot;Is Eligible Age&quot; and &quot;Is Female&quot;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="sqlTab" class="tab-content">
+                        <div class="form-group">
+                            <label class="form-label">SQL Query</label>
+                            <div class="code-editor">
+                                <textarea id="sqlEditor" placeholder="SELECT
+    p.id,
+    p.birthdate,
+    p.gender,
+    DATEDIFF(year, p.birthdate, GETDATE()) as age,
+    CASE
+        WHEN p.gender = 'female'
+        AND DATEDIFF(year, p.birthdate, GETDATE()) BETWEEN 50 AND 74
+        THEN 'Eligible'
+        ELSE 'Not Eligible'
+    END as eligibility_status
+FROM patients p
+WHERE p.active = 1"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="resultsTab" class="tab-content">
+                        <div id="queryResults" class="empty-state">
+                            <div class="empty-state-icon">📊</div>
+                            <div class="empty-state-text">No results yet. Execute a query to see results.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Saved Queries</h3>
+                        <button class="btn btn-primary btn-small" onclick="saveCurrentQuery()">💾 Save Current</button>
+                    </div>
+                    <div id="savedQueries"></div>
+                </div>
+            </section>
+
+            <!-- FHIR MCP Section -->
+            <section id="fhir" class="section">
+                <div class="section-header">
+                    <h2 class="section-title">FHIR MCP Configuration</h2>
+                    <p class="section-description">Configure FHIR server connections and Model Context Protocol settings</p>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">FHIR Server Configuration</h3>
+                            <button class="btn btn-primary btn-small" onclick="testFHIRConnection()">🔌 Test Connection</button>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">FHIR Base URL</label>
+                            <input type="text" class="form-input" id="fhirBaseUrl" placeholder="https://fhir.example.com/r4" />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">FHIR Version</label>
+                            <select class="form-select" id="fhirVersion">
+                                <option value="4.0.1">R4 (4.0.1)</option>
+                                <option value="4.3.0">R4B (4.3.0)</option>
+                                <option value="5.0.0">R5 (5.0.0)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Authentication Type</label>
+                            <select class="form-select" id="fhirAuthType">
+                                <option value="none">None</option>
+                                <option value="bearer">Bearer Token</option>
+                                <option value="oauth2">OAuth 2.0</option>
+                                <option value="smart">SMART on FHIR</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Bearer Token (if applicable)</label>
+                            <input type="password" class="form-input" id="fhirToken" placeholder="Enter bearer token..." />
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">MCP Settings</h3>
+                        </div>
+
+                        <div class="config-panel">
+                            <h4 style="margin-bottom: 16px;">MCP Features</h4>
+                            <div class="config-row">
+                                <span class="config-label">Enable FHIR MCP</span>
+                                <div class="toggle active" onclick="toggleSwitch(this)">
+                                    <div class="toggle-thumb"></div>
+                                </div>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Free Text Context</span>
+                                <div class="toggle active" onclick="toggleSwitch(this)">
+                                    <div class="toggle-thumb"></div>
+                                </div>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Local Bundle Access</span>
+                                <div class="toggle active" onclick="toggleSwitch(this)">
+                                    <div class="toggle-thumb"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">MCP Endpoint</label>
+                            <input type="text" class="form-input" id="mcpEndpoint" value="/api/mcp" readonly />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Supported Resources</label>
+                            <div id="fhirResources" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                                <span class="badge badge-info">Patient</span>
+                                <span class="badge badge-info">Observation</span>
+                                <span class="badge badge-info">Procedure</span>
+                                <span class="badge badge-info">Condition</span>
+                                <span class="badge badge-info">MedicationRequest</span>
+                                <span class="badge badge-info">DocumentReference</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Test FHIR Query</h3>
+                        <button class="btn btn-primary btn-small" onclick="executeFHIRQuery()">▶ Execute</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Resource Type</label>
+                        <select class="form-select" id="fhirResourceType">
+                            <option value="Patient">Patient</option>
+                            <option value="Observation">Observation</option>
+                            <option value="Procedure">Procedure</option>
+                            <option value="Condition">Condition</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Search Parameters</label>
+                        <input type="text" class="form-input" id="fhirSearchParams" placeholder="e.g., _id=123 or birthdate=gt1970-01-01" />
+                    </div>
+
+                    <div id="fhirQueryResults"></div>
+                </div>
+            </section>
+
+            <!-- Use Cases Section -->
+            <section id="usecases" class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Functional Use Cases Library</h2>
+                    <p class="section-description">Browse and implement healthcare functional use cases</p>
+                </div>
+
+                <div class="card" style="margin-bottom: 24px;">
+                    <div class="card-header">
+                        <h3 class="card-title">Filter Use Cases</h3>
+                    </div>
+                    <div class="grid-3">
+                        <div class="form-group">
+                            <label class="form-label">Category</label>
+                            <select class="form-select" id="useCaseCategory" onchange="filterUseCases()">
+                                <option value="">All Categories</option>
+                                <option value="screening">Screening</option>
+                                <option value="diagnosis">Diagnosis</option>
+                                <option value="treatment">Treatment</option>
+                                <option value="monitoring">Monitoring</option>
+                                <option value="administrative">Administrative</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Complexity</label>
+                            <select class="form-select" id="useCaseComplexity" onchange="filterUseCases()">
+                                <option value="">All Levels</option>
+                                <option value="basic">Basic</option>
+                                <option value="intermediate">Intermediate</option>
+                                <option value="advanced">Advanced</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="useCaseStatus" onchange="filterUseCases()">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="draft">Draft</option>
+                                <option value="deprecated">Deprecated</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="useCasesList" class="grid-3"></div>
+            </section>
+
+            <!-- Application Catalog Section -->
+            <section id="catalog" class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Application Catalog</h2>
+                    <p class="section-description">Manage healthcare applications and integrations</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Catalog Management</h3>
+                        <button class="btn btn-primary" onclick="addApplication()">➕ Add Application</button>
+                    </div>
+                    <div id="applicationsList"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Agent Creation Modal -->
+    <div class="modal" id="agentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Create New Agent</h2>
+                <button class="close-modal" onclick="closeAgentModal()">&times;</button>
+            </div>
+
+            <form id="agentForm" onsubmit="saveAgent(event)">
+                <div class="form-group">
+                    <label class="form-label">Agent Name</label>
+                    <input type="text" class="form-input" id="agentName" required placeholder="e.g., BCS-E Eligibility Agent" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea" id="agentDescription" required placeholder="Describe what this agent does..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Purpose</label>
+                    <input type="text" class="form-input" id="agentPurpose" required placeholder="Primary purpose of this agent" />
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Healthcare Domain</label>
+                        <select class="form-select" id="agentDomain" required>
+                            <option value="">Select Domain</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Agent Role</label>
+                        <select class="form-select" id="agentRole" required>
+                            <option value="applicant">Applicant (Initiates)</option>
+                            <option value="administrator">Administrator (Processes)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeAgentModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Agent</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/agent-studio.js"></script>
+</body>
+</html>
