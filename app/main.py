@@ -156,6 +156,10 @@ app.include_router(inspector_router)
 from app.banterop_ui.router import router as banterop_router
 app.include_router(banterop_router)
 
+# Include Agent Management API
+from app.api.agents import router as agents_router
+app.include_router(agents_router)
+
 # In-memory artifact storage for demo
 demo_artifacts = {
     "demo-task": {
@@ -377,6 +381,16 @@ async def legacy_ui(request: Request):
         })
     else:
         return HTMLResponse("<h1>Multi-Agent Demo</h1><p>Templates not available in this environment</p>")
+
+@app.get("/agents", response_class=HTMLResponse)
+async def agent_management_ui(request: Request):
+    """GET /agents renders the Agent Management UI"""
+    if templates:
+        return templates.TemplateResponse("agent_management.html", {
+            "request": request
+        })
+    else:
+        return HTMLResponse("<h1>Agent Management</h1><p>Templates not available in this environment</p>")
 
 @app.get("/experimental/banterop", response_class=HTMLResponse)
 async def experimental_banterop(request: Request):

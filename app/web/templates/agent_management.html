@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthcare Agent Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .header-subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-secondary {
+            background: #e0e7ff;
+            color: #667eea;
+        }
+
+        .btn-danger {
+            background: #fee;
+            color: #c00;
+        }
+
+        .btn-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .tab {
+            padding: 16px 24px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab:hover {
+            color: #667eea;
+            background: #f3f4f6;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: white;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+        }
+
+        select, input {
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .agent-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .agent-card:hover {
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            transform: translateY(-4px);
+        }
+
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .agent-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .agent-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-inactive {
+            background: #fee;
+            color: #c00;
+        }
+
+        .status-archived {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .agent-description {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .agent-meta {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .meta-icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        .agent-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 13px;
+            flex: 1;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 90%;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #e0e7ff;
+            color: #667eea;
+            margin-right: 4px;
+            margin-bottom: 4px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 24px;
+        }
+
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.active {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c00;
+        }
+
+        .constitution-section, .plan-section {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+
+        .list-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🏥 Healthcare Agent Management</h1>
+                <div class="header-subtitle">A2A-Compliant Agent Development with Google ADK Framework</div>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateModal()">+ Create New Agent</button>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('agents')">All Agents</div>
+            <div class="tab" onclick="switchTab('templates')">Templates</div>
+            <div class="tab" onclick="switchTab('domains')">Domains</div>
+        </div>
+
+        <!-- All Agents Tab -->
+        <div class="tab-content active" id="agents-tab">
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Status</label>
+                    <select id="filterStatus" onchange="filterAgents()">
+                        <option value="">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="archived">Archived</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Domain</label>
+                    <select id="filterDomain" onchange="filterAgents()">
+                        <option value="">All Domains</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Role</label>
+                    <select id="filterRole" onchange="filterAgents()">
+                        <option value="">All Roles</option>
+                        <option value="applicant">Applicant</option>
+                        <option value="administrator">Administrator</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <div id="agentsContainer" class="loading">
+                Loading agents...
+            </div>
+        </div>
+
+        <!-- Templates Tab -->
+        <div class="tab-content" id="templates-tab">
+            <div id="templatesContainer" class="loading">
+                Loading templates...
+            </div>
+        </div>
+
+        <!-- Domains Tab -->
+        <div class="tab-content" id="domains-tab">
+            <div id="domainsContainer" class="loading">
+                Loading domains...
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Agent Modal -->
+    <div class="modal" id="agentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Create New Agent</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+
+            <form id="agentForm" onsubmit="saveAgent(event)">
+                <div class="form-group">
+                    <label>Agent Name *</label>
+                    <input type="text" id="agentName" required placeholder="e.g., BCS-E Eligibility Agent">
+                </div>
+
+                <div class="form-group">
+                    <label>Description *</label>
+                    <textarea id="agentDescription" required placeholder="Describe what this agent does..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Purpose *</label>
+                    <input type="text" id="agentPurpose" required placeholder="e.g., Automate breast cancer screening eligibility">
+                </div>
+
+                <div class="form-group">
+                    <label>Healthcare Domain *</label>
+                    <select id="agentDomain" required>
+                        <option value="">Select Domain</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Agent Role *</label>
+                    <select id="agentRole" required>
+                        <option value="applicant">Applicant (Initiates requests)</option>
+                        <option value="administrator">Administrator (Processes requests)</option>
+                    </select>
+                </div>
+
+                <div class="constitution-section">
+                    <h3>Constitution (ADK Framework)</h3>
+
+                    <div class="form-group">
+                        <label>Constraints (one per line)</label>
+                        <textarea id="constitutionConstraints" placeholder="e.g., Age range: 50-74 years&#10;Must verify recent history"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ethical Guidelines (one per line)</label>
+                        <textarea id="constitutionEthics" placeholder="e.g., Prioritize patient safety&#10;Ensure equitable access"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Capabilities (one per line)</label>
+                        <textarea id="constitutionCapabilities" placeholder="e.g., FHIR R4 processing&#10;Age calculation"></textarea>
+                    </div>
+                </div>
+
+                <div class="plan-section">
+                    <h3>Operational Plan</h3>
+
+                    <div class="form-group">
+                        <label>Goals (one per line)</label>
+                        <textarea id="planGoals" placeholder="e.g., Accurately determine eligibility&#10;Generate compliant artifacts"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Success Criteria (one per line)</label>
+                        <textarea id="planCriteria" placeholder="e.g., Decision accuracy >= 95%&#10;Response time < 2 seconds"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Agent</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let agents = [];
+        let domains = [];
+        let templates = [];
+        let currentAgentId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAgents();
+            loadDomains();
+            loadTemplates();
+        });
+
+        // API calls
+        async function loadAgents() {
+            try {
+                const response = await fetch('/api/agents/');
+                const data = await response.json();
+                agents = data.agents;
+                renderAgents();
+            } catch (error) {
+                showError('Failed to load agents: ' + error.message);
+            }
+        }
+
+        async function loadDomains() {
+            try {
+                const response = await fetch('/api/agents/domains/list');
+                const data = await response.json();
+                domains = data.domains;
+                populateDomainSelects();
+                renderDomains();
+            } catch (error) {
+                console.error('Failed to load domains:', error);
+            }
+        }
+
+        async function loadTemplates() {
+            try {
+                const response = await fetch('/api/agents/templates/list');
+                const data = await response.json();
+                templates = data.templates;
+                renderTemplates();
+            } catch (error) {
+                console.error('Failed to load templates:', error);
+            }
+        }
+
+        async function createSampleAgent() {
+            try {
+                const response = await fetch('/api/agents/samples/bcse', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                showSuccess('BCS-E sample agent created successfully!');
+                loadAgents();
+            } catch (error) {
+                showError('Failed to create sample agent: ' + error.message);
+            }
+        }
+
+        async function deleteAgent(agentId) {
+            if (!confirm('Are you sure you want to archive this agent?')) return;
+
+            try {
+                const response = await fetch(`/api/agents/${agentId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                showSuccess('Agent archived successfully');
+                loadAgents();
+            } catch (error) {
+                showError('Failed to archive agent: ' + error.message);
+            }
+        }
+
+        async function toggleAgentStatus(agentId, currentStatus) {
+            const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+            const endpoint = newStatus === 'active' ? 'activate' : 'deactivate';
+
+            try {
+                const response = await fetch(`/api/agents/${agentId}/${endpoint}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                showSuccess(`Agent ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
+                loadAgents();
+            } catch (error) {
+                showError(`Failed to ${endpoint} agent: ` + error.message);
+            }
+        }
+
+        async function saveAgent(event) {
+            event.preventDefault();
+
+            const formData = {
+                name: document.getElementById('agentName').value,
+                description: document.getElementById('agentDescription').value,
+                purpose: document.getElementById('agentPurpose').value,
+                domain: document.getElementById('agentDomain').value,
+                role: document.getElementById('agentRole').value,
+                constitution: {
+                    purpose: document.getElementById('agentPurpose').value,
+                    domain: document.getElementById('agentDomain').value,
+                    constraints: textareaToArray('constitutionConstraints'),
+                    ethics: textareaToArray('constitutionEthics'),
+                    capabilities: textareaToArray('constitutionCapabilities')
+                },
+                plan: {
+                    goals: textareaToArray('planGoals'),
+                    tasks: [],
+                    workflows: [],
+                    success_criteria: textareaToArray('planCriteria')
+                },
+                agent_card: {
+                    name: document.getElementById('agentName').value,
+                    description: document.getElementById('agentDescription').value,
+                    role: document.getElementById('agentRole').value,
+                    capabilities: {
+                        streaming: true,
+                        protocols: ["A2A", "MCP"],
+                        fhir: true
+                    },
+                    skills: [],
+                    methods: [],
+                    supported_formats: ["application/fhir+json", "application/json"]
+                }
+            };
+
+            try {
+                const response = await fetch('/api/agents/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+
+                const data = await response.json();
+                showSuccess('Agent created successfully!');
+                closeModal();
+                loadAgents();
+            } catch (error) {
+                showError('Failed to create agent: ' + error.message);
+            }
+        }
+
+        // UI functions
+        function renderAgents() {
+            const container = document.getElementById('agentsContainer');
+
+            if (agents.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🤖</div>
+                        <div class="empty-state-text">No agents found. Create your first healthcare agent!</div>
+                        <button class="btn btn-primary" onclick="createSampleAgent()">Create BCS-E Sample Agent</button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '<div class="agent-grid">' +
+                agents.map(agent => `
+                    <div class="agent-card">
+                        <div class="agent-header">
+                            <div class="agent-name">${agent.name}</div>
+                            <div class="agent-status status-${agent.status}">${agent.status}</div>
+                        </div>
+                        <div class="agent-description">${agent.description}</div>
+                        <div class="agent-meta">
+                            <div class="meta-item">
+                                <span>🏥</span>
+                                <span>${formatDomain(agent.domain)}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span>👤</span>
+                                <span>${agent.role}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span>📋</span>
+                                <span>v${agent.version}</span>
+                            </div>
+                        </div>
+                        <div>
+                            ${agent.constitution.capabilities.map(c => `<span class="badge">${c}</span>`).join('')}
+                        </div>
+                        <div class="agent-actions">
+                            <button class="btn btn-small btn-secondary" onclick="viewAgent('${agent.id}')">View</button>
+                            <button class="btn btn-small ${agent.status === 'active' ? 'btn-danger' : 'btn-success'}"
+                                onclick="toggleAgentStatus('${agent.id}', '${agent.status}')">
+                                ${agent.status === 'active' ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="deleteAgent('${agent.id}')">Archive</button>
+                        </div>
+                    </div>
+                `).join('') +
+            '</div>';
+        }
+
+        function renderDomains() {
+            const container = document.getElementById('domainsContainer');
+            container.innerHTML = '<div class="agent-grid">' +
+                domains.map(domain => `
+                    <div class="agent-card">
+                        <div class="agent-name">${domain.name}</div>
+                        <div class="agent-description">${domain.description}</div>
+                        <div class="agent-meta">
+                            <div class="meta-item">
+                                <span>🔖</span>
+                                <span>${domain.id}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') +
+            '</div>';
+        }
+
+        function renderTemplates() {
+            const container = document.getElementById('templatesContainer');
+            container.innerHTML = '<div class="agent-grid">' +
+                templates.map(template => `
+                    <div class="agent-card">
+                        <div class="agent-name">${template.name}</div>
+                        <div class="agent-description">${template.description}</div>
+                        <div class="agent-meta">
+                            <div class="meta-item">
+                                <span>🏥</span>
+                                <span>${formatDomain(template.domain)}</span>
+                            </div>
+                        </div>
+                        <div class="agent-actions">
+                            <button class="btn btn-small btn-primary" onclick="useTemplate('${template.id}')">Use Template</button>
+                        </div>
+                    </div>
+                `).join('') +
+            '</div>';
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+
+        function filterAgents() {
+            const status = document.getElementById('filterStatus').value;
+            const domain = document.getElementById('filterDomain').value;
+            const role = document.getElementById('filterRole').value;
+
+            let filtered = agents;
+            if (status) filtered = filtered.filter(a => a.status === status);
+            if (domain) filtered = filtered.filter(a => a.domain === domain);
+            if (role) filtered = filtered.filter(a => a.role === role);
+
+            const temp = agents;
+            agents = filtered;
+            renderAgents();
+            agents = temp;
+        }
+
+        function openCreateModal() {
+            document.getElementById('modalTitle').textContent = 'Create New Agent';
+            document.getElementById('agentForm').reset();
+            currentAgentId = null;
+            document.getElementById('agentModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('agentModal').classList.remove('active');
+        }
+
+        function viewAgent(agentId) {
+            const agent = agents.find(a => a.id === agentId);
+            if (!agent) return;
+
+            alert(JSON.stringify(agent, null, 2));
+        }
+
+        function useTemplate(templateId) {
+            if (templateId === 'bcse_template') {
+                createSampleAgent();
+            } else {
+                alert('Template support coming soon!');
+            }
+        }
+
+        function populateDomainSelects() {
+            const domainSelects = [
+                document.getElementById('filterDomain'),
+                document.getElementById('agentDomain')
+            ];
+
+            domainSelects.forEach(select => {
+                if (select.id === 'filterDomain') {
+                    // Keep "All Domains" option
+                } else {
+                    select.innerHTML = '<option value="">Select Domain</option>';
+                }
+
+                domains.forEach(domain => {
+                    const option = document.createElement('option');
+                    option.value = domain.id;
+                    option.textContent = domain.name;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        function formatDomain(domainId) {
+            const domain = domains.find(d => d.id === domainId);
+            return domain ? domain.name : domainId;
+        }
+
+        function textareaToArray(elementId) {
+            const value = document.getElementById(elementId).value;
+            return value.split('\n').filter(line => line.trim()).map(line => line.trim());
+        }
+
+        function showSuccess(message) {
+            showAlert(message, 'success');
+        }
+
+        function showError(message) {
+            showAlert(message, 'error');
+        }
+
+        function showAlert(message, type) {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} active`;
+            alert.textContent = message;
+            container.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
