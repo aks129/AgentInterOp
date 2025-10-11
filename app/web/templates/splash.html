@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentInterOp - Healthcare Agent Interoperability Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #10b981;
+            --info: #3b82f6;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .hero {
+            text-align: center;
+            color: white;
+            padding: 60px 20px;
+        }
+
+        .hero h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero-subtitle {
+            font-size: 20px;
+            opacity: 0.95;
+            margin-bottom: 12px;
+        }
+
+        .hero-description {
+            font-size: 16px;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto 32px;
+            line-height: 1.6;
+        }
+
+        .version-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 12px;
+        }
+
+        .card-description {
+            font-size: 15px;
+            color: #6b7280;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .card-features {
+            list-style: none;
+            margin-bottom: 24px;
+        }
+
+        .card-features li {
+            padding: 8px 0;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .card-features li::before {
+            content: "✓ ";
+            color: var(--success);
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .section {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .section-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-icon {
+            font-size: 32px;
+        }
+
+        .link-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 16px;
+        }
+
+        .link-card {
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            text-decoration: none;
+            color: #374151;
+            transition: all 0.3s;
+            display: block;
+        }
+
+        .link-card:hover {
+            border-color: var(--primary);
+            background: #f9fafb;
+            transform: translateX(4px);
+        }
+
+        .link-card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 6px;
+        }
+
+        .link-card-description {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            padding: 32px 20px;
+            opacity: 0.9;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .footer-link {
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            transition: opacity 0.3s;
+        }
+
+        .footer-link:hover {
+            opacity: 0.8;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge-new {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-beta {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 32px;
+            }
+
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .link-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Hero Section -->
+        <div class="hero">
+            <h1>🏥 AgentInterOp</h1>
+            <div class="hero-subtitle">Healthcare Agent Interoperability Platform</div>
+            <p class="hero-description">
+                A comprehensive platform for developing, configuring, and managing healthcare agents
+                with A2A protocol compliance, Google ADK framework integration, and FHIR R4 support.
+            </p>
+            <div class="version-badge">v2.0.0 - Banterop V2 + Agent Studio</div>
+        </div>
+
+        <!-- Main Application Cards -->
+        <div class="main-grid">
+            <!-- Agent Studio -->
+            <div class="card">
+                <div class="card-icon">🎨</div>
+                <div class="card-title">Agent Studio <span class="badge badge-new">NEW</span></div>
+                <div class="card-description">
+                    Comprehensive front-end platform for developing healthcare agents with full configuration capabilities.
+                </div>
+                <ul class="card-features">
+                    <li>Agent creation & customization</li>
+                    <li>Constitution editor</li>
+                    <li>A2A & ADK configuration</li>
+                    <li>CQL/SQL query framework</li>
+                    <li>FHIR MCP integration</li>
+                    <li>6 pre-built use cases</li>
+                </ul>
+                <div class="btn-group">
+                    <a href="/studio" class="btn btn-primary">Launch Studio</a>
+                    <a href="/docs/AGENT_STUDIO.md" class="btn btn-secondary">Documentation</a>
+                </div>
+            </div>
+
+            <!-- Agent Management -->
+            <div class="card">
+                <div class="card-icon">🤖</div>
+                <div class="card-title">Agent Management</div>
+                <div class="card-description">
+                    Manage your healthcare agents with A2A-compliant agent cards and Google ADK framework.
+                </div>
+                <ul class="card-features">
+                    <li>CRUD operations</li>
+                    <li>A2A agent cards</li>
+                    <li>Template library</li>
+                    <li>BCS-E sample agent</li>
+                    <li>Domain filtering</li>
+                </ul>
+                <div class="btn-group">
+                    <a href="/agents" class="btn btn-primary">Manage Agents</a>
+                    <a href="/docs/AGENT_MANAGEMENT.md" class="btn btn-secondary">Guide</a>
+                </div>
+            </div>
+
+            <!-- Banterop UI -->
+            <div class="card">
+                <div class="card-icon">💬</div>
+                <div class="card-title">Banterop V2 UI <span class="badge badge-beta">BETA</span></div>
+                <div class="card-description">
+                    Interactive scenario-based UI for testing agent-to-agent communication workflows.
+                </div>
+                <ul class="card-features">
+                    <li>Scenario selection</li>
+                    <li>Real-time messaging</li>
+                    <li>Protocol visualization</li>
+                    <li>Artifact display</li>
+                </ul>
+                <div class="btn-group">
+                    <a href="/experimental/banterop" class="btn btn-primary">Launch Banterop</a>
+                    <a href="/" class="btn btn-secondary">Default View</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- API & Documentation Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">📚</span>
+                Documentation & APIs
+            </h2>
+            <div class="link-grid">
+                <a href="/docs" class="link-card">
+                    <div class="link-card-title">📖 API Documentation</div>
+                    <div class="link-card-description">Interactive API docs with Swagger UI</div>
+                </a>
+                <a href="/redoc" class="link-card">
+                    <div class="link-card-title">📘 ReDoc</div>
+                    <div class="link-card-description">Alternative API documentation</div>
+                </a>
+                <a href="/.well-known/agent-card.json" class="link-card">
+                    <div class="link-card-title">🔍 Agent Card</div>
+                    <div class="link-card-description">A2A agent discovery card</div>
+                </a>
+                <a href="/healthz" class="link-card">
+                    <div class="link-card-title">💚 Health Check</div>
+                    <div class="link-card-description">System health endpoint</div>
+                </a>
+                <a href="/version" class="link-card">
+                    <div class="link-card-title">📌 Version Info</div>
+                    <div class="link-card-description">Current version details</div>
+                </a>
+                <a href="/api/selftest" class="link-card">
+                    <div class="link-card-title">🧪 Self Test</div>
+                    <div class="link-card-description">System self-test endpoint</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Protocol Endpoints Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">🔄</span>
+                Protocol Endpoints
+            </h2>
+            <div class="link-grid">
+                <a href="/api/bridge/demo/a2a" class="link-card">
+                    <div class="link-card-title">🔄 A2A Bridge</div>
+                    <div class="link-card-description">JSON-RPC 2.0 A2A endpoint</div>
+                </a>
+                <a href="/api/mcp/bcse/" class="link-card">
+                    <div class="link-card-title">🔌 MCP Endpoint</div>
+                    <div class="link-card-description">Model Context Protocol for BCS-E</div>
+                </a>
+                <a href="/api/agents/" class="link-card">
+                    <div class="link-card-title">🤖 Agent API</div>
+                    <div class="link-card-description">RESTful agent management API</div>
+                </a>
+                <a href="/api/agents/domains/list" class="link-card">
+                    <div class="link-card-title">🏥 Healthcare Domains</div>
+                    <div class="link-card-description">Available healthcare domains</div>
+                </a>
+                <a href="/api/agents/templates/list" class="link-card">
+                    <div class="link-card-title">📋 Agent Templates</div>
+                    <div class="link-card-description">Pre-built agent templates</div>
+                </a>
+                <a href="/api/agents/samples/bcse" class="link-card">
+                    <div class="link-card-title">🩺 BCS-E Sample</div>
+                    <div class="link-card-description">Create breast cancer screening agent</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Scenarios Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">💼</span>
+                Healthcare Scenarios
+            </h2>
+            <div class="link-grid">
+                <div class="link-card">
+                    <div class="link-card-title">🩺 Breast Cancer Screening</div>
+                    <div class="link-card-description">BCS-E eligibility determination (USPSTF)</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-card-title">🔬 Clinical Trial Matching</div>
+                    <div class="link-card-description">Match patients to clinical trials</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-card-title">📋 Prior Authorization</div>
+                    <div class="link-card-description">Automated prior auth processing</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-card-title">🏥 Specialist Referral</div>
+                    <div class="link-card-description">Route to appropriate specialists</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-card-title">💊 Chronic Care Monitoring</div>
+                    <div class="link-card-description">Monitor vitals and alert for chronic conditions</div>
+                </div>
+                <div class="link-card">
+                    <div class="link-card-title">💉 Medication Reconciliation</div>
+                    <div class="link-card-description">Reconcile medications across transitions</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tools & Utilities Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">🛠️</span>
+                Developer Tools
+            </h2>
+            <div class="link-grid">
+                <a href="/legacy" class="link-card">
+                    <div class="link-card-title">🔙 Legacy UI</div>
+                    <div class="link-card-description">Original interface (for reference)</div>
+                </a>
+                <a href="/debug" class="link-card">
+                    <div class="link-card-title">🐛 Debug Console</div>
+                    <div class="link-card-description">Configuration troubleshooting</div>
+                </a>
+                <a href="/api/trace/demo/download" class="link-card">
+                    <div class="link-card-title">📊 Trace Download</div>
+                    <div class="link-card-description">Download conversation traces</div>
+                </a>
+                <a href="https://github.com/aks129/AgentInterOp" class="link-card" target="_blank">
+                    <div class="link-card-title">💻 GitHub Repository</div>
+                    <div class="link-card-description">Source code and contributions</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Features Grid -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">✨</span>
+                Platform Features
+            </h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+                <div style="padding: 20px; background: #f9fafb; border-radius: 12px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 12px; color: #111827;">🔄 Dual Protocol Support</h3>
+                    <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                        Full support for both A2A (JSON-RPC 2.0) and MCP (Model Context Protocol) with seamless switching.
+                    </p>
+                </div>
+                <div style="padding: 20px; background: #f9fafb; border-radius: 12px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 12px; color: #111827;">🏥 FHIR R4 Integration</h3>
+                    <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                        Native FHIR R4 support with server connectivity, resource mapping, and $everything operations.
+                    </p>
+                </div>
+                <div style="padding: 20px; background: #f9fafb; border-radius: 12px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 12px; color: #111827;">📝 CQL/SQL Framework</h3>
+                    <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                        Clinical Quality Language and SQL support for defining logical data use cases and queries.
+                    </p>
+                </div>
+                <div style="padding: 20px; background: #f9fafb; border-radius: 12px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 12px; color: #111827;">⚙️ Google ADK Integration</h3>
+                    <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                        Constitution-based agent development with spec-kit driven framework for systematic agent creation.
+                    </p>
+                </div>
+                <div style="padding: 20px; background: #f9fafb; border-radius: 12px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 12px; color: #111827;">🎯 Use Case Library</h3>
+                    <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                        6 pre-built healthcare scenarios covering screening, trials, auth, monitoring, referrals, and reconciliation.
+                    </p>
+                </div>
+                <div style="padding: 20px; background: #f9fafb; border-radius: 12px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 12px; color: #111827;">📦 Application Catalog</h3>
+                    <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                        Manage healthcare application integrations with Epic, Cerner, and other EHR systems.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-links">
+                <a href="/docs" class="footer-link">Documentation</a>
+                <a href="https://github.com/aks129/AgentInterOp" class="footer-link" target="_blank">GitHub</a>
+                <a href="/.well-known/agent-card.json" class="footer-link">Agent Card</a>
+                <a href="/healthz" class="footer-link">Health</a>
+                <a href="/version" class="footer-link">Version</a>
+            </div>
+            <p style="font-size: 14px;">
+                AgentInterOp v2.0.0 - Healthcare Agent Interoperability Platform
+            </p>
+            <p style="font-size: 12px; margin-top: 8px; opacity: 0.8;">
+                Built with A2A Protocol, Google ADK, FHIR R4, and ❤️
+            </p>
+        </div>
+    </div>
+</body>
+</html>

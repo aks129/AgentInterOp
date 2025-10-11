@@ -353,7 +353,17 @@ def bcse_evaluate(payload: dict):
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    """GET / renders Banterop V2 UI as default interface"""
+    """GET / renders comprehensive splash page as default interface"""
+    if templates:
+        return templates.TemplateResponse("splash.html", {
+            "request": request
+        })
+    else:
+        return HTMLResponse("<h1>AgentInterOp</h1><p>Healthcare Agent Interoperability Platform</p>")
+
+@app.get("/banterop", response_class=HTMLResponse)
+async def banterop_ui(request: Request):
+    """GET /banterop renders Banterop V2 UI"""
     base = Path(__file__).resolve().parent
     banterop_dir = base / "web" / "experimental" / "banterop"
 
@@ -362,14 +372,13 @@ async def index(request: Request):
             content = f.read()
         return HTMLResponse(content)
     else:
-        # Fallback to legacy UI if Banterop V2 not available
+        # Fallback to splash if Banterop V2 not available
         if templates:
-            return templates.TemplateResponse("index.html", {
-                "request": request,
-                "UI_EXPERIMENTAL": UI_EXPERIMENTAL
+            return templates.TemplateResponse("splash.html", {
+                "request": request
             })
         else:
-            return HTMLResponse("<h1>Multi-Agent Demo</h1><p>Templates not available in this environment</p>")
+            return HTMLResponse("<h1>Banterop UI</h1><p>Not available in this environment</p>")
 
 @app.get("/legacy", response_class=HTMLResponse)
 async def legacy_ui(request: Request):
