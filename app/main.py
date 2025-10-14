@@ -423,236 +423,107 @@ async def use_cases_ui(request: Request):
 
 @app.get("/docs/{doc_name}", response_class=HTMLResponse)
 async def documentation_page(doc_name: str, request: Request):
-    """Serve markdown documentation as HTML"""
-    import markdown
+    """Serve markdown documentation as HTML - redirects to GitHub for serverless compatibility"""
 
-    # Map documentation paths
-    doc_map = {
-        "AGENT_STUDIO.md": "AGENT_STUDIO.md",
-        "AGENT_MANAGEMENT.md": "AGENT_MANAGEMENT.md"
+    # Map documentation to GitHub URLs
+    github_docs = {
+        "AGENT_STUDIO.md": "https://github.com/aks129/AgentInterOp/blob/main/docs/AGENT_STUDIO.md",
+        "AGENT_MANAGEMENT.md": "https://github.com/aks129/AgentInterOp/blob/main/docs/AGENT_MANAGEMENT.md"
     }
 
-    if doc_name not in doc_map:
-        raise HTTPException(status_code=404, detail="Documentation not found")
+    if doc_name not in github_docs:
+        return HTMLResponse("""
+        <html>
+        <head><title>Documentation Not Found</title></head>
+        <body style="font-family: sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">
+            <h1>Documentation Not Found</h1>
+            <p>Available documentation:</p>
+            <ul>
+                <li><a href="/docs/AGENT_STUDIO.md">Agent Studio Documentation</a></li>
+                <li><a href="/docs/AGENT_MANAGEMENT.md">Agent Management Guide</a></li>
+            </ul>
+            <p><a href="/">← Back to Home</a></p>
+        </body>
+        </html>
+        """, status_code=404)
 
-    # Read markdown file
-    docs_dir = Path(__file__).resolve().parent.parent / "docs"
-    doc_path = docs_dir / doc_map[doc_name]
+    github_url = github_docs[doc_name]
 
-    if not doc_path.exists():
-        raise HTTPException(status_code=404, detail="Documentation file not found")
-
-    with open(doc_path, 'r', encoding='utf-8') as f:
-        md_content = f.read()
-
-    # Convert markdown to HTML
-    html_content = markdown.markdown(
-        md_content,
-        extensions=['extra', 'codehilite', 'toc', 'tables', 'fenced_code']
-    )
-
-    # Wrap in a nice HTML template
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{doc_name.replace('.md', '')} - AgentInterOp Documentation</title>
-    <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #f5f5f5;
-        }}
-
-        .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }}
-
-        .header h1 {{
-            font-size: 24px;
-            margin-bottom: 8px;
-        }}
-
-        .header a {{
-            color: white;
-            text-decoration: none;
-            opacity: 0.9;
-            transition: opacity 0.3s;
-        }}
-
-        .header a:hover {{
-            opacity: 1;
-        }}
-
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }}
-
-        .content {{
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }}
-
-        .content h1 {{
-            font-size: 32px;
-            margin-bottom: 20px;
-            color: #111;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 10px;
-        }}
-
-        .content h2 {{
-            font-size: 24px;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            color: #333;
-        }}
-
-        .content h3 {{
-            font-size: 20px;
-            margin-top: 25px;
-            margin-bottom: 12px;
-            color: #555;
-        }}
-
-        .content h4 {{
-            font-size: 18px;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            color: #666;
-        }}
-
-        .content p {{
-            margin-bottom: 16px;
-        }}
-
-        .content ul, .content ol {{
-            margin-bottom: 16px;
-            margin-left: 30px;
-        }}
-
-        .content li {{
-            margin-bottom: 8px;
-        }}
-
-        .content code {{
-            background: #f4f4f4;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 90%;
-        }}
-
-        .content pre {{
-            background: #2d2d2d;
-            color: #f8f8f2;
-            padding: 16px;
-            border-radius: 8px;
-            overflow-x: auto;
-            margin-bottom: 16px;
-        }}
-
-        .content pre code {{
-            background: transparent;
-            padding: 0;
-            color: inherit;
-        }}
-
-        .content table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }}
-
-        .content table th,
-        .content table td {{
-            padding: 12px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }}
-
-        .content table th {{
-            background: #667eea;
-            color: white;
-            font-weight: 600;
-        }}
-
-        .content table tr:nth-child(even) {{
-            background: #f9f9f9;
-        }}
-
-        .content a {{
-            color: #667eea;
-            text-decoration: none;
-            transition: color 0.3s;
-        }}
-
-        .content a:hover {{
-            color: #764ba2;
-            text-decoration: underline;
-        }}
-
-        .content blockquote {{
-            border-left: 4px solid #667eea;
-            margin: 20px 0;
-            padding: 10px 20px;
-            background: #f9f9f9;
-        }}
-
-        .back-link {{
-            display: inline-block;
-            margin-bottom: 20px;
-            padding: 10px 20px;
-            background: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            transition: all 0.3s;
-        }}
-
-        .back-link:hover {{
-            background: #764ba2;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }}
-    </style>
-</head>
-<body>
-    <div class="header">
+    # Return a nice redirect page
+    return HTMLResponse(f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="refresh" content="0; url={github_url}">
+        <title>Redirecting to Documentation...</title>
+        <style>
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+            }}
+            .container {{
+                text-align: center;
+                padding: 40px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 16px;
+                backdrop-filter: blur(10px);
+                max-width: 600px;
+            }}
+            h1 {{
+                font-size: 32px;
+                margin-bottom: 20px;
+            }}
+            p {{
+                font-size: 18px;
+                margin-bottom: 30px;
+                opacity: 0.9;
+            }}
+            .spinner {{
+                border: 4px solid rgba(255, 255, 255, 0.3);
+                border-top: 4px solid white;
+                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 20px;
+            }}
+            @keyframes spin {{
+                0% {{ transform: rotate(0deg); }}
+                100% {{ transform: rotate(360deg); }}
+            }}
+            a {{
+                color: white;
+                text-decoration: underline;
+                font-weight: 600;
+            }}
+            a:hover {{
+                opacity: 0.8;
+            }}
+        </style>
+    </head>
+    <body>
         <div class="container">
-            <h1>📚 AgentInterOp Documentation</h1>
-            <a href="/">← Back to Home</a>
+            <h1>📚 Redirecting to Documentation</h1>
+            <div class="spinner"></div>
+            <p>You're being redirected to the documentation on GitHub...</p>
+            <p style="font-size: 14px;">If you're not redirected automatically, <a href="{github_url}">click here</a>.</p>
+            <p style="font-size: 14px; margin-top: 30px;"><a href="/">← Back to Home</a></p>
         </div>
-    </div>
-
-    <div class="container">
-        <a href="/" class="back-link">← Back to Home</a>
-
-        <div class="content">
-            {html_content}
-        </div>
-
-        <a href="/" class="back-link" style="margin-top: 40px;">← Back to Home</a>
-    </div>
-</body>
-</html>"""
-
-    return HTMLResponse(content=html)
+    </body>
+    </html>
+    """)
 
 @app.get("/experimental/banterop", response_class=HTMLResponse)
 async def experimental_banterop(request: Request):
