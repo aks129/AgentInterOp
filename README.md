@@ -22,6 +22,14 @@ A comprehensive healthcare interoperability testing platform supporting dual pro
 - **Claude Analysis**: AI-powered conversation summaries and guideline rationale
 - **Room Export/Import**: Share conversation contexts across systems
 
+### Agent Development Framework
+- **Constitution-Based Design**: Agents defined by purpose, domain, constraints, ethics, and capabilities
+- **Template System**: Pre-built agent templates for rapid development (Diabetes Monitoring, Medication Reconciliation, SDOH Screening)
+- **Spec-Kit Driven**: Operational plans with goals, tasks, workflows, and success criteria
+- **A2A Compliance**: All agents generate standards-compliant agent cards for discovery
+
+> **Note**: This platform uses **constitution-based agent design principles** inspired by modern agent development frameworks. It is not a direct integration with Google's Agent Development Kit (ADK) but follows similar design philosophy for building healthcare agents with clear purpose, constraints, and ethical guidelines.
+
 ### Supported Healthcare Scenarios
 - **BCSE**: Benefits Coverage Support Eligibility (breast cancer screening)
 - **Clinical Trial**: Patient enrollment and eligibility assessment
@@ -154,6 +162,43 @@ curl -X POST http://localhost:8000/api/experimental/banterop/llm/rationale \
   -H "Content-Type: application/json" \
   -d '{"patient_facts":{...},"evaluation":{...},"guidelines":{...}}'
 ```
+
+## 🤖 Agent Templates (NEW!)
+
+Create healthcare agents instantly from pre-built templates:
+
+### Available Templates
+1. **Diabetes Monitoring Agent** - Track A1C, glucose levels, and medication adherence
+2. **Medication Reconciliation Agent** - Identify drug interactions and discrepancies
+3. **SDOH Screening Agent** - Assess social determinants of health and connect to resources
+
+### Using Templates via API
+
+```bash
+# List all available templates
+curl http://localhost:8000/api/agents/templates/list
+
+# Get template details
+curl http://localhost:8000/api/agents/templates/template_diabetes_monitoring
+
+# Create agent from template
+curl -X POST http://localhost:8000/api/agents/templates/template_diabetes_monitoring/instantiate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Diabetes Monitor",
+    "description": "Customized diabetes monitoring for our hospital"
+  }'
+```
+
+### Using Templates via UI
+
+1. Navigate to **Agent Studio** at `http://localhost:8000/studio`
+2. Click **"Create from Template"**
+3. Select template (e.g., "Diabetes Monitoring Agent")
+4. Customize name and settings
+5. Click **"Create Agent"**
+
+Your new agent is instantly deployed with full A2A protocol support!
 
 ## 🔧 Development
 

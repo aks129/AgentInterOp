@@ -249,14 +249,17 @@ async def handle_tasks_cancel(params: Dict[str, Any], request_id: Optional[Union
                 id=request_id,
                 error=JsonRpcError(code=-32001, message="Task not found").model_dump()
             )
-        
+
+        # Capture the previous state before modification
+        previous_state = task.status.state
+
         # Cancel the task and set terminal state
         task.status.state = "canceled"
-        
+
         # Append trace event for cancellation
         trace(task.contextId, "system", "task_canceled", {
             "task_id": task_id,
-            "previous_state": task.status.state,
+            "previous_state": previous_state,
             "cancellation_time": iso8601_now()
         })
         

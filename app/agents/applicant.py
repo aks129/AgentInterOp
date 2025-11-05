@@ -7,19 +7,19 @@ from typing import Dict, Any, List
 from dateutil.parser import parse
 
 from app.eligibility.bcse import BCSDEligibilityChecker
-from app.config import Config
+from app.config import load_config
 
 logger = logging.getLogger(__name__)
 
 class ApplicantAgent:
     """Applicant Agent - handles patient eligibility applications"""
-    
+
     def __init__(self):
         self.agent_id = "applicant"
         self.name = "Applicant Agent"
         self.description = "Handles patient eligibility applications and data gathering"
         self.eligibility_checker = BCSDEligibilityChecker()
-        self.config = Config()
+        self.config = load_config()
         
         # Load agent card
         self.card = self._load_agent_card()
