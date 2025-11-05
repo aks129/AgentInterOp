@@ -577,19 +577,21 @@ def get_latest_ingested():
         # Find the most recent ingestion
         latest_data = None
         latest_time = None
-        
+        latest_context_id = None
+
         for context_id, data in app.ingested_data.items():
             ingested_at = data.get('ingested_at')
             if ingested_at:
                 if not latest_time or ingested_at > latest_time:
                     latest_time = ingested_at
                     latest_data = data
-        
+                    latest_context_id = context_id
+
         if latest_data:
             return jsonify({
                 "ok": True,
                 "data": latest_data,
-                "context_id": context_id
+                "context_id": latest_context_id
             })
         else:
             return jsonify({"ok": False, "message": "No valid ingested data found"})

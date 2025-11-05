@@ -225,10 +225,12 @@ class ConversationEngine:
                 # Mark as completed
                 conv["status"] = "completed"
                 logger.info(f"🎯 DECISION: {decision} - {rationale[:50]}...")
-                
+
+                # Use dynamic scenario name instead of hardcoded "BCS-E"
+                scenario_display_name = conv["scenario_name"].replace("_", " ").upper()
                 completion_message = {
                     "role": "system",
-                    "content": "BCS-E eligibility check completed. All artifacts have been generated.",
+                    "content": f"{scenario_display_name} evaluation completed. All artifacts have been generated.",
                     "timestamp": self._get_timestamp()
                 }
                 conv["messages"].append(completion_message)
@@ -320,10 +322,12 @@ class ConversationEngine:
                 
                 # Mark as completed
                 conv["status"] = "completed"
-                
+
+                # Use dynamic scenario name instead of hardcoded "BCS-E"
+                scenario_display_name = conv["scenario_name"].replace("_", " ").upper()
                 completion_message = {
                     "role": "system",
-                    "content": "BCS-E eligibility check completed. All artifacts have been generated.",
+                    "content": f"{scenario_display_name} evaluation completed. All artifacts have been generated.",
                     "timestamp": self._get_timestamp()
                 }
                 conv["messages"].append(completion_message)
