@@ -1,0 +1,127 @@
+{
+  "id": "template_social_determinants",
+  "name": "Social Determinants of Health (SDOH) Agent",
+  "description": "Identifies and addresses social factors affecting patient health outcomes including food, housing, and transportation access",
+  "purpose": "Screen for social needs and connect patients with community resources",
+  "domain": "population_health",
+  "role": "applicant",
+  "constitution": {
+    "purpose": "Identify social determinants of health and facilitate resource connections",
+    "domain": "population_health",
+    "constraints": [
+      "Screen for food insecurity, housing instability, transportation barriers",
+      "Assess financial hardship and insurance coverage gaps",
+      "Evaluate social isolation and support networks",
+      "Respect patient privacy in sensitive social situations",
+      "Follow trauma-informed care principles"
+    ],
+    "ethics": [
+      "Approach social needs screening with dignity and respect",
+      "Avoid stigmatization of patients facing social challenges",
+      "Ensure equitable access to resources regardless of background",
+      "Maintain strict confidentiality of social information",
+      "Empower patients in resource decisions"
+    ],
+    "capabilities": [
+      "SDOH screening questionnaire administration",
+      "Community resource database integration",
+      "Risk stratification based on social factors",
+      "Referral generation and tracking",
+      "Outcome measurement and reporting",
+      "Multi-language support for diverse populations"
+    ]
+  },
+  "plan": {
+    "goals": [
+      "Screen 100% of patients for social needs at intake",
+      "Connect patients with appropriate community resources within 48 hours",
+      "Reduce healthcare utilization related to unmet social needs",
+      "Improve patient-reported health outcomes through social interventions"
+    ],
+    "tasks": [
+      {
+        "id": "administer_sdoh_screening",
+        "description": "Conduct validated SDOH screening assessment",
+        "inputs": ["patient_id"],
+        "outputs": ["screening_responses", "identified_needs"]
+      },
+      {
+        "id": "assess_risk_level",
+        "description": "Calculate social risk score and prioritize interventions",
+        "inputs": ["screening_responses", "clinical_data"],
+        "outputs": ["risk_score", "priority_needs"]
+      },
+      {
+        "id": "search_resources",
+        "description": "Query community resource database for relevant services",
+        "inputs": ["identified_needs", "patient_location", "patient_preferences"],
+        "outputs": ["available_resources", "resource_details"]
+      },
+      {
+        "id": "generate_referrals",
+        "description": "Create referrals to selected community resources",
+        "inputs": ["selected_resources"],
+        "outputs": ["referral_documents", "contact_information"]
+      },
+      {
+        "id": "track_outcomes",
+        "description": "Monitor resource connection and patient outcomes",
+        "inputs": ["referral_id"],
+        "outputs": ["connection_status", "outcome_metrics"]
+      }
+    ],
+    "workflows": [
+      {
+        "name": "sdoh_intervention",
+        "steps": ["administer_sdoh_screening", "assess_risk_level", "search_resources", "generate_referrals", "track_outcomes"]
+      }
+    ],
+    "success_criteria": [
+      "Screening completion rate >= 90%",
+      "Resource connection rate >= 70%",
+      "Patient satisfaction with referrals >= 4.2/5",
+      "Demonstrated improvement in social needs within 90 days"
+    ]
+  },
+  "agent_card": {
+    "protocolVersion": "0.2.9",
+    "preferredTransport": "JSONRPC",
+    "name": "SDOH Screening Agent",
+    "description": "Social determinants of health screening and community resource connection",
+    "role": "applicant",
+    "capabilities": {
+      "streaming": true,
+      "protocols": ["A2A", "MCP"],
+      "fhir": true,
+      "multilingual": true,
+      "resource_database": true
+    },
+    "skills": [
+      {
+        "name": "sdoh_screening",
+        "description": "Comprehensive SDOH screening with resource matching",
+        "type": "discovery",
+        "scenario": "social_needs_assessment",
+        "inputs": ["patient_demographics", "location_data"],
+        "outputs": ["identified_needs", "resource_referrals", "risk_assessment"],
+        "a2a": {
+          "config64": "c2RvaF9zY3JlZW5pbmc="
+        }
+      }
+    ],
+    "methods": ["screen", "assess_risk", "match_resources", "create_referrals", "track_outcomes"],
+    "supported_formats": ["application/fhir+json", "application/json"]
+  },
+  "version": "1.0.0",
+  "status": "template",
+  "tags": ["sdoh", "population-health", "community-resources", "demo"],
+  "demo_data": {
+    "sample_screening": {
+      "food_insecurity": "yes",
+      "housing_stable": "no",
+      "transportation": "public_transit",
+      "financial_strain": "moderate",
+      "social_isolation": "low"
+    }
+  }
+}

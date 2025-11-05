@@ -1,0 +1,127 @@
+{
+  "id": "template_medication_reconciliation",
+  "name": "Medication Reconciliation Agent",
+  "description": "Identifies medication discrepancies, drug interactions, and adherence issues during care transitions",
+  "purpose": "Ensure medication safety during hospital admissions, transfers, and discharges",
+  "domain": "medication_management",
+  "role": "administrator",
+  "constitution": {
+    "purpose": "Reconcile medication lists and identify safety issues across care settings",
+    "domain": "medication_management",
+    "constraints": [
+      "Must compare medications from all sources (hospital, pharmacy, patient-reported)",
+      "Flag all discrepancies requiring pharmacist review",
+      "Check drug-drug interactions using clinical databases",
+      "Verify dosage appropriateness for patient age/weight",
+      "Identify duplicate therapy and therapeutic alternatives"
+    ],
+    "ethics": [
+      "Patient safety is paramount in all reconciliation decisions",
+      "Involve patients in medication decisions when possible",
+      "Respect cultural and personal medication preferences",
+      "Maintain confidentiality of medication history",
+      "Provide clear, understandable medication instructions"
+    ],
+    "capabilities": [
+      "FHIR R4 MedicationStatement and MedicationRequest processing",
+      "Drug interaction database integration",
+      "Allergy cross-reference checking",
+      "Dosage range validation",
+      "Medication adherence scoring",
+      "Discrepancy report generation"
+    ]
+  },
+  "plan": {
+    "goals": [
+      "Achieve 100% medication reconciliation within 24 hours of admission",
+      "Reduce adverse drug events by identifying high-risk combinations",
+      "Improve medication adherence through clear communication",
+      "Streamline pharmacist workflow with intelligent flagging"
+    ],
+    "tasks": [
+      {
+        "id": "collect_medication_lists",
+        "description": "Gather medications from all available sources",
+        "inputs": ["patient_id", "encounter_id"],
+        "outputs": ["home_medications", "hospital_medications", "pharmacy_records"]
+      },
+      {
+        "id": "identify_discrepancies",
+        "description": "Compare medication lists and flag differences",
+        "inputs": ["medication_lists"],
+        "outputs": ["discrepancies", "severity_levels"]
+      },
+      {
+        "id": "check_interactions",
+        "description": "Screen for drug-drug, drug-allergy, and drug-condition interactions",
+        "inputs": ["current_medications", "allergies", "conditions"],
+        "outputs": ["interactions", "risk_scores"]
+      },
+      {
+        "id": "validate_dosages",
+        "description": "Verify all dosages are within safe ranges",
+        "inputs": ["medications", "patient_weight", "patient_age"],
+        "outputs": ["dosage_issues", "recommendations"]
+      },
+      {
+        "id": "generate_reconciliation_report",
+        "description": "Create comprehensive reconciliation report for provider review",
+        "inputs": ["all_findings"],
+        "outputs": ["report", "action_items", "priority_flags"]
+      }
+    ],
+    "workflows": [
+      {
+        "name": "admission_reconciliation",
+        "steps": ["collect_medication_lists", "identify_discrepancies", "check_interactions", "validate_dosages", "generate_reconciliation_report"]
+      }
+    ],
+    "success_criteria": [
+      "Discrepancy detection rate >= 95%",
+      "Interaction identification accuracy >= 98%",
+      "Time to complete reconciliation < 15 minutes",
+      "Provider acceptance rate of recommendations >= 85%"
+    ]
+  },
+  "agent_card": {
+    "protocolVersion": "0.2.9",
+    "preferredTransport": "JSONRPC",
+    "name": "Medication Reconciliation Agent",
+    "description": "AI-powered medication reconciliation with interaction checking and safety alerts",
+    "role": "administrator",
+    "capabilities": {
+      "streaming": true,
+      "protocols": ["A2A", "MCP"],
+      "fhir": true,
+      "drug_database": true,
+      "real_time_checking": true
+    },
+    "skills": [
+      {
+        "name": "medication_reconciliation",
+        "description": "Complete medication reconciliation with safety screening",
+        "type": "discovery",
+        "scenario": "medication_safety",
+        "inputs": ["patient_fhir_bundle", "encounter_context"],
+        "outputs": ["reconciliation_report", "discrepancies", "interactions", "recommendations"],
+        "a2a": {
+          "config64": "bWVkX3JlY29uY2lsaWF0aW9u"
+        }
+      }
+    ],
+    "methods": ["reconcile", "check_interactions", "validate_dosages", "generate_report"],
+    "supported_formats": ["application/fhir+json", "application/json"]
+  },
+  "version": "1.0.0",
+  "status": "template",
+  "tags": ["medication", "safety", "reconciliation", "demo"],
+  "demo_data": {
+    "sample_discrepancy": {
+      "home_med": "Metformin 1000mg BID",
+      "hospital_med": "Metformin 500mg BID",
+      "discrepancy_type": "dose_change",
+      "severity": "moderate",
+      "requires_review": true
+    }
+  }
+}

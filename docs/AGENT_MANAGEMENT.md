@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Healthcare Agent Management System provides a comprehensive UI and API for creating, managing, and deploying A2A-compliant healthcare agents using the Google Agent Development Kit (ADK) framework.
+The Healthcare Agent Management System provides a comprehensive UI and API for creating, managing, and deploying A2A-compliant healthcare agents using **constitution-based design principles** (inspired by modern agent development frameworks like Google's ADK).
 
 ## Features
 
@@ -10,7 +10,7 @@ The Healthcare Agent Management System provides a comprehensive UI and API for c
 
 - **🤖 Dynamic Agent Creation**: Create healthcare agents through an intuitive UI
 - **📋 A2A Compliance**: All agents follow the A2A specification for interoperability
-- **🏗️ Google ADK Integration**: Constitution-based agent development with spec-kit driven framework
+- **🏗️ Constitution-Based Framework**: Agent development with spec-kit driven approach (purpose, constraints, ethics, capabilities)
 - **🏥 Healthcare-Specific**: Pre-configured domains and templates for healthcare scenarios
 - **🔄 Protocol Support**: A2A (JSON-RPC) and MCP protocol implementations
 - **📊 FHIR Integration**: Built-in support for FHIR R4 resources
@@ -39,7 +39,7 @@ app/
 
 Each healthcare agent includes:
 
-1. **Constitution** (ADK Framework)
+1. **Constitution** (Design Framework)
    - Purpose: Primary objective
    - Domain: Healthcare domain
    - Constraints: Operational boundaries
@@ -92,8 +92,26 @@ Pre-built templates are available for common healthcare scenarios:
 - **Breast Cancer Screening Eligibility (BCS-E)**
 - **Clinical Trial Enrollment**
 - **Prior Authorization**
+- **Diabetes Monitoring** (NEW!)
+- **Medication Reconciliation** (NEW!)
+- **Social Determinants of Health (SDOH) Screening** (NEW!)
 
 Click "Templates" tab and select "Use Template" to create from a template.
+
+#### Creating Agents from Templates via API
+
+```bash
+# List all templates
+curl http://localhost:8000/api/agents/templates/list
+
+# Get specific template
+curl http://localhost:8000/api/agents/templates/template_diabetes_monitoring
+
+# Instantiate agent from template
+curl -X POST http://localhost:8000/api/agents/templates/template_diabetes_monitoring/instantiate \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Custom Diabetes Monitor"}'
+```
 
 ### Managing Agents
 
@@ -283,9 +301,9 @@ All agents are A2A-compliant with:
 - **Skills**: Structured skill definitions with inputs/outputs
 - **Artifacts**: FHIR-compliant artifacts with proper MIME types
 
-## Google ADK Integration
+## Constitution-Based Design Approach
 
-The system implements the Google Agent Development Kit framework:
+The system implements a constitution-based agent development approach (inspired by frameworks like Google's ADK):
 
 ### Constitution-Based Development
 

@@ -1,0 +1,140 @@
+{
+  "id": "template_diabetes_monitoring",
+  "name": "Diabetes Monitoring Agent",
+  "description": "Monitors patient vitals and glucose levels for diabetes management with A1C tracking and medication adherence",
+  "purpose": "Automate diabetes monitoring, identify risk patterns, and alert providers to concerning trends",
+  "domain": "chronic_care",
+  "role": "administrator",
+  "constitution": {
+    "purpose": "Monitor diabetes patients and provide early intervention alerts",
+    "domain": "chronic_care",
+    "constraints": [
+      "Monitor A1C levels (target < 7.0% for most patients)",
+      "Track glucose readings (target 80-130 mg/dL fasting)",
+      "Verify medication adherence patterns",
+      "Alert on hyperglycemia (>250 mg/dL) or hypoglycemia (<70 mg/dL)",
+      "Review lab results quarterly minimum"
+    ],
+    "ethics": [
+      "Protect patient privacy and sensitive health data",
+      "Ensure culturally sensitive care recommendations",
+      "Provide clear explanations for all alerts",
+      "Support patient autonomy in care decisions",
+      "Avoid alarm fatigue with intelligent alerting"
+    ],
+    "capabilities": [
+      "FHIR R4 Observation processing (glucose, A1C)",
+      "MedicationStatement adherence analysis",
+      "Trend analysis over time periods",
+      "Risk stratification (low, moderate, high)",
+      "Care gap identification",
+      "Provider alert generation"
+    ]
+  },
+  "plan": {
+    "goals": [
+      "Maintain patient A1C levels within target range",
+      "Detect concerning trends before complications",
+      "Improve medication adherence rates",
+      "Reduce emergency department visits for diabetes complications"
+    ],
+    "tasks": [
+      {
+        "id": "load_patient_data",
+        "description": "Retrieve patient FHIR bundle with diabetes-related resources",
+        "inputs": ["patient_id"],
+        "outputs": ["fhir_bundle", "observation_count"]
+      },
+      {
+        "id": "analyze_glucose_trends",
+        "description": "Analyze glucose readings over past 90 days",
+        "inputs": ["fhir_bundle"],
+        "outputs": ["average_glucose", "trend_direction", "variability_score"]
+      },
+      {
+        "id": "check_a1c_status",
+        "description": "Review most recent A1C and compare to target",
+        "inputs": ["fhir_bundle"],
+        "outputs": ["latest_a1c", "target_met", "days_since_test"]
+      },
+      {
+        "id": "assess_medication_adherence",
+        "description": "Calculate medication possession ratio",
+        "inputs": ["fhir_bundle"],
+        "outputs": ["adherence_rate", "missed_doses"]
+      },
+      {
+        "id": "generate_recommendations",
+        "description": "Create actionable recommendations based on findings",
+        "inputs": ["analysis_results"],
+        "outputs": ["recommendations", "alert_level", "follow_up_needed"]
+      }
+    ],
+    "workflows": [
+      {
+        "name": "routine_monitoring",
+        "steps": ["load_patient_data", "analyze_glucose_trends", "check_a1c_status", "assess_medication_adherence", "generate_recommendations"]
+      }
+    ],
+    "success_criteria": [
+      "Alert accuracy >= 90%",
+      "False positive rate < 10%",
+      "Response time < 5 seconds",
+      "Provider satisfaction score >= 4.5/5"
+    ]
+  },
+  "agent_card": {
+    "protocolVersion": "0.2.9",
+    "preferredTransport": "JSONRPC",
+    "name": "Diabetes Monitoring Agent",
+    "description": "AI-powered diabetes monitoring with trend analysis and intelligent alerting",
+    "role": "administrator",
+    "capabilities": {
+      "streaming": true,
+      "protocols": ["A2A", "MCP"],
+      "fhir": true,
+      "ai_analysis": true,
+      "real_time_alerts": true
+    },
+    "skills": [
+      {
+        "name": "diabetes_monitoring",
+        "description": "Comprehensive diabetes monitoring with glucose and A1C tracking",
+        "type": "discovery",
+        "scenario": "chronic_care_management",
+        "inputs": ["patient_fhir_bundle", "monitoring_period"],
+        "outputs": ["risk_assessment", "recommendations", "alerts"],
+        "a2a": {
+          "config64": "ZGlhYmV0ZXNfbW9uaXRvcmluZw=="
+        }
+      }
+    ],
+    "methods": ["monitor", "analyze_trends", "generate_alerts", "create_care_plan"],
+    "supported_formats": ["application/fhir+json", "application/json"]
+  },
+  "version": "1.0.0",
+  "status": "template",
+  "tags": ["diabetes", "chronic-care", "monitoring", "demo"],
+  "demo_data": {
+    "sample_patient": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "resource": {
+            "resourceType": "Observation",
+            "code": {"text": "Glucose"},
+            "valueQuantity": {"value": 145, "unit": "mg/dL"}
+          }
+        },
+        {
+          "resource": {
+            "resourceType": "Observation",
+            "code": {"text": "HbA1c"},
+            "valueQuantity": {"value": 7.2, "unit": "%"}
+          }
+        }
+      ]
+    }
+  }
+}

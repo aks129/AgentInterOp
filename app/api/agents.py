@@ -3,6 +3,8 @@ Healthcare Agent Management API
 Provides CRUD operations for agents with A2A compliance
 """
 import logging
+import json
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel, Field
@@ -18,6 +20,9 @@ from app.agents.registry import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Template directory
+TEMPLATES_DIR = Path(__file__).parent.parent / "data" / "agent_templates"
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -280,27 +285,115 @@ async def list_domains():
 @router.get("/templates/list")
 async def list_templates():
     """
-    List available agent templates
+    List available agent templates from JSON files
     """
-    return {
-        "templates": [
-            {
-                "id": "bcse_template",
-                "name": "Breast Cancer Screening Eligibility",
-                "domain": "preventive_screening",
-                "description": "Template for cancer screening eligibility agents"
-            },
-            {
-                "id": "clinical_trial_template",
-                "name": "Clinical Trial Enrollment",
-                "domain": "clinical_trial",
-                "description": "Template for clinical trial matching agents"
-            },
-            {
-                "id": "prior_auth_template",
-                "name": "Prior Authorization",
-                "domain": "prior_auth",
-                "description": "Template for prior authorization processing agents"
-            }
-        ]
-    }
+    try:
+        templates = []
+
+        if TEMPLATES_DIR.exists():
+            for template_file in TEMPLATES_DIR.glob("*.json"):
+                try:
+                    with open(template_file, 'r') as f:
+                        template_data = json.load(f)
+                        templates.append({
+                            "id": template_data.get("id"),
+                            "name": template_data.get("name"),
+                            "domain": template_data.get("domain"),
+                            "description": template_data.get("description"),
+                            "role": template_data.get("role"),
+                            "tags": template_data.get("tags", [])
+                        })
+                except Exception as e:
+                    logger.warning(f"Failed to load template {template_file}: {e}")
+                    continue
+
+        return {"templates": templates, "count": len(templates)}
+    except Exception as e:
+        logger.error(f"Error listing templates: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/templates/{template_id}")
+async def get_template(template_id: str):
+    """
+    Get a specific agent template by ID
+    """
+    try:
+        if not TEMPLATES_DIR.exists():
+            raise HTTPException(status_code=404, detail="Templates directory not found")
+
+        # Find template file
+        for template_file in TEMPLATES_DIR.glob("*.json"):
+            with open(template_file, 'r') as f:
+                template_data = json.load(f)
+                if template_data.get("id") == template_id:
+                    return template_data
+
+        raise HTTPException(status_code=404, detail=f"Template not found: {template_id}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting template: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/templates/{template_id}/instantiate", response_model=AgentResponse, status_code=201)
+async def create_agent_from_template(
+    template_id: str,
+    customizations: Optional[Dict[str, Any]] = Body(default={})
+):
+    """
+    Create a new agent from a template with optional customizations
+
+    Customizations can override:
+    - name: Agent name
+    - description: Agent description
+    - Any other top-level fields
+    """
+    try:
+        # Load template
+        template_data = None
+        if TEMPLATES_DIR.exists():
+            for template_file in TEMPLATES_DIR.glob("*.json"):
+                with open(template_file, 'r') as f:
+                    data = json.load(f)
+                    if data.get("id") == template_id:
+                        template_data = data
+                        break
+
+        if not template_data:
+            raise HTTPException(status_code=404, detail=f"Template not found: {template_id}")
+
+        # Create agent data from template
+        agent_data = {
+            "name": template_data["name"],
+            "description": template_data["description"],
+            "purpose": template_data["purpose"],
+            "domain": template_data["domain"],
+            "role": template_data["role"],
+            "constitution": template_data["constitution"],
+            "plan": template_data["plan"],
+            "agent_card": template_data["agent_card"],
+            "version": template_data.get("version", "1.0.0"),
+            "status": "active"  # Templates start as active
+        }
+
+        # Apply customizations
+        if customizations:
+            agent_data.update(customizations)
+            # If name was customized, also update agent_card name
+            if "name" in customizations:
+                agent_data["agent_card"]["name"] = customizations["name"]
+
+        # Create agent
+        agent = agent_registry.create_agent(agent_data)
+
+        return AgentResponse(
+            agent=agent,
+            message=f"Agent created from template '{template_id}'"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating agent from template: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
