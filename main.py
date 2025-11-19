@@ -58,7 +58,12 @@ current_protocol = "a2a"
 
 @app.route('/')
 def index():
-    """Main application page"""
+    """Demo landing page"""
+    return render_template('demo.html')
+
+@app.route('/simple')
+def simple_index():
+    """Main application interface"""
     return render_template('simple_index.html')
 
 @app.route('/config')
@@ -711,13 +716,12 @@ def export_room(context_id):
                     "options": getattr(config.scenario, 'options', {})
                 },
                 "simulation": {
-                    "delay_ms": config.simulation.delay_ms,
-                    "error_rate": config.simulation.error_rate,
+                    "admin_processing_ms": config.simulation.admin_processing_ms,
+                    "error_injection_rate": config.simulation.error_injection_rate,
                     "capacity_limit": config.simulation.capacity_limit
                 },
-                "fhir": {
-                    "base_url": config.fhir.base_url,
-                    "has_token": bool(config.fhir.token)
+                "data": {
+                    "options": config.data.options
                 }
             },
             "last_applicant_payload": last_applicant_payload,
@@ -796,18 +800,18 @@ def import_room():
             # Update simulation configuration
             if 'simulation' in config_snapshot:
                 sim_config = config_snapshot['simulation']
-                if 'delay_ms' in sim_config:
-                    current_config.simulation.delay_ms = sim_config['delay_ms']
-                if 'error_rate' in sim_config:
-                    current_config.simulation.error_rate = sim_config['error_rate']
+                if 'admin_processing_ms' in sim_config:
+                    current_config.simulation.admin_processing_ms = sim_config['admin_processing_ms']
+                if 'error_injection_rate' in sim_config:
+                    current_config.simulation.error_injection_rate = sim_config['error_injection_rate']
                 if 'capacity_limit' in sim_config:
                     current_config.simulation.capacity_limit = sim_config['capacity_limit']
-            
-            # Update FHIR configuration (but not token for security)
-            if 'fhir' in config_snapshot:
-                fhir_config = config_snapshot['fhir']
-                if 'base_url' in fhir_config:
-                    current_config.fhir.base_url = fhir_config['base_url']
+
+            # Update data configuration
+            if 'data' in config_snapshot:
+                data_config = config_snapshot['data']
+                if 'options' in data_config:
+                    current_config.data.options.update(data_config['options'])
             
             # Save updated configuration
             save_config(current_config)
