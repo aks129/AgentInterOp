@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentInterOp - Healthcare AI Agent Platform Demo</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --secondary-color: #8b5cf6;
+            --success-color: #10b981;
+            --dark-bg: #0f172a;
+            --card-bg: #1e293b;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--dark-bg) 0%, #1e3a8a 100%);
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+
+        .hero-section {
+            padding: 4rem 0;
+            text-align: center;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .hero-title {
+            font-size: 3.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: rgba(255, 255, 255, 0.8);
+            max-width: 800px;
+            margin: 0 auto 2rem;
+        }
+
+        .demo-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+
+        .demo-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary-color);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.2);
+        }
+
+        .scenario-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0.25rem;
+        }
+
+        .badge-bcse { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); }
+        .badge-trial { background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%); }
+        .badge-auth { background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); }
+        .badge-referral { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .badge-custom { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+
+        .protocol-card {
+            background: rgba(59, 130, 246, 0.1);
+            border: 2px solid var(--primary-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .protocol-card:hover {
+            background: rgba(59, 130, 246, 0.2);
+            transform: scale(1.02);
+        }
+
+        .protocol-card.selected {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: var(--success-color);
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--card-bg);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin: 0 0.5rem;
+            position: relative;
+        }
+
+        .step.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .step.completed {
+            background: var(--success-color);
+            border-color: var(--success-color);
+        }
+
+        .step-line {
+            width: 60px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-demo {
+            padding: 1rem 2rem;
+            font-size: 1.125rem;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-demo-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            border: none;
+            color: white;
+        }
+
+        .btn-demo-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .quick-start-section {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 3rem;
+            margin: 3rem 0;
+        }
+
+        .demo-wizard {
+            display: none;
+        }
+
+        .demo-wizard.active {
+            display: block;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+            font-weight: 600;
+        }
+
+        .pulse {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success-color);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="container">
+            <h1 class="hero-title">AgentInterOp</h1>
+            <p class="hero-subtitle">
+                Next-Generation Healthcare AI Agent Platform with Dual Protocol Support
+            </p>
+            <div class="connection-status">
+                <span class="pulse"></span>
+                System Online
+            </div>
+
+            <div class="mt-4">
+                <span class="scenario-badge badge-bcse">BCSE Screening</span>
+                <span class="scenario-badge badge-trial">Clinical Trials</span>
+                <span class="scenario-badge badge-auth">Prior Auth</span>
+                <span class="scenario-badge badge-referral">Referrals</span>
+                <span class="scenario-badge badge-custom">Custom Scenarios</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container py-5">
+        <!-- Welcome Section -->
+        <div id="welcome-section" class="quick-start-section">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <h2 class="mb-4">Welcome to the Interactive Demo</h2>
+                    <p class="lead mb-4">
+                        Experience the power of AI-driven healthcare interoperability with our dual-protocol
+                        agent platform. Choose your path:
+                    </p>
+
+                    <div class="d-grid gap-3 mb-4">
+                        <button class="btn btn-lg btn-demo-primary" onclick="startGuidedDemo()">
+                            <i data-feather="play-circle" class="me-2"></i>
+                            Start Guided Demo
+                        </button>
+                        <a href="/simple" class="btn btn-lg btn-outline-light">
+                            <i data-feather="zap" class="me-2"></i>
+                            Quick Access (Advanced)
+                        </a>
+                        <a href="/config" class="btn btn-lg btn-outline-secondary">
+                            <i data-feather="settings" class="me-2"></i>
+                            Configuration
+                        </a>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="stat-card">
+                                <div class="stat-number">2</div>
+                                <div class="text-muted">Protocols</div>
+                                <small class="d-block mt-2">A2A & MCP</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card">
+                                <div class="stat-number">5</div>
+                                <div class="text-muted">Scenarios</div>
+                                <small class="d-block mt-2">Pre-configured</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card">
+                                <div class="stat-number">FHIR</div>
+                                <div class="text-muted">R4 Integration</div>
+                                <small class="d-block mt-2">Real-time data</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card">
+                                <div class="stat-number">AI</div>
+                                <div class="text-muted">Claude Powered</div>
+                                <small class="d-block mt-2">Smart processing</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demo Wizard -->
+        <div id="demo-wizard" class="demo-wizard">
+            <!-- Step Indicator -->
+            <div class="step-indicator">
+                <div class="step completed" id="step-1">1</div>
+                <div class="step-line"></div>
+                <div class="step active" id="step-2">2</div>
+                <div class="step-line"></div>
+                <div class="step" id="step-3">3</div>
+                <div class="step-line"></div>
+                <div class="step" id="step-4">4</div>
+            </div>
+
+            <!-- Step 1: Protocol Selection -->
+            <div id="wizard-step-1" class="quick-start-section wizard-step">
+                <h2 class="mb-4 text-center">Step 1: Choose Your Protocol</h2>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="protocol-card" onclick="selectProtocol('a2a')">
+                            <div class="d-flex align-items-start mb-3">
+                                <div class="feature-icon me-3">
+                                    <i data-feather="git-branch" style="color: white;"></i>
+                                </div>
+                                <div>
+                                    <h4>A2A Protocol</h4>
+                                    <p class="text-muted mb-0">JSON-RPC 2.0 with Server-Sent Events</p>
+                                </div>
+                            </div>
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">
+                                    <i data-feather="check" class="text-success me-2" style="width: 16px;"></i>
+                                    Real-time bidirectional communication
+                                </li>
+                                <li class="mb-2">
+                                    <i data-feather="check" class="text-success me-2" style="width: 16px;"></i>
+                                    Event-driven architecture
+                                </li>
+                                <li class="mb-2">
+                                    <i data-feather="check" class="text-success me-2" style="width: 16px;"></i>
+                                    Standardized message format
+                                </li>
+                                <li>
+                                    <i data-feather="check" class="text-success me-2" style="width: 16px;"></i>
+                                    Task management & streaming
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="protocol-card" onclick="selectProtocol('mcp')">
+                            <div class="d-flex align-items-start mb-3">
+                                <div class="feature-icon me-3">
+                                    <i data-feather="tool" style="color: white;"></i>
+                                </div>
+                                <div>
+                                    <h4>MCP Protocol</h4>
+                                    <p class="text-muted mb-0">Model Context Protocol (Tool-based)</p>
+                                </div>
+                            </div>
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">
+                                    <i data-feather="check" class="text-success me-2" style="width: 16px;"></i>
+                                    Tool-based interactions
+                                </li>
+                                <li class="mb-2">
+                                    <i data-feather="check" class="text-success me-2" style="width: 16px;"></i>
+                                    Thread-based conversations
+                                </li>
+                                <li class="mb-2">
+                                    <i data-feather="check" class="text-success me-2" style="width: 16px;"></i>
+                                    HTTP/SSE streaming
+                                </li>
+                                <li>
+                                    <i data-feather="check" class="text-success me-2" style="width: 16px;"></i>
+                                    Simplified integration
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-4">
+                    <button class="btn btn-lg btn-demo-primary" onclick="nextStep(2)" id="protocol-next-btn" disabled>
+                        Continue <i data-feather="arrow-right" class="ms-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Scenario Selection -->
+            <div id="wizard-step-2" class="quick-start-section wizard-step" style="display: none;">
+                <h2 class="mb-4 text-center">Step 2: Select a Healthcare Scenario</h2>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="demo-card" onclick="selectScenario('bcse')">
+                            <div class="feature-icon">
+                                <i data-feather="activity" style="color: white;"></i>
+                            </div>
+                            <h5>BCSE Screening</h5>
+                            <p class="text-muted">
+                                Breast Cancer Screening Eligibility - Check patient eligibility
+                                for screening programs based on USPSTF guidelines.
+                            </p>
+                            <span class="scenario-badge badge-bcse">Healthcare Screening</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="demo-card" onclick="selectScenario('clinical_trial')">
+                            <div class="feature-icon">
+                                <i data-feather="clipboard" style="color: white;"></i>
+                            </div>
+                            <h5>Clinical Trial Matching</h5>
+                            <p class="text-muted">
+                                Match oncology patients to appropriate clinical trials based on
+                                their condition, biomarkers, and eligibility criteria.
+                            </p>
+                            <span class="scenario-badge badge-trial">Research</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="demo-card" onclick="selectScenario('prior_auth')">
+                            <div class="feature-icon">
+                                <i data-feather="shield" style="color: white;"></i>
+                            </div>
+                            <h5>Prior Authorization</h5>
+                            <p class="text-muted">
+                                Streamline prior authorization requests for medications and
+                                procedures with automated eligibility checking.
+                            </p>
+                            <span class="scenario-badge badge-auth">Authorization</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="demo-card" onclick="selectScenario('referral_specialist')">
+                            <div class="feature-icon">
+                                <i data-feather="users" style="color: white;"></i>
+                            </div>
+                            <h5>Specialist Referrals</h5>
+                            <p class="text-muted">
+                                Find and refer patients to appropriate specialists based on
+                                availability, expertise, and patient preferences.
+                            </p>
+                            <span class="scenario-badge badge-referral">Coordination</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="demo-card" onclick="selectScenario('custom')">
+                            <div class="feature-icon">
+                                <i data-feather="edit" style="color: white;"></i>
+                            </div>
+                            <h5>Custom Scenario</h5>
+                            <p class="text-muted">
+                                Create your own custom scenario with AI-powered narrative-to-JSON
+                                conversion using Claude.
+                            </p>
+                            <span class="scenario-badge badge-custom">Flexible</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-4">
+                    <button class="btn btn-outline-secondary me-2" onclick="prevStep(1)">
+                        <i data-feather="arrow-left" class="me-2"></i> Back
+                    </button>
+                    <button class="btn btn-lg btn-demo-primary" onclick="nextStep(3)" id="scenario-next-btn" disabled>
+                        Continue <i data-feather="arrow-right" class="ms-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Configuration -->
+            <div id="wizard-step-3" class="quick-start-section wizard-step" style="display: none;">
+                <h2 class="mb-4 text-center">Step 3: Configure Your Demo</h2>
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="demo-card">
+                            <h5 class="mb-4">Selected Configuration</h5>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Protocol</label>
+                                <div class="p-3 bg-dark rounded">
+                                    <span id="selected-protocol-display" class="text-info"></span>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Scenario</label>
+                                <div class="p-3 bg-dark rounded">
+                                    <span id="selected-scenario-display" class="text-info"></span>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Data Source</label>
+                                <select class="form-select" id="data-source">
+                                    <option value="sample">Use Sample Data</option>
+                                    <option value="fhir">Connect to FHIR Server</option>
+                                    <option value="text">Provide Free Text Context</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-4" id="fhir-config" style="display: none;">
+                                <label class="form-label">FHIR Server URL</label>
+                                <input type="text" class="form-control mb-2"
+                                       placeholder="https://fhir.example.com/R4"
+                                       id="fhir-url">
+                                <label class="form-label">Patient ID (Optional)</label>
+                                <input type="text" class="form-control"
+                                       placeholder="patient-123"
+                                       id="fhir-patient-id">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-4">
+                    <button class="btn btn-outline-secondary me-2" onclick="prevStep(2)">
+                        <i data-feather="arrow-left" class="me-2"></i> Back
+                    </button>
+                    <button class="btn btn-lg btn-demo-primary" onclick="nextStep(4)">
+                        Continue <i data-feather="arrow-right" class="ms-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 4: Launch -->
+            <div id="wizard-step-4" class="quick-start-section wizard-step" style="display: none;">
+                <h2 class="mb-4 text-center">Step 4: Launch Your Demo</h2>
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="demo-card text-center">
+                            <div class="feature-icon mx-auto mb-4">
+                                <i data-feather="check-circle" style="color: white; width: 32px; height: 32px;"></i>
+                            </div>
+                            <h4 class="mb-4">Ready to Launch!</h4>
+                            <p class="lead text-muted mb-4">
+                                Your demo environment is configured and ready. Click below to start the interactive session.
+                            </p>
+
+                            <div class="alert alert-info mb-4">
+                                <i data-feather="info" class="me-2"></i>
+                                <strong>What happens next:</strong> You'll be taken to the interactive interface
+                                where you can send messages, view responses, and explore the full capabilities of
+                                the selected protocol and scenario.
+                            </div>
+
+                            <button class="btn btn-lg btn-demo-primary mb-3" onclick="launchDemo()">
+                                <i data-feather="rocket" class="me-2"></i>
+                                Launch Demo
+                            </button>
+
+                            <div class="mt-4">
+                                <button class="btn btn-outline-secondary" onclick="resetWizard()">
+                                    <i data-feather="refresh-cw" class="me-2"></i> Start Over
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="row mt-5" id="features-section">
+            <div class="col-12 mb-4">
+                <h2 class="text-center mb-4">Platform Capabilities</h2>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="demo-card">
+                    <div class="feature-icon">
+                        <i data-feather="layers" style="color: white;"></i>
+                    </div>
+                    <h5>Dual Protocol Support</h5>
+                    <p class="text-muted">
+                        Seamlessly switch between A2A (JSON-RPC) and MCP protocols for maximum
+                        interoperability with different agent systems.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="demo-card">
+                    <div class="feature-icon">
+                        <i data-feather="database" style="color: white;"></i>
+                    </div>
+                    <h5>FHIR R4 Integration</h5>
+                    <p class="text-muted">
+                        Connect to live FHIR servers for real healthcare data, with automatic
+                        payload mapping and transformation.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="demo-card">
+                    <div class="feature-icon">
+                        <i data-feather="cpu" style="color: white;"></i>
+                    </div>
+                    <h5>AI-Powered Processing</h5>
+                    <p class="text-muted">
+                        Claude integration for intelligent narrative-to-JSON conversion and
+                        advanced decision-making capabilities.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="demo-card">
+                    <div class="feature-icon">
+                        <i data-feather="shield-off" style="color: white;"></i>
+                    </div>
+                    <h5>Constitutional Design</h5>
+                    <p class="text-muted">
+                        Agents follow transparent constitutional principles with full audit trails
+                        and decision transparency.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="demo-card">
+                    <div class="feature-icon">
+                        <i data-feather="box" style="color: white;"></i>
+                    </div>
+                    <h5>Pluggable Scenarios</h5>
+                    <p class="text-muted">
+                        Easily extend with new healthcare scenarios using our template system
+                        and scenario registry.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="demo-card">
+                    <div class="feature-icon">
+                        <i data-feather="globe" style="color: white;"></i>
+                    </div>
+                    <h5>Agent Card Discovery</h5>
+                    <p class="text-muted">
+                        Standardized .well-known/agent-card.json for external agent discovery
+                        and capability exchange.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 mt-5" style="background: rgba(15, 23, 42, 0.6); border-top: 1px solid rgba(255, 255, 255, 0.1);">
+        <div class="container">
+            <p class="text-muted mb-2">AgentInterOp - Healthcare AI Agent Platform</p>
+            <p class="text-muted small">
+                <a href="/simple" class="text-decoration-none me-3">Quick Access</a>
+                <a href="/config" class="text-decoration-none me-3">Configuration</a>
+                <a href="/agent-studio" class="text-decoration-none me-3">Agent Studio</a>
+                <a href="/.well-known/agent-card.json" class="text-decoration-none">Agent Card</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Initialize Feather Icons
+        feather.replace();
+
+        let selectedProtocol = null;
+        let selectedScenario = null;
+
+        function startGuidedDemo() {
+            document.getElementById('welcome-section').style.display = 'none';
+            document.getElementById('features-section').style.display = 'none';
+            document.getElementById('demo-wizard').classList.add('active');
+            document.getElementById('wizard-step-1').style.display = 'block';
+            updateSteps(1);
+        }
+
+        function selectProtocol(protocol) {
+            selectedProtocol = protocol;
+
+            // Update UI
+            document.querySelectorAll('.protocol-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+
+            document.getElementById('protocol-next-btn').disabled = false;
+            document.getElementById('selected-protocol-display').textContent =
+                protocol === 'a2a' ? 'A2A (JSON-RPC + SSE)' : 'MCP (Model Context Protocol)';
+        }
+
+        function selectScenario(scenario) {
+            selectedScenario = scenario;
+
+            // Update UI
+            document.querySelectorAll('.demo-card').forEach(card => {
+                card.style.opacity = '0.5';
+            });
+            event.currentTarget.style.opacity = '1';
+
+            document.getElementById('scenario-next-btn').disabled = false;
+
+            const scenarioNames = {
+                'bcse': 'BCSE Screening',
+                'clinical_trial': 'Clinical Trial Matching',
+                'prior_auth': 'Prior Authorization',
+                'referral_specialist': 'Specialist Referrals',
+                'custom': 'Custom Scenario'
+            };
+            document.getElementById('selected-scenario-display').textContent = scenarioNames[scenario];
+        }
+
+        function nextStep(step) {
+            // Hide current step
+            document.querySelectorAll('.wizard-step').forEach(s => s.style.display = 'none');
+
+            // Show next step
+            document.getElementById(`wizard-step-${step}`).style.display = 'block';
+
+            // Update step indicator
+            updateSteps(step);
+
+            // Re-initialize feather icons
+            feather.replace();
+        }
+
+        function prevStep(step) {
+            document.querySelectorAll('.wizard-step').forEach(s => s.style.display = 'none');
+            document.getElementById(`wizard-step-${step}`).style.display = 'block';
+            updateSteps(step);
+            feather.replace();
+        }
+
+        function updateSteps(currentStep) {
+            for (let i = 1; i <= 4; i++) {
+                const stepEl = document.getElementById(`step-${i}`);
+                stepEl.classList.remove('active', 'completed');
+
+                if (i < currentStep) {
+                    stepEl.classList.add('completed');
+                } else if (i === currentStep) {
+                    stepEl.classList.add('active');
+                }
+            }
+        }
+
+        function launchDemo() {
+            // Save configuration
+            const config = {
+                protocol: selectedProtocol,
+                scenario: selectedScenario,
+                dataSource: document.getElementById('data-source').value,
+                fhirUrl: document.getElementById('fhir-url').value,
+                fhirPatientId: document.getElementById('fhir-patient-id').value
+            };
+
+            // Store in sessionStorage
+            sessionStorage.setItem('demoConfig', JSON.stringify(config));
+
+            // Redirect to main interface
+            window.location.href = `/simple?protocol=${selectedProtocol}&scenario=${selectedScenario}`;
+        }
+
+        function resetWizard() {
+            selectedProtocol = null;
+            selectedScenario = null;
+
+            document.getElementById('demo-wizard').classList.remove('active');
+            document.getElementById('welcome-section').style.display = 'block';
+            document.getElementById('features-section').style.display = 'flex';
+
+            document.querySelectorAll('.wizard-step').forEach(s => s.style.display = 'none');
+            document.getElementById('protocol-next-btn').disabled = true;
+            document.getElementById('scenario-next-btn').disabled = true;
+        }
+
+        // Data source toggle
+        document.getElementById('data-source')?.addEventListener('change', function() {
+            const fhirConfig = document.getElementById('fhir-config');
+            if (this.value === 'fhir') {
+                fhirConfig.style.display = 'block';
+            } else {
+                fhirConfig.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

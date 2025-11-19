@@ -37,6 +37,35 @@ A comprehensive healthcare interoperability testing platform supporting dual pro
 - **Prior Authorization**: Prior auth request processing
 - **Custom**: Configurable scenarios for specific use cases
 
+## 🎯 Interactive Demo
+
+**New!** We've added a beautiful guided demo interface perfect for client presentations:
+
+### Quick Demo Access
+
+```bash
+# Start the server
+python app/main.py
+
+# Open in browser
+http://localhost:8000  # Guided demo wizard
+http://localhost:8000/simple  # Direct access interface
+```
+
+### Demo Resources
+- **📘 Quick Start Guide**: `DEMO_QUICK_START.md` - Get a demo running in 30 seconds
+- **📗 Full Demo Guide**: `DEMO_GUIDE.md` - Complete walkthrough with scripts and scenarios
+- **📊 System Analysis**: `COMPREHENSIVE_ANALYSIS.md` - Deep technical overview
+
+### For Client Demos
+The new landing page features:
+- 🧙 **Interactive Wizard**: 4-step guided setup for non-technical users
+- 🎨 **Modern UI**: Beautiful dark theme with smooth animations
+- 📊 **Live Stats**: Real-time platform capabilities display
+- 🚀 **One-Click Launch**: Pre-configured demo scenarios ready to go
+
+Perfect for showcasing the platform to clients, stakeholders, and collaborators!
+
 ## 🏃 Quick Start
 
 ### Environment Setup
