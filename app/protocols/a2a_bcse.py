@@ -1,10 +1,103 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 import json, time, uuid, asyncio
-from app.scenarios import bcse as BCS
+from dateutil.parser import parse
+from dateutil.relativedelta import relativedelta
 from app.scheduling.discovery import discover_slots, SlotQuery
 from app.scheduling.config import get_scheduling_config
+
+
+def evaluate_bcse_direct(payload: dict) -> dict:
+    """
+    Direct BCS-E evaluation from simplified JSON payload.
+
+    Expected payload format:
+    {
+        "sex": "female",
+        "dob": "1970-03-15" OR "age": 55,
+        "last_mammogram": "2024-06-01"
+    }
+
+    Returns dict with: eligible (bool), decision (str), rationale (str)
+    """
+    result = {"eligible": False, "decision": "needs-more-info", "rationale": ""}
+
+    try:
+        # Extract sex
+        sex = payload.get("sex", "").lower()
+        if not sex:
+            result["rationale"] = "Missing required field: sex"
+            return result
+
+        # Extract age (from 'age' field or calculate from 'dob')
+        age = payload.get("age")
+        if age is None:
+            dob_str = payload.get("dob") or payload.get("birthDate") or payload.get("birth_date")
+            if dob_str:
+                try:
+                    dob = parse(dob_str).date()
+                    today = date.today()
+                    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                except:
+                    result["rationale"] = "Invalid date of birth format"
+                    return result
+            else:
+                result["rationale"] = "Missing required field: age or dob"
+                return result
+
+        # Extract last mammogram date
+        mammogram_str = payload.get("last_mammogram") or payload.get("lastMammogram") or payload.get("mammogram_date")
+        if not mammogram_str:
+            result["rationale"] = "Missing required field: last_mammogram"
+            return result
+
+        try:
+            mammogram_date = parse(mammogram_str).date()
+        except:
+            result["rationale"] = "Invalid mammogram date format"
+            return result
+
+        # Calculate months since mammogram
+        today = date.today()
+        months_since = (today.year - mammogram_date.year) * 12 + (today.month - mammogram_date.month)
+
+        # Evaluate BCS-E criteria
+        reasons = []
+
+        # 1. Must be female
+        if sex != "female":
+            reasons.append(f"sex is {sex} (must be female)")
+
+        # 2. Must be 50-74 years old
+        if not (50 <= age <= 74):
+            reasons.append(f"age is {age} (must be 50-74)")
+
+        # 3. Mammogram within 27 months
+        if months_since > 27:
+            reasons.append(f"mammogram was {months_since} months ago (must be within 27 months)")
+
+        if reasons:
+            result["eligible"] = False
+            result["decision"] = "ineligible"
+            result["rationale"] = f"Not eligible: {'; '.join(reasons)}"
+        else:
+            result["eligible"] = True
+            result["decision"] = "eligible"
+            result["rationale"] = f"Eligible: female patient, age {age}, mammogram {months_since} months ago - all criteria met for breast cancer screening"
+
+        # Add metadata
+        result["criteria"] = {
+            "sex": sex,
+            "age": age,
+            "months_since_mammogram": months_since
+        }
+
+        return result
+
+    except Exception as e:
+        result["rationale"] = f"Evaluation error: {str(e)}"
+        return result
 
 router = APIRouter(prefix="/api/bridge/bcse/a2a", tags=["A2A-BCSE"])
 
@@ -32,17 +125,19 @@ async def rpc(req: Request):
     params = body.get("params") or {}
     if method == "message/send":
         parts = (params.get("message") or {}).get("parts") or []
-        text = next((p.get("text") for p in parts if p.get("kind")=="text"),"")
+        text = next((p.get("text") for p in parts if p.get("type")=="text" or p.get("kind")=="text"),"")
         tid = str(uuid.uuid4())[:8]
         history = [{"role":"user","parts":parts,"kind":"message"}]
-        # If text contains a JSON payload, evaluate BCS
-        decision=None
+        # If text contains a JSON payload, evaluate BCS-E
+        decision = None
         try:
             for p in parts:
-                if p.get("kind")=="text" and "{" in p.get("text",""):
-                    decision = BCS.evaluate(json.loads(p["text"]))
+                if (p.get("type")=="text" or p.get("kind")=="text") and "{" in p.get("text",""):
+                    payload = json.loads(p["text"])
+                    decision = evaluate_bcse_direct(payload)
+                    break
         except Exception as e:
-            pass
+            decision = {"eligible": False, "decision": "error", "rationale": f"Parse error: {str(e)}"}
         snap = _task_snapshot(tid, "working", history=history, context={"scenario":"bcse"})
         if decision:
             # Add BCS decision to history
