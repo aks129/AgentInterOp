@@ -136,6 +136,8 @@ class BanteropV2 {
             scenarioPreset.addEventListener('change', (e) => {
                 if (e.target.value === 'sample-bcs') {
                     this.loadSampleScenario();
+                } else if (e.target.value === 'clinical-informaticist') {
+                    this.loadClinicalInformaticistScenario();
                 }
             });
         }
@@ -241,6 +243,39 @@ class BanteropV2 {
     async loadSampleScenario() {
         document.getElementById('scenarioPreset').value = 'sample-bcs';
         await this.loadScenario();
+    }
+
+    async loadClinicalInformaticistScenario() {
+        if (!this.state.apiAvailable) {
+            this.showAlert('API is not available. Please check your connection and try again.', 'error');
+            return;
+        }
+
+        this.setLoading('scenarioLoading', true);
+
+        try {
+            const result = await this.apiCall('/scenario/sample/clinical-informaticist');
+
+            if (result.success) {
+                this.state.currentScenario = result.data;
+                this.showScenarioInfo(result.data);
+
+                // Auto-configure the agent card for Clinical Informaticist
+                const agentCardUrl = window.location.origin + '/.well-known/agent-card.json';
+                document.getElementById('agentCardUrl').value = agentCardUrl;
+
+                // Also set the A2A endpoint for smoke testing
+                document.getElementById('smokeTestUrl').value = window.location.origin + '/api/bridge/cql-measure/a2a';
+
+                await this.updateStats();
+                this.addLog('Clinical Informaticist scenario loaded successfully', 'success');
+                this.addLog('A2A endpoint: /api/bridge/cql-measure/a2a', 'info');
+            }
+        } catch (error) {
+            this.showAlert(`Failed to load Clinical Informaticist scenario: ${error.message}`, 'error');
+        } finally {
+            this.setLoading('scenarioLoading', false);
+        }
     }
 
     showScenarioInfo(scenario) {

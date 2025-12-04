@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional
 import json
 
 from .scenario_models import RunConfig
-from .scenario_loader import fetch_scenario, get_cached_scenarios, create_sample_bcs_scenario
+from .scenario_loader import fetch_scenario, get_cached_scenarios, create_sample_bcs_scenario, create_clinical_informaticist_scenario
 from .agentcard_loader import fetch_agent_card, get_cached_agent_cards, get_preset_agent_cards
 from .mcp_fhir_bridge import fetch_patient_everything, extract_minimal_facts, get_configurable_codes
 from .bcs_guidelines import (
@@ -115,6 +115,46 @@ async def get_sample_bcs_scenario():
     return {
         "success": True,
         "data": scenario.dict()
+    }
+
+
+@router.get("/scenario/sample/clinical-informaticist")
+async def get_clinical_informaticist_scenario():
+    """Get Clinical Informaticist CQL Measure Development scenario"""
+    scenario = create_clinical_informaticist_scenario()
+    return {
+        "success": True,
+        "data": scenario.dict()
+    }
+
+
+@router.get("/scenario/presets")
+async def get_scenario_presets():
+    """Get all available scenario presets"""
+    bcs_scenario = create_sample_bcs_scenario()
+    cql_scenario = create_clinical_informaticist_scenario()
+
+    return {
+        "success": True,
+        "data": {
+            "presets": [
+                {
+                    "id": "sample-bcs",
+                    "name": bcs_scenario.metadata.name,
+                    "description": bcs_scenario.metadata.description,
+                    "tags": bcs_scenario.metadata.tags,
+                    "endpoint": "/scenario/sample/bcs"
+                },
+                {
+                    "id": "clinical-informaticist",
+                    "name": cql_scenario.metadata.name,
+                    "description": cql_scenario.metadata.description,
+                    "tags": cql_scenario.metadata.tags,
+                    "endpoint": "/scenario/sample/clinical-informaticist",
+                    "a2a_endpoint": "/api/bridge/cql-measure/a2a"
+                }
+            ]
+        }
     }
 
 

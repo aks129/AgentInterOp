@@ -113,7 +113,7 @@ def create_sample_bcs_scenario() -> Scenario:
             {
                 "agentId": "administrator",
                 "name": "Healthcare Administrator",
-                "role": "administrator", 
+                "role": "administrator",
                 "systemPrompt": "You are a healthcare administrator evaluating breast cancer screening eligibility. Follow AMA guidelines and provide clear guidance on screening recommendations.",
                 "goals": ["Evaluate screening eligibility", "Provide scheduling guidance"],
                 "tools": ["fhir_lookup", "bcs_evaluation", "scheduling_search"]
@@ -124,4 +124,109 @@ def create_sample_bcs_scenario() -> Scenario:
             "enableBcsEvaluation": True,
             "enableScheduling": True
         }
+    )
+
+
+def create_clinical_informaticist_scenario() -> Scenario:
+    """Create a Clinical Informaticist CQL Measure Development scenario"""
+    return Scenario(
+        metadata={
+            "id": "clinical_informaticist_cql",
+            "name": "Clinical Informaticist - CQL Measure Development",
+            "description": "Build CQL quality measures from USPSTF guidelines using the Clinical Informaticist Agent",
+            "version": "1.0.0",
+            "tags": ["healthcare", "cql", "quality-measure", "fhir", "clinical-informatics"]
+        },
+        agents=[
+            {
+                "agentId": "requester",
+                "name": "Quality Measure Requester",
+                "role": "requester",
+                "systemPrompt": "You are a healthcare quality improvement specialist requesting the development of a clinical quality measure. Specify the clinical guideline (e.g., USPSTF breast cancer screening) and the desired measure characteristics.",
+                "goals": [
+                    "Request CQL measure development",
+                    "Specify clinical guidelines to follow",
+                    "Review and approve generated measures"
+                ],
+                "messageToUseWhenInitiatingConversation": "I need to create a CQL quality measure for breast cancer screening based on USPSTF guidelines. Can you help me build CMS125v11 (NQF 2372)?"
+            },
+            {
+                "agentId": "clinical_informaticist",
+                "name": "Clinical Informaticist Agent",
+                "role": "specialist",
+                "systemPrompt": "You are a Clinical Informaticist Agent specialized in building CQL (Clinical Quality Language) measures from clinical guidelines. You can learn guidelines, build CQL, validate it, and publish to FHIR servers like Medplum.",
+                "goals": [
+                    "Learn clinical guidelines (USPSTF, ACS, etc.)",
+                    "Build valid CQL quality measures",
+                    "Validate CQL syntax and semantics",
+                    "Publish to FHIR servers (Medplum)"
+                ],
+                "tools": [
+                    "learn_guidelines",
+                    "build_cql_measure",
+                    "validate_cql",
+                    "publish_to_fhir",
+                    "execute_full_workflow"
+                ],
+                "a2a_endpoint": "/api/bridge/cql-measure/a2a"
+            }
+        ],
+        settings={
+            "enableFhir": True,
+            "enableCqlBuilder": True,
+            "enableMedplumPublishing": True,
+            "medplum": {
+                "client_id": "0a0fe17a-6013-4c65-a2ab-e8eecf328bbb",
+                "base_url": "https://api.medplum.com"
+            }
+        },
+        tools=[
+            {
+                "name": "learn_guidelines",
+                "description": "Learn and internalize clinical guidelines for measure development",
+                "parameters": {
+                    "type": {"type": "string", "description": "Guideline type (e.g., breast_cancer_screening)"},
+                    "source": {"type": "string", "description": "Guideline source (e.g., USPSTF, ACS)"}
+                }
+            },
+            {
+                "name": "build_cql_measure",
+                "description": "Build CQL measure from learned guidelines",
+                "parameters": {}
+            },
+            {
+                "name": "validate_cql",
+                "description": "Validate generated CQL against quality standards",
+                "parameters": {}
+            },
+            {
+                "name": "publish_to_fhir",
+                "description": "Publish validated CQL measure to Medplum FHIR server",
+                "parameters": {
+                    "target": {"type": "string", "description": "Target FHIR server (default: medplum)"}
+                }
+            },
+            {
+                "name": "execute_full_workflow",
+                "description": "Execute complete CQL measure development workflow: learn → build → validate → publish",
+                "parameters": {
+                    "guideline_type": {"type": "string", "description": "Type of guideline to process"}
+                }
+            }
+        ],
+        knowledgeBase=[
+            {
+                "id": "uspstf_bcs_guidelines",
+                "type": "clinical_guideline",
+                "content": json.dumps({
+                    "name": "USPSTF Breast Cancer Screening Guidelines",
+                    "nqf_id": "2372",
+                    "cms_id": "CMS125v11",
+                    "title": "Breast Cancer Screening",
+                    "population": "Women aged 50-74 years",
+                    "recommendation": "Biennial screening mammography",
+                    "grade": "B"
+                })
+            }
+        ]
     )
