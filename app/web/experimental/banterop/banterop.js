@@ -258,14 +258,23 @@ class BanteropV2 {
 
             if (result.success) {
                 this.state.currentScenario = result.data;
+                // Store the scenario URL for run start
+                this.state.scenarioUrl = 'clinical-informaticist';
+                this.state.scenarioPreset = 'clinical-informaticist';
                 this.showScenarioInfo(result.data);
 
                 // Auto-configure the agent card for Clinical Informaticist
                 const agentCardUrl = window.location.origin + '/.well-known/agent-card.json';
                 document.getElementById('agentCardUrl').value = agentCardUrl;
+                this.state.agentCardUrl = agentCardUrl;
 
                 // Also set the A2A endpoint for smoke testing
-                document.getElementById('smokeTestUrl').value = window.location.origin + '/api/bridge/cql-measure/a2a';
+                const a2aUrl = window.location.origin + '/api/bridge/cql-measure/a2a';
+                document.getElementById('smokeTestUrl').value = a2aUrl;
+                this.state.remoteA2aUrl = a2aUrl;
+
+                // Auto-load the agent card
+                await this.loadAgentCard();
 
                 await this.updateStats();
                 this.addLog('Clinical Informaticist scenario loaded successfully', 'success');
@@ -417,21 +426,39 @@ class BanteropV2 {
 
     // Run Management
     async startNewRun() {
-        if (!this.state.currentScenario || !this.state.currentAgentCard) {
-            this.showAlert('Please load a scenario and agent card first', 'error');
+        if (!this.state.currentScenario) {
+            this.showAlert('Please load a scenario first', 'error');
             return;
         }
 
         try {
+            // Determine the scenario URL - use preset name or actual URL
+            const scenarioUrl = this.state.scenarioUrl ||
+                               this.state.scenarioPreset ||
+                               document.getElementById('scenarioUrl').value.trim();
+
+            if (!scenarioUrl) {
+                this.showAlert('No scenario URL available', 'error');
+                return;
+            }
+
+            // Determine agent ID from loaded scenario (use first agent or 'requester')
+            const myAgentId = this.state.currentScenario.agents?.[0]?.agentId || 'requester';
+
+            // Get remote agent card URL if available
+            const remoteAgentCardUrl = this.state.agentCardUrl ||
+                                       document.getElementById('agentCardUrl').value.trim();
+
             const config = {
-                scenario: this.state.currentScenario,
-                myRole: 'applicant',
-                remoteAgentCard: this.state.currentAgentCard,
-                mode: 'remote',
-                patientFacts: this.state.fhirFacts || {},
-                guidelines: this.state.guidelines || {}
+                scenarioUrl: scenarioUrl,
+                myAgentId: myAgentId,
+                remoteAgentCardUrl: remoteAgentCardUrl || null,
+                conversationMode: remoteAgentCardUrl ? 'remote' : 'local',
+                fhir: this.state.fhirFacts ? { facts: this.state.fhirFacts } : {},
+                bcse: this.state.guidelines ? { enabled: true, guidelines: this.state.guidelines } : {}
             };
 
+            this.addLog(`Starting run with scenario: ${scenarioUrl}`, 'info');
             const result = await this.apiCall('/run/start', 'POST', config);
 
             if (result.success) {
@@ -441,6 +468,11 @@ class BanteropV2 {
                 this.updateRunSelector();
                 await this.updateStats();
                 this.addLog(`Run started: ${result.data.runId}`, 'success');
+
+                // Show initial message if available
+                if (this.state.currentScenario.agents?.[0]?.messageToUseWhenInitiatingConversation) {
+                    this.addMessage('assistant', this.state.currentScenario.agents[0].messageToUseWhenInitiatingConversation);
+                }
             }
         } catch (error) {
             this.showAlert(`Failed to start run: ${error.message}`, 'error');
@@ -451,7 +483,18 @@ class BanteropV2 {
         const input = document.getElementById('messageInput');
         const message = input.value.trim();
 
-        if (!message || !this.state.currentRun) {
+        if (!message) {
+            return;
+        }
+
+        // If no run started but we have a direct A2A URL, use direct mode
+        if (!this.state.currentRun && this.state.remoteA2aUrl) {
+            await this.sendDirectA2AMessage(message);
+            return;
+        }
+
+        if (!this.state.currentRun) {
+            this.showAlert('Please start a conversation first', 'error');
             return;
         }
 
@@ -468,11 +511,85 @@ class BanteropV2 {
 
             if (result) {
                 this.addMessage('user', message);
-                if (result.data && result.data.response) {
-                    this.addMessage('assistant', result.data.response);
+                // Extract response from various possible locations
+                let responseText = null;
+                if (result.data?.response) {
+                    responseText = result.data.response;
+                } else if (result.data?.result?.message?.parts) {
+                    responseText = result.data.result.message.parts
+                        .filter(p => p.kind === 'text')
+                        .map(p => p.text)
+                        .join('\n');
+                }
+                if (responseText) {
+                    this.addMessage('assistant', responseText);
                 }
                 input.value = '';
                 await this.updateStats();
+            }
+        } catch (error) {
+            this.showAlert(`Failed to send message: ${error.message}`, 'error');
+        } finally {
+            sendBtn.disabled = false;
+            input.disabled = false;
+            input.focus();
+        }
+    }
+
+    async sendDirectA2AMessage(message) {
+        const sendBtn = document.getElementById('sendBtn');
+        const input = document.getElementById('messageInput');
+        sendBtn.disabled = true;
+        input.disabled = true;
+
+        try {
+            this.addMessage('user', message);
+
+            // Build A2A JSON-RPC payload
+            const payload = {
+                jsonrpc: '2.0',
+                id: Date.now().toString(),
+                method: 'message/send',
+                params: {
+                    message: {
+                        parts: [{ kind: 'text', text: message }]
+                    },
+                    taskId: this.state.currentTaskId || null
+                }
+            };
+
+            const result = await this.apiCall('/a2a/proxy', 'POST', {
+                url: this.state.remoteA2aUrl,
+                rpc: payload,
+                stream: false
+            });
+
+            if (result.success && result.data) {
+                // Extract task ID for continuation
+                if (result.data.result?.taskId) {
+                    this.state.currentTaskId = result.data.result.taskId;
+                }
+
+                // Extract response text
+                let responseText = null;
+                if (result.data.result?.message?.parts) {
+                    responseText = result.data.result.message.parts
+                        .filter(p => p.kind === 'text')
+                        .map(p => p.text)
+                        .join('\n');
+                } else if (result.data.result?.artifacts) {
+                    // Handle artifacts (CQL code, etc.)
+                    responseText = result.data.result.artifacts
+                        .map(a => `**${a.name || 'Artifact'}**:\n\`\`\`\n${a.content || JSON.stringify(a, null, 2)}\n\`\`\``)
+                        .join('\n\n');
+                }
+
+                if (responseText) {
+                    this.addMessage('assistant', responseText);
+                }
+
+                input.value = '';
+                this.addLog('Direct A2A message sent successfully', 'success');
             }
         } catch (error) {
             this.showAlert(`Failed to send message: ${error.message}`, 'error');
