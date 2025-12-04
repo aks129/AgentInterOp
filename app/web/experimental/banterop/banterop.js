@@ -565,27 +565,67 @@ class BanteropV2 {
             });
 
             if (result.success && result.data) {
+                const resultData = result.data.result || result.data;
+
                 // Extract task ID for continuation
-                if (result.data.result?.taskId) {
-                    this.state.currentTaskId = result.data.result.taskId;
+                if (resultData.id) {
+                    this.state.currentTaskId = resultData.id;
+                } else if (resultData.taskId) {
+                    this.state.currentTaskId = resultData.taskId;
                 }
 
-                // Extract response text
+                // Extract response text from various possible locations
                 let responseText = null;
-                if (result.data.result?.message?.parts) {
-                    responseText = result.data.result.message.parts
+                let responses = [];
+
+                // Check for history array (A2A format)
+                if (resultData.history && Array.isArray(resultData.history)) {
+                    const agentMessages = resultData.history.filter(h => h.role === 'agent');
+                    for (const msg of agentMessages) {
+                        if (msg.parts) {
+                            const text = msg.parts
+                                .filter(p => p.kind === 'text')
+                                .map(p => p.text)
+                                .join('\n');
+                            if (text) responses.push(text);
+                        }
+                    }
+                }
+
+                // Check for direct message.parts
+                if (resultData.message?.parts) {
+                    const text = resultData.message.parts
                         .filter(p => p.kind === 'text')
                         .map(p => p.text)
                         .join('\n');
-                } else if (result.data.result?.artifacts) {
-                    // Handle artifacts (CQL code, etc.)
-                    responseText = result.data.result.artifacts
-                        .map(a => `**${a.name || 'Artifact'}**:\n\`\`\`\n${a.content || JSON.stringify(a, null, 2)}\n\`\`\``)
-                        .join('\n\n');
+                    if (text) responses.push(text);
                 }
+
+                // Handle artifacts (CQL code, etc.)
+                if (resultData.artifacts && Array.isArray(resultData.artifacts)) {
+                    for (const artifact of resultData.artifacts) {
+                        if (artifact.kind === 'file' && artifact.file) {
+                            // Decode base64 content
+                            let content = artifact.file.bytes;
+                            try {
+                                content = atob(artifact.file.bytes);
+                            } catch (e) {
+                                // Not base64, use as-is
+                            }
+                            responses.push(`**${artifact.file.name}**:\n\`\`\`cql\n${content}\n\`\`\``);
+                        } else if (artifact.content) {
+                            responses.push(`**${artifact.name || 'Artifact'}**:\n\`\`\`\n${artifact.content}\n\`\`\``);
+                        }
+                    }
+                }
+
+                responseText = responses.join('\n\n');
 
                 if (responseText) {
                     this.addMessage('assistant', responseText);
+                } else {
+                    this.addMessage('assistant', 'Response received but no text content found.');
+                    console.log('A2A Response:', result.data);
                 }
 
                 input.value = '';
