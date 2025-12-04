@@ -861,10 +861,10 @@ class BanteropV2 {
 }
 
 // Initialize on page load
-let BanteropV2;
+let banteropInstance;
 document.addEventListener('DOMContentLoaded', () => {
-    BanteropV2 = new BanteropV2();
+    banteropInstance = new BanteropV2();
 
     // Make instance globally available for onclick handlers
-    window.BanteropV2 = BanteropV2;
+    window.BanteropV2 = banteropInstance;
 });
