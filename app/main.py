@@ -110,7 +110,7 @@ except Exception as e:
 
 # Register scenarios first before including routers
 from app.scenarios import registry
-from app.scenarios import sc_bcse, sc_clinical_trial, sc_referral_specialist, sc_prior_auth, sc_custom
+from app.scenarios import sc_bcse, sc_clinical_trial, sc_referral_specialist, sc_prior_auth, sc_custom, sc_cql_measure
 
 # Register scenarios - force registration at module load time
 print(f"[INIT] Registering scenarios...", flush=True)
@@ -119,6 +119,7 @@ registry.register("clinical_trial", sc_clinical_trial)
 registry.register("referral_specialist", sc_referral_specialist)
 registry.register("prior_auth", sc_prior_auth)
 registry.register("custom", sc_custom)
+registry.register("cql_measure", sc_cql_measure)
 print(f"[INIT] Scenarios registered: {list(registry._SCENARIOS.keys())}", flush=True)
 
 # Include routers from protocols
@@ -133,6 +134,10 @@ from app.protocols.a2a_bcse import router as a2a_bcse_router
 from app.protocols.mcp_bcse import router as mcp_bcse_router
 app.include_router(a2a_bcse_router)
 app.include_router(mcp_bcse_router)
+
+# Include CQL Measure A2A bridge (Clinical Informaticist Agent)
+from app.protocols.a2a_cql_measure import router as a2a_cql_measure_router
+app.include_router(a2a_cql_measure_router)
 
 # Include scheduling router
 from app.routers.scheduling import router as scheduling_router
@@ -159,6 +164,10 @@ app.include_router(banterop_router)
 # Include Agent Management API
 from app.api.agents import router as agents_router
 app.include_router(agents_router)
+
+# Include Clinical Informaticist Agent router
+from app.routers.clinical_informaticist import router as clinical_informaticist_router
+app.include_router(clinical_informaticist_router)
 
 # In-memory artifact storage for demo
 demo_artifacts = {
@@ -230,6 +239,16 @@ def agent_card(request: Request):
             "url": f"{base}/api/bridge/demo/a2a"
           },
           "a2a.config64": base64.b64encode(b'{"scenario":"demo"}').decode()
+        },
+        {
+          "id": "clinical-informaticist",
+          "name": "CQL Measure Development",
+          "description": "Clinical Informaticist Agent for building CQL quality measures from clinical guidelines with FHIR publishing",
+          "tags": ["cql", "quality-measure", "fhir", "guidelines", "clinical-informatics"],
+          "discovery": {
+            "url": f"{base}/api/clinical-informaticist/a2a"
+          },
+          "a2a.config64": base64.b64encode(b'{"agent":"clinical_informaticist"}').decode()
         }
       ]
     }
@@ -304,7 +323,7 @@ def selftest():
     except Exception as e:
         active_scenario = f"ERROR: {e}"
         available_scenarios = []
-        
+
     return {"ok": True,
             "a2a": ["message/send","message/stream","tasks/get","tasks/cancel"],
             "mcp": ["begin_chat_thread","send_message_to_chat_thread","check_replies"],
@@ -312,9 +331,73 @@ def selftest():
             "available_scenarios": available_scenarios,
             "endpoints": {
                 "a2a_comprehensive": "/api/a2a/bridge/{config64}/a2a",
-                "a2a_bcse_simple": "/api/bridge/bcse/a2a", 
+                "a2a_bcse_simple": "/api/bridge/bcse/a2a",
                 "mcp_bcse": "/api/mcp/bcse/"
             }}
+
+@app.get("/api/scenarios")
+def get_scenarios():
+    """Get available scenarios with their details for the UI"""
+    from app.config import load_config
+    from app.scenarios.registry import list_scenarios, _SCENARIOS
+
+    try:
+        config = load_config()
+        active_scenario = config.scenario.active
+    except Exception:
+        active_scenario = "bcse"
+
+    scenarios_data = {}
+
+    for name, scenario_data in _SCENARIOS.items():
+        scenarios_data[name] = {
+            "label": scenario_data.get("label", name.upper()),
+            "requirements": scenario_data["requirements"]() if "requirements" in scenario_data else "",
+            "examples": scenario_data.get("examples", [])
+        }
+
+    return {
+        "active": active_scenario,
+        "scenarios": scenarios_data
+    }
+
+@app.post("/api/scenarios/activate")
+def activate_scenario(request_data: dict):
+    """Activate a specific scenario"""
+    from app.config import load_config, save_config
+
+    name = request_data.get("name")
+    if not name:
+        raise HTTPException(status_code=400, detail="Missing 'name' field")
+
+    from app.scenarios.registry import list_scenarios
+    if name not in list_scenarios():
+        raise HTTPException(status_code=404, detail=f"Scenario '{name}' not found")
+
+    try:
+        config = load_config()
+        config.scenario.active = name
+        save_config(config)
+        return {"ok": True, "active": name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/requirements")
+def get_requirements():
+    """Get requirements for the active scenario"""
+    from app.config import load_config
+    from app.scenarios.registry import _SCENARIOS
+
+    try:
+        config = load_config()
+        scenario_name = config.scenario.active
+        if scenario_name in _SCENARIOS:
+            scenario_data = _SCENARIOS[scenario_name]
+            if "requirements" in scenario_data:
+                return {"requirements": scenario_data["requirements"]()}
+        return {"requirements": "No requirements defined"}
+    except Exception as e:
+        return {"requirements": f"Error: {str(e)}"}
 
 @app.get("/api/loopback/sse")
 def loop_sse():

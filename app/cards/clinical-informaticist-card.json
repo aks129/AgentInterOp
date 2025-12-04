@@ -1,0 +1,112 @@
+{
+  "protocolVersion": "0.2.9",
+  "preferredTransport": "JSONRPC",
+  "name": "Clinical Informaticist Agent",
+  "description": "Specialized agent for building, validating, and publishing CQL (Clinical Quality Language) measures from clinical guidelines. Demonstrates agent-to-agent communication and tool-based workflows.",
+  "role": "specialist",
+  "domain": "clinical_informatics",
+  "capabilities": {
+    "streaming": true,
+    "protocols": ["A2A", "MCP"],
+    "fhir": true,
+    "cql_generation": true,
+    "measure_development": true,
+    "fhir_publishing": true
+  },
+  "skills": [
+    {
+      "name": "guideline_learning",
+      "description": "Learn and internalize clinical guidelines from authoritative sources (USPSTF, ACS, ACR)",
+      "type": "knowledge_acquisition",
+      "inputs": ["guideline_type", "source"],
+      "outputs": ["guideline_summary", "recommendations", "quality_measure_info"]
+    },
+    {
+      "name": "cql_measure_building",
+      "description": "Generate CQL code and FHIR Library/Measure resources from clinical guidelines",
+      "type": "artifact_generation",
+      "inputs": ["guidelines"],
+      "outputs": ["cql_code", "fhir_library", "fhir_measure"]
+    },
+    {
+      "name": "cql_validation",
+      "description": "Validate CQL syntax and semantics against clinical quality standards",
+      "type": "validation",
+      "inputs": ["cql_code"],
+      "outputs": ["validation_result", "errors", "warnings"]
+    },
+    {
+      "name": "fhir_publishing",
+      "description": "Publish validated CQL measures to FHIR servers (Medplum)",
+      "type": "integration",
+      "inputs": ["fhir_library", "fhir_measure", "fhir_credentials"],
+      "outputs": ["published_library_id", "published_measure_id"]
+    },
+    {
+      "name": "full_workflow_execution",
+      "description": "Execute complete CQL measure development workflow: learn, build, validate, publish",
+      "type": "orchestration",
+      "inputs": ["guideline_type", "fhir_credentials"],
+      "outputs": ["workflow_result", "artifacts"]
+    }
+  ],
+  "tools": [
+    {
+      "name": "cql_builder",
+      "description": "MCP tool for constructing CQL from structured guidelines",
+      "protocol": "MCP"
+    },
+    {
+      "name": "cql_validator",
+      "description": "MCP tool for validating CQL syntax and semantics",
+      "protocol": "MCP"
+    },
+    {
+      "name": "fhir_publisher",
+      "description": "MCP tool for publishing resources to FHIR servers",
+      "protocol": "MCP"
+    },
+    {
+      "name": "guideline_loader",
+      "description": "MCP tool for loading clinical guidelines",
+      "protocol": "MCP"
+    }
+  ],
+  "methods": [
+    "learn_guidelines",
+    "build_cql_measure",
+    "validate_cql",
+    "publish_to_fhir",
+    "execute_full_workflow",
+    "get_workflow_status",
+    "requirements_message"
+  ],
+  "supported_guidelines": [
+    {
+      "type": "breast_cancer_screening",
+      "name": "Breast Cancer Screening (BCS)",
+      "source": "USPSTF",
+      "cms_id": "CMS125v11",
+      "nqf_id": "2372"
+    }
+  ],
+  "integrations": {
+    "fhir_servers": [
+      {
+        "name": "Medplum",
+        "base_url": "https://api.medplum.com",
+        "auth": "oauth2_client_credentials"
+      }
+    ]
+  },
+  "supported_formats": [
+    "application/fhir+json",
+    "text/cql",
+    "application/json"
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "created": "2024-12-04",
+    "author": "AgentInterOp Platform"
+  }
+}
