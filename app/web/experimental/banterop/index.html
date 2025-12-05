@@ -133,6 +133,17 @@
             border-radius: 12px;
             padding: 1.5rem;
             box-shadow: var(--shadow-lg);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+        
+        .panel.collapsed .panel-content {
+            display: none;
+        }
+        
+        .panel.collapsed {
+            padding-bottom: 0.5rem;
         }
 
         .panel-header {
@@ -142,11 +153,33 @@
             margin-bottom: 1.5rem;
             padding-bottom: 1rem;
             border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+        
+        .panel.collapsed .panel-header {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0.5rem;
         }
 
         .panel-title {
             font-size: 1.25rem;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .panel-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: transform 0.3s ease;
+        }
+        
+        .panel.collapsed .panel-toggle {
+            transform: rotate(-90deg);
         }
 
         .tabs {
@@ -284,49 +317,63 @@
             background: var(--bg-secondary);
             border-radius: 8px;
             margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
         }
 
         .message {
             margin-bottom: 1rem;
             animation: slideIn 0.3s ease-out;
+            max-width: 80%;
+            align-self: flex-start;
+        }
+        
+        .message.user {
+            align-self: flex-end;
         }
 
         @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .message-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+        
+        .message.user .message-header {
+            flex-direction: row-reverse;
         }
 
         .message-role {
             font-weight: 600;
-            font-size: 0.875rem;
-        }
-
-        .message-role.user {
-            color: var(--primary);
-        }
-
-        .message-role.assistant {
-            color: var(--secondary);
-        }
-
-        .message-timestamp {
-            font-size: 0.75rem;
-            color: var(--text-tertiary);
         }
 
         .message-content {
             padding: 0.75rem;
-            background: var(--bg-primary);
-            border-radius: 8px;
+            background: white;
+            border-radius: 12px;
+            border-top-left-radius: 2px;
             font-size: 0.875rem;
             line-height: 1.5;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .message.user .message-content {
+            background: var(--primary);
+            color: white;
+            border-radius: 12px;
+            border-top-right-radius: 2px;
+        }
+        
+        .message.assistant .message-content {
+            background: white;
+            border: 1px solid var(--border);
         }
 
         .message-input-container {
@@ -402,6 +449,7 @@
             text-align: center;
             padding: 3rem;
             color: var(--text-secondary);
+            margin: auto;
         }
 
         .empty-state-text {
@@ -424,6 +472,40 @@
 
         .hidden {
             display: none !important;
+        }
+        
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .toast {
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            background: white;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 300px;
+            animation: slideInRight 0.3s ease-out;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.warning { border-left-color: var(--warning); }
+        .toast.info { border-left-color: var(--primary); }
+        
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100%); }
+            to { opacity: 1; transform: translateX(0); }
         }
 
         @media (max-width: 1024px) {
@@ -481,101 +563,106 @@
         </div>
 
         <div class="main-grid">
-            <div class="panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">Configuration</h2>
+            <div class="panel" id="configPanel">
+                <div class="panel-header" onclick="BanteropV2.togglePanel('configPanel')">
+                    <h2 class="panel-title">
+                        <button class="panel-toggle">▼</button>
+                        Configuration
+                    </h2>
                 </div>
 
-                <div class="tabs">
-                    <button class="tab active" data-tab="scenario">Scenario</button>
-                    <button class="tab" data-tab="agents">Agents</button>
-                    <button class="tab" data-tab="fhir">FHIR</button>
-                    <button class="tab" data-tab="guidelines">Guidelines</button>
-                </div>
+                <div class="panel-content">
+                    <div class="tabs">
+                        <button class="tab active" data-tab="scenario">Scenario</button>
+                        <button class="tab" data-tab="agents">Agents</button>
+                        <button class="tab" data-tab="fhir">FHIR</button>
+                        <button class="tab" data-tab="guidelines">Guidelines</button>
+                    </div>
 
-                <div id="tab-scenario" class="tab-content active">
-                    <div class="form-group">
-                        <label class="form-label">Scenario URL</label>
-                        <input type="text" class="form-input" id="scenarioUrl"
-                               placeholder="https://example.com/scenario.json">
+                    <div id="tab-scenario" class="tab-content active">
+                        <div class="form-group">
+                            <label class="form-label">Scenario URL</label>
+                            <input type="text" class="form-input" id="scenarioUrl"
+                                   placeholder="https://example.com/scenario.json">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Preset Scenarios</label>
+                            <select class="form-select" id="scenarioPreset">
+                                <option value="">Custom URL</option>
+                                <option value="sample-bcs">Breast Cancer Screening</option>
+                                <option value="clinical-informaticist">Clinical Informaticist (CQL/FHIR)</option>
+                                <option value="clinical-trial">Clinical Trial</option>
+                                <option value="prior-auth">Prior Authorization</option>
+                            </select>
+                        </div>
+                        <button class="btn" onclick="BanteropV2.loadScenario()">
+                            <span class="loading hidden" id="scenarioLoading"></span>
+                            Load Scenario
+                        </button>
+                        <div id="scenarioInfo" class="alert alert-success hidden" style="margin-top: 1rem;"></div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Preset Scenarios</label>
-                        <select class="form-select" id="scenarioPreset">
-                            <option value="">Custom URL</option>
-                            <option value="sample-bcs">Breast Cancer Screening</option>
-                            <option value="clinical-informaticist">Clinical Informaticist (CQL/FHIR)</option>
-                            <option value="clinical-trial">Clinical Trial</option>
-                            <option value="prior-auth">Prior Authorization</option>
-                        </select>
-                    </div>
-                    <button class="btn" onclick="BanteropV2.loadScenario()">
-                        <span class="loading hidden" id="scenarioLoading"></span>
-                        Load Scenario
-                    </button>
-                    <div id="scenarioInfo" class="alert alert-success hidden" style="margin-top: 1rem;"></div>
-                </div>
 
-                <div id="tab-agents" class="tab-content">
-                    <div class="form-group">
-                        <label class="form-label">Agent Card URL</label>
-                        <input type="text" class="form-input" id="agentCardUrl"
-                               placeholder="https://example.com/.well-known/agent-card.json">
+                    <div id="tab-agents" class="tab-content">
+                        <div class="form-group">
+                            <label class="form-label">Agent Card URL</label>
+                            <input type="text" class="form-input" id="agentCardUrl"
+                                   placeholder="https://example.com/.well-known/agent-card.json">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Preset Agents</label>
+                            <div class="btn-group">
+                                <button class="btn btn-secondary" onclick="BanteropV2.setPresetAgent('carecommons')">
+                                    CareCommons
+                                </button>
+                                <button class="btn btn-secondary" onclick="BanteropV2.setPresetAgent('local')">
+                                    Local
+                                </button>
+                            </div>
+                        </div>
+                        <button class="btn" onclick="BanteropV2.loadAgentCard()">
+                            Load Agent Card
+                        </button>
+                        <div id="agentInfo" class="hidden" style="margin-top: 1rem;"></div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Preset Agents</label>
+
+                    <div id="tab-fhir" class="tab-content">
+                        <div class="form-group">
+                            <label class="form-label">FHIR Server Base URL</label>
+                            <input type="text" class="form-input" id="fhirBase"
+                                   value="https://api.carecommonsdev.org/fhir">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Patient ID</label>
+                            <input type="text" class="form-input" id="patientId"
+                                   placeholder="Patient/123">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bearer Token (optional)</label>
+                            <input type="password" class="form-input" id="bearerToken"
+                                   placeholder="Optional authentication token">
+                        </div>
+                        <button class="btn" onclick="BanteropV2.fetchFhirData()">
+                            Fetch Patient Data
+                        </button>
+                        <div id="fhirFacts" class="json-viewer hidden" style="margin-top: 1rem;"></div>
+                    </div>
+
+                    <div id="tab-guidelines" class="tab-content">
+                        <div class="form-group">
+                            <label class="form-label">BCS Guidelines JSON</label>
+                            <textarea class="form-textarea" id="guidelinesJson"
+                                      placeholder='{"rules": [], "metadata": {}}'></textarea>
+                        </div>
                         <div class="btn-group">
-                            <button class="btn btn-secondary" onclick="BanteropV2.setPresetAgent('carecommons')">
-                                CareCommons
+                            <button class="btn" onclick="BanteropV2.loadGuidelines()">
+                                Load Guidelines
                             </button>
-                            <button class="btn btn-secondary" onclick="BanteropV2.setPresetAgent('local')">
-                                Local
+                            <button class="btn btn-secondary" onclick="BanteropV2.resetGuidelines()">
+                                Reset to Default
                             </button>
                         </div>
+                        <div id="guidelinesInfo" class="alert alert-success hidden" style="margin-top: 1rem;"></div>
                     </div>
-                    <button class="btn" onclick="BanteropV2.loadAgentCard()">
-                        Load Agent Card
-                    </button>
-                    <div id="agentInfo" class="hidden" style="margin-top: 1rem;"></div>
-                </div>
-
-                <div id="tab-fhir" class="tab-content">
-                    <div class="form-group">
-                        <label class="form-label">FHIR Server Base URL</label>
-                        <input type="text" class="form-input" id="fhirBase"
-                               value="https://api.carecommonsdev.org/fhir">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Patient ID</label>
-                        <input type="text" class="form-input" id="patientId"
-                               placeholder="Patient/123">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Bearer Token (optional)</label>
-                        <input type="password" class="form-input" id="bearerToken"
-                               placeholder="Optional authentication token">
-                    </div>
-                    <button class="btn" onclick="BanteropV2.fetchFhirData()">
-                        Fetch Patient Data
-                    </button>
-                    <div id="fhirFacts" class="json-viewer hidden" style="margin-top: 1rem;"></div>
-                </div>
-
-                <div id="tab-guidelines" class="tab-content">
-                    <div class="form-group">
-                        <label class="form-label">BCS Guidelines JSON</label>
-                        <textarea class="form-textarea" id="guidelinesJson"
-                                  placeholder='{"rules": [], "metadata": {}}'></textarea>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn" onclick="BanteropV2.loadGuidelines()">
-                            Load Guidelines
-                        </button>
-                        <button class="btn btn-secondary" onclick="BanteropV2.resetGuidelines()">
-                            Reset to Default
-                        </button>
-                    </div>
-                    <div id="guidelinesInfo" class="alert alert-success hidden" style="margin-top: 1rem;"></div>
                 </div>
             </div>
 
@@ -607,78 +694,85 @@
             </div>
         </div>
 
-        <div class="panel">
-            <div class="panel-header">
-                <h2 class="panel-title">Testing & Analysis</h2>
+        <div class="panel" id="testingPanel">
+            <div class="panel-header" onclick="BanteropV2.togglePanel('testingPanel')">
+                <h2 class="panel-title">
+                    <button class="panel-toggle">▼</button>
+                    Testing & Analysis
+                </h2>
             </div>
 
-            <div class="tabs">
-                <button class="tab active" data-tab="smoke">Smoke Test</button>
-                <button class="tab" data-tab="evaluation">Evaluation</button>
-                <button class="tab" data-tab="llm">LLM Analysis</button>
-                <button class="tab" data-tab="logs">Logs</button>
-            </div>
+            <div class="panel-content">
+                <div class="tabs">
+                    <button class="tab active" data-tab="smoke">Smoke Test</button>
+                    <button class="tab" data-tab="evaluation">Evaluation</button>
+                    <button class="tab" data-tab="llm">LLM Analysis</button>
+                    <button class="tab" data-tab="logs">Logs</button>
+                </div>
 
-            <div id="tab-smoke" class="tab-content active">
-                <div class="form-group">
-                    <label class="form-label">Remote A2A Endpoint</label>
-                    <input type="text" class="form-input" id="smokeTestUrl"
-                           placeholder="https://example.com/api/bridge/bcse/a2a">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Script Length</label>
-                    <select class="form-select" id="scriptLength">
-                        <option value="2">2 messages</option>
-                        <option value="3">3 messages</option>
-                        <option value="5">5 messages</option>
-                    </select>
-                </div>
-                <button class="btn" onclick="BanteropV2.runSmokeTest()">
-                    Run Smoke Test
-                </button>
-                <div id="smokeTestResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
-            </div>
-
-            <div id="tab-evaluation" class="tab-content">
-                <div class="form-group">
-                    <label class="form-label">Patient Facts JSON</label>
-                    <textarea class="form-textarea" id="patientFactsJson"
-                              placeholder='{"sex": "female", "birthDate": "1970-01-01"}'></textarea>
-                </div>
-                <button class="btn" onclick="BanteropV2.evaluateGuidelines()">
-                    Evaluate Guidelines
-                </button>
-                <div id="evaluationResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
-            </div>
-
-            <div id="tab-llm" class="tab-content">
-                <div id="llmStatus" class="alert alert-success">
-                    Checking LLM availability...
-                </div>
-                <div class="btn-group" style="margin-top: 1rem;">
-                    <button class="btn" onclick="BanteropV2.generateNarrative('applicant')" id="narrativeApplicantBtn" disabled>
-                        Applicant Summary
+                <div id="tab-smoke" class="tab-content active">
+                    <div class="form-group">
+                        <label class="form-label">Remote A2A Endpoint</label>
+                        <input type="text" class="form-input" id="smokeTestUrl"
+                               placeholder="https://example.com/api/bridge/bcse/a2a">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Script Length</label>
+                        <select class="form-select" id="scriptLength">
+                            <option value="2">2 messages</option>
+                            <option value="3">3 messages</option>
+                            <option value="5">5 messages</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="BanteropV2.runSmokeTest()">
+                        Run Smoke Test
                     </button>
-                    <button class="btn" onclick="BanteropV2.generateNarrative('administrator')" id="narrativeAdminBtn" disabled>
-                        Admin Assessment
-                    </button>
-                    <button class="btn btn-secondary" onclick="BanteropV2.generateRationale()" id="rationaleBtn" disabled>
-                        Guideline Rationale
-                    </button>
+                    <div id="smokeTestResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
                 </div>
-                <div id="llmResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
-            </div>
 
-            <div id="tab-logs" class="tab-content">
-                <div class="json-viewer" id="logsContainer" style="max-height: 400px;">
-                    No logs yet...
+                <div id="tab-evaluation" class="tab-content">
+                    <div class="form-group">
+                        <label class="form-label">Patient Facts JSON</label>
+                        <textarea class="form-textarea" id="patientFactsJson"
+                                  placeholder='{"sex": "female", "birthDate": "1970-01-01"}'></textarea>
+                    </div>
+                    <button class="btn" onclick="BanteropV2.evaluateGuidelines()">
+                        Evaluate Guidelines
+                    </button>
+                    <div id="evaluationResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
                 </div>
-                <button class="btn btn-secondary" onclick="BanteropV2.clearLogs()" style="margin-top: 1rem;">
-                    Clear Logs
-                </button>
+
+                <div id="tab-llm" class="tab-content">
+                    <div id="llmStatus" class="alert alert-success">
+                        Checking LLM availability...
+                    </div>
+                    <div class="btn-group" style="margin-top: 1rem;">
+                        <button class="btn" onclick="BanteropV2.generateNarrative('applicant')" id="narrativeApplicantBtn" disabled>
+                            Applicant Summary
+                        </button>
+                        <button class="btn" onclick="BanteropV2.generateNarrative('administrator')" id="narrativeAdminBtn" disabled>
+                            Admin Assessment
+                        </button>
+                        <button class="btn btn-secondary" onclick="BanteropV2.generateRationale()" id="rationaleBtn" disabled>
+                            Guideline Rationale
+                        </button>
+                    </div>
+                    <div id="llmResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
+                </div>
+
+                <div id="tab-logs" class="tab-content">
+                    <div class="json-viewer" id="logsContainer" style="max-height: 400px;">
+                        No logs yet...
+                    </div>
+                    <button class="btn btn-secondary" onclick="BanteropV2.clearLogs()" style="margin-top: 1rem;">
+                        Clear Logs
+                    </button>
+                </div>
             </div>
         </div>
     </div>
+    
+    <div class="toast-container" id="toastContainer"></div>
 
     <script src="/experimental/banterop/banterop.js"></script>
 </body>

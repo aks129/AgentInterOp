@@ -26,7 +26,11 @@ def _err(id_, code, message, data=None):
 
 @router.post("")
 async def rpc(req: Request):
-    body = await req.json()
+    try:
+        body = await req.json()
+    except Exception:
+        return _err(None, -32700, "Parse error")
+
     method = body.get("method")
     id_ = body.get("id","1")
     params = body.get("params") or {}

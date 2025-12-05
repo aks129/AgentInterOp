@@ -354,7 +354,7 @@ class TestProtocolCompliance:
         assert response.status_code == 200
         
         card = response.json()
-        assert card["protocolVersion"] == "0.2.9"
+        assert card["protocolVersion"] == "0.4.0"
         assert card["preferredTransport"] == "JSONRPC"
         assert card["capabilities"]["streaming"] is True
         assert "skills" in card

@@ -89,24 +89,17 @@ async def security_headers(request: Request, call_next):
     response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com"
     return response
 
-# Guard static/templates setup for Vercel compatibility
-templates = None
+# Guard static setup for Vercel compatibility
 try:
-    from fastapi.templating import Jinja2Templates
     from fastapi.staticfiles import StaticFiles
     base = Path(__file__).resolve().parent
     static_dir = base / "web" / "static"
-    templates_dir = base / "web" / "templates"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
     else:
         print(f"[WARN] no static dir: {static_dir}")
-    if templates_dir.exists():
-        templates = Jinja2Templates(directory=str(templates_dir))
-    else:
-        print(f"[WARN] no templates dir: {templates_dir}")
 except Exception as e:
-    print(f"[WARN] static/templates setup skipped: {e}")
+    print(f"[WARN] static setup skipped: {e}")
 
 # Register scenarios first before including routers
 from app.scenarios import registry
@@ -169,19 +162,9 @@ app.include_router(agents_router)
 from app.routers.clinical_informaticist import router as clinical_informaticist_router
 app.include_router(clinical_informaticist_router)
 
-# In-memory artifact storage for demo
-demo_artifacts = {
-    "demo-task": {
-        "QuestionnaireResponse.json": {
-            "mimeType": "application/fhir+json",
-            "bytes": base64.b64encode(b'{"resourceType":"QuestionnaireResponse","status":"completed"}').decode()
-        },
-        "DecisionBundle.json": {
-            "mimeType": "application/fhir+json", 
-            "bytes": base64.b64encode(b'{"resourceType":"Bundle","type":"collection","entry":[]}').decode()
-        }
-    }
-}
+# Include Pages Router (HTML serving)
+from app.routers.pages import router as pages_router
+app.include_router(pages_router)
 
 @app.get("/healthz")
 def healthz():
@@ -229,6 +212,16 @@ def agent_card(request: Request):
         "application/fhir+json"
       ],
       "supportsAuthenticatedExtendedCard": False,
+      "endpoints": {
+        "jsonrpc": {
+            "url": f"{base}/api/bridge/demo/a2a",
+            "transport": "http-post"
+        },
+        "bcse_simple": {
+            "url": f"{base}/api/mcp/bcse",
+            "transport": "http-post"
+        }
+      },
       "skills": [
         {
           "id": "scenario",
@@ -434,248 +427,6 @@ def bcse_evaluate(payload: dict):
     decision = BCS.evaluate(payload or {})
     return {"ok": True, "decision": decision}
 
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    """GET / renders comprehensive splash page as default interface"""
-    if templates:
-        return templates.TemplateResponse("splash.html", {
-            "request": request
-        })
-    else:
-        return HTMLResponse("<h1>AgentInterOp</h1><p>Healthcare Agent Interoperability Platform</p>")
-
-@app.get("/banterop", response_class=HTMLResponse)
-async def banterop_ui(request: Request):
-    """GET /banterop renders Banterop V2 UI"""
-    base = Path(__file__).resolve().parent
-    banterop_dir = base / "web" / "experimental" / "banterop"
-
-    if (banterop_dir / "index.html").exists():
-        with open(banterop_dir / "index.html", 'r', encoding='utf-8') as f:
-            content = f.read()
-        return HTMLResponse(content)
-    else:
-        # Fallback to splash if Banterop V2 not available
-        if templates:
-            return templates.TemplateResponse("splash.html", {
-                "request": request
-            })
-        else:
-            return HTMLResponse("<h1>Banterop UI</h1><p>Not available in this environment</p>")
-
-@app.get("/legacy", response_class=HTMLResponse)
-async def legacy_ui(request: Request):
-    """GET /legacy renders legacy index.html interface"""
-    if templates:
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "UI_EXPERIMENTAL": UI_EXPERIMENTAL
-        })
-    else:
-        return HTMLResponse("<h1>Multi-Agent Demo</h1><p>Templates not available in this environment</p>")
-
-@app.get("/agents", response_class=HTMLResponse)
-async def agent_management_ui(request: Request):
-    """GET /agents renders the Agent Management UI"""
-    if templates:
-        return templates.TemplateResponse("agent_management.html", {
-            "request": request
-        })
-    else:
-        return HTMLResponse("<h1>Agent Management</h1><p>Templates not available in this environment</p>")
-
-@app.get("/studio", response_class=HTMLResponse)
-async def agent_studio_ui(request: Request):
-    """GET /studio renders the comprehensive Agent Studio UI"""
-    if templates:
-        return templates.TemplateResponse("agent_studio.html", {
-            "request": request
-        })
-    else:
-        return HTMLResponse("<h1>Agent Studio</h1><p>Templates not available in this environment</p>")
-
-@app.get("/use-cases", response_class=HTMLResponse)
-async def use_cases_ui(request: Request):
-    """GET /use-cases renders the Healthcare AI Agent Use Cases page"""
-    if templates:
-        return templates.TemplateResponse("use_cases.html", {
-            "request": request
-        })
-    else:
-        return HTMLResponse("<h1>Healthcare AI Agent Use Cases</h1><p>Templates not available in this environment</p>")
-
-@app.get("/docs/{doc_name}", response_class=HTMLResponse)
-async def documentation_page(doc_name: str, request: Request):
-    """Serve markdown documentation as HTML - redirects to GitHub for serverless compatibility"""
-
-    # Map documentation to GitHub URLs
-    github_docs = {
-        "AGENT_STUDIO.md": "https://github.com/aks129/AgentInterOp/blob/main/docs/AGENT_STUDIO.md",
-        "AGENT_MANAGEMENT.md": "https://github.com/aks129/AgentInterOp/blob/main/docs/AGENT_MANAGEMENT.md"
-    }
-
-    if doc_name not in github_docs:
-        return HTMLResponse("""
-        <html>
-        <head><title>Documentation Not Found</title></head>
-        <body style="font-family: sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">
-            <h1>Documentation Not Found</h1>
-            <p>Available documentation:</p>
-            <ul>
-                <li><a href="/docs/AGENT_STUDIO.md">Agent Studio Documentation</a></li>
-                <li><a href="/docs/AGENT_MANAGEMENT.md">Agent Management Guide</a></li>
-            </ul>
-            <p><a href="/">← Back to Home</a></p>
-        </body>
-        </html>
-        """, status_code=404)
-
-    github_url = github_docs[doc_name]
-
-    # Return a nice redirect page
-    return HTMLResponse(f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="refresh" content="0; url={github_url}">
-        <title>Redirecting to Documentation...</title>
-        <style>
-            * {{
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }}
-            body {{
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-            }}
-            .container {{
-                text-align: center;
-                padding: 40px;
-                background: rgba(255, 255, 255, 0.1);
-                border-radius: 16px;
-                backdrop-filter: blur(10px);
-                max-width: 600px;
-            }}
-            h1 {{
-                font-size: 32px;
-                margin-bottom: 20px;
-            }}
-            p {{
-                font-size: 18px;
-                margin-bottom: 30px;
-                opacity: 0.9;
-            }}
-            .spinner {{
-                border: 4px solid rgba(255, 255, 255, 0.3);
-                border-top: 4px solid white;
-                border-radius: 50%;
-                width: 50px;
-                height: 50px;
-                animation: spin 1s linear infinite;
-                margin: 0 auto 20px;
-            }}
-            @keyframes spin {{
-                0% {{ transform: rotate(0deg); }}
-                100% {{ transform: rotate(360deg); }}
-            }}
-            a {{
-                color: white;
-                text-decoration: underline;
-                font-weight: 600;
-            }}
-            a:hover {{
-                opacity: 0.8;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>📚 Redirecting to Documentation</h1>
-            <div class="spinner"></div>
-            <p>You're being redirected to the documentation on GitHub...</p>
-            <p style="font-size: 14px;">If you're not redirected automatically, <a href="{github_url}">click here</a>.</p>
-            <p style="font-size: 14px; margin-top: 30px;"><a href="/">← Back to Home</a></p>
-        </div>
-    </body>
-    </html>
-    """)
-
-@app.get("/experimental/banterop", response_class=HTMLResponse)
-async def experimental_banterop(request: Request):
-    """GET /experimental/banterop renders Banterop-style scenario UI"""
-    base = Path(__file__).resolve().parent
-    banterop_dir = base / "web" / "experimental" / "banterop"
-
-    if (banterop_dir / "index.html").exists():
-        with open(banterop_dir / "index.html", 'r', encoding='utf-8') as f:
-            content = f.read()
-        return HTMLResponse(content)
-    else:
-        return HTMLResponse("<h1>Experimental Banterop UI</h1><p>Frontend files not found</p>")
-
-@app.get("/experimental/banterop/banterop.js")
-async def experimental_banterop_js():
-    """Serve banterop.js file"""
-    base = Path(__file__).resolve().parent
-    js_file = base / "web" / "experimental" / "banterop" / "banterop.js"
-
-    if js_file.exists():
-        with open(js_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        return Response(content, media_type="application/javascript")
-    else:
-        return Response("// banterop.js not found", media_type="application/javascript")
-
-@app.get("/banterop.js")
-async def banterop_js():
-    """Serve banterop.js file from root for default UI"""
-    base = Path(__file__).resolve().parent
-    js_file = base / "web" / "experimental" / "banterop" / "banterop.js"
-
-    if js_file.exists():
-        with open(js_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        return Response(content, media_type="application/javascript")
-    else:
-        return Response("// banterop.js not found", media_type="application/javascript")
-
-@app.get("/debug", response_class=HTMLResponse)
-async def debug_console(request: Request):
-    """Debug console for troubleshooting Banterop V2 configuration"""
-    base = Path(__file__).resolve().parent
-    debug_file = base / "web" / "debug.html"
-
-    if debug_file.exists():
-        with open(debug_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        return HTMLResponse(content)
-    else:
-        return HTMLResponse("<h1>Debug Console</h1><p>Debug page not found</p>")
-
-@app.get("/partner_connect", response_class=HTMLResponse)
-async def partner_connect(request: Request):
-    """Partner Connect UI"""
-    if templates:
-        return templates.TemplateResponse("partner_connect.html", {"request": request})
-    else:
-        return HTMLResponse("<h1>Partner Connect</h1><p>Templates not available in this environment</p>")
-
-@app.get("/test_harness", response_class=HTMLResponse)
-async def test_harness(request: Request):
-    """Test Harness UI"""
-    if templates:
-        return templates.TemplateResponse("test_harness.html", {"request": request})
-    else:
-        return HTMLResponse("<h1>Test Harness</h1><p>Templates not available in this environment</p>")
-
 @app.get("/artifacts/{task_id}/{name}")
 async def download_artifact(task_id: str, name: str):
     """Download artifact by task_id and filename"""
@@ -703,6 +454,7 @@ async def download_artifact(task_id: str, name: str):
         )
     
     # Fall back to demo artifacts for testing
+    from app.data.demo_artifacts import demo_artifacts
     if task_id not in demo_artifacts:
         raise HTTPException(status_code=404, detail="Task not found")
     

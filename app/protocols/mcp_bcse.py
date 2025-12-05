@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime, timezone, timedelta
 import json
+import asyncio
 from app.scenarios import bcse as BCS
 from app.scheduling.discovery import discover_slots, choose_slot, SlotQuery
 from app.scheduling.config import get_scheduling_config
@@ -18,16 +19,39 @@ async def begin():
 
 @router.post("/send_message_to_chat_thread")
 async def send(req: Request):
-    body = await req.json()
+    try:
+        body = await req.json()
+    except Exception:
+        return JSONResponse({"error": "Parse error"}, status_code=400)
+        
     cid = body.get("conversationId")
+    if not cid:
+        return JSONResponse({"error": "Missing conversationId"}, status_code=400)
+    if cid not in _CONV:
+        return JSONResponse({"error": "Conversation not found"}, status_code=404)
+
     msg = body.get("message") or ""
-    _CONV.setdefault(cid,[]).append({"from":"applicant","text":msg})
+    _CONV[cid].append({"from":"applicant","text":msg})
     return JSONResponse({"guidance":"Message received","status":"working"})
 
 @router.post("/check_replies")
 async def check(req: Request):
-    body = await req.json()
+    try:
+        body = await req.json()
+    except Exception:
+        return JSONResponse({"error": "Parse error"}, status_code=400)
+        
     cid = body.get("conversationId")
+    if not cid:
+        return JSONResponse({"error": "Missing conversationId"}, status_code=400)
+    if cid not in _CONV:
+        return JSONResponse({"error": "Conversation not found"}, status_code=404)
+    
+    # Simulate wait time if specified
+    wait_ms = body.get("waitMs")
+    if wait_ms and wait_ms > 0:
+        await asyncio.sleep(min(wait_ms / 1000.0, 5.0))  # Max 5 seconds
+        
     turn = {"from":"administrator","at": datetime.now(timezone.utc).isoformat(),
             "text":"Provide sex, birthDate, last_mammogram (YYYY-MM-DD).","attachments":[]}
     return JSONResponse({

@@ -106,7 +106,7 @@ class BanteropV2 {
                     e.target.classList.add('active');
 
                     // Update content
-                    const panel = tabContainer.closest('.panel');
+                    const panel = tabContainer.closest('.panel-content');
                     if (panel) {
                         panel.querySelectorAll('.tab-content').forEach(content => {
                             content.classList.remove('active');
@@ -159,6 +159,33 @@ class BanteropV2 {
             document.getElementById('agentCardUrl').value = params.get('agent');
             this.loadAgentCard();
         }
+    }
+    
+    // UI Helpers
+    togglePanel(panelId) {
+        const panel = document.getElementById(panelId);
+        if (panel) {
+            panel.classList.toggle('collapsed');
+        }
+    }
+
+    showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+        
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <div class="toast-content">${message}</div>
+        `;
+        
+        container.appendChild(toast);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 
     // API Methods
@@ -668,16 +695,25 @@ class BanteropV2 {
         }
 
         container.innerHTML = this.state.messages.map(msg => `
-            <div class="message">
+            <div class="message ${msg.role}">
                 <div class="message-header">
-                    <span class="message-role ${msg.role}">${msg.role}</span>
+                    <span class="message-role">${msg.role}</span>
                     <span class="message-timestamp">${msg.timestamp}</span>
                 </div>
-                <div class="message-content">${this.escapeHtml(msg.content)}</div>
+                <div class="message-content">${this.formatMessageContent(msg.content)}</div>
             </div>
         `).join('');
 
         container.scrollTop = container.scrollHeight;
+    }
+    
+    formatMessageContent(content) {
+        // Basic markdown-like formatting
+        let formatted = this.escapeHtml(content);
+        formatted = formatted.replace(/\n/g, '<br>');
+        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        return formatted;
     }
 
     async loadRun(runId) {
@@ -939,6 +975,11 @@ class BanteropV2 {
 
         this.state.logs.push(log);
         this.updateLogsDisplay();
+        
+        // Show toast for important messages
+        if (type === 'error' || type === 'success' || type === 'warning') {
+            this.showToast(message, type);
+        }
     }
 
     updateLogsDisplay() {
@@ -987,12 +1028,13 @@ class BanteropV2 {
                 container.classList.remove('hidden');
             }
         } else {
-            // Show in logs as fallback
-            this.addLog(message, type);
+            // Show toast if no container specified
+            this.showToast(message, type);
         }
     }
 
     escapeHtml(text) {
+        if (typeof text !== 'string') return String(text);
         const map = {
             '&': '&amp;',
             '<': '&lt;',
