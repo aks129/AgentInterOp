@@ -46,7 +46,12 @@
       "Bash(timeout 3 sleep 3)",
       "WebFetch(domain:agent-inter-m6tv867oe-aks129s-projects.vercel.app)",
       "Bash(timeout:*)",
-      "Bash(where vercel)"
+      "Bash(where vercel)",
+      "Bash(taskkill:*)",
+      "Bash(git stash:*)",
+      "Bash(find:*)",
+      "Bash(xargs ls:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

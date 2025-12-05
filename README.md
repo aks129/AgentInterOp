@@ -1,415 +1,236 @@
 # AgentInterOp - Multi-Agent Healthcare Interoperability Platform
 
-A comprehensive healthcare interoperability testing platform supporting dual protocols for agent-to-agent communication, real-time FHIR integration, AI-powered processing, and advanced decision transparency.
+A healthcare interoperability platform supporting dual protocols for agent-to-agent communication, real-time FHIR integration, and AI-powered processing.
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.116+-green.svg)](https://fastapi.tiangolo.com)
-[![A2A Protocol](https://img.shields.io/badge/A2A-0.2.9-orange.svg)](https://github.com/pathbird/agent-to-agent-protocol)
+[![A2A Protocol](https://img.shields.io/badge/A2A-0.2.9-orange.svg)](https://github.com/google/A2A)
 
-## 🚀 Features
+## Features
 
 ### Core Capabilities
-- **Dual Protocol Support**: A2A (Agent-to-Agent JSON-RPC) and MCP (Model Context Protocol)
+
+- **Dual Protocol Support**: A2A (Agent-to-Agent JSON-RPC 2.0) and MCP (Model Context Protocol)
 - **Real-time FHIR Integration**: Live connectivity to FHIR R4 servers for healthcare data
 - **AI-Powered Processing**: Claude integration for narrative-to-JSON conversion and analysis
-- **Scenario Engine**: Pluggable scenarios (BCSE, Clinical Trial, Prior Auth, etc.)
-- **Decision Transparency**: Complete audit trail with "Prove It" functionality
+- **Scenario Engine**: Pluggable scenarios (BCSE, Clinical Trial, Prior Auth, CQL Measure)
 - **Agent Card Discovery**: Standards-compliant `.well-known/agent-card.json` implementation
 
-### Experimental Features 🧪
-- **Banterop-style UI**: Console interface for scenario testing with remote agents
-- **Smart Scheduling Links**: SMART on FHIR appointment discovery and booking
-- **Claude Analysis**: AI-powered conversation summaries and guideline rationale
-- **Room Export/Import**: Share conversation contexts across systems
+### Specialized Agents
 
-### Agent Development Framework
-- **Constitution-Based Design**: Agents defined by purpose, domain, constraints, ethics, and capabilities
-- **Template System**: Pre-built agent templates for rapid development (Diabetes Monitoring, Medication Reconciliation, SDOH Screening)
-- **Spec-Kit Driven**: Operational plans with goals, tasks, workflows, and success criteria
-- **A2A Compliance**: All agents generate standards-compliant agent cards for discovery
+- **Clinical Informaticist Agent**: CQL measure development and quality measure authoring
+- **Administrator Agent**: Benefits eligibility and prior authorization processing
+- **Applicant Agent**: Patient-side conversation handling
 
-> **Note**: This platform uses **constitution-based agent design principles** inspired by modern agent development frameworks. It is not a direct integration with Google's Agent Development Kit (ADK) but follows similar design philosophy for building healthcare agents with clear purpose, constraints, and ethical guidelines.
+### Supported Scenarios
 
-### Supported Healthcare Scenarios
-- **BCSE**: Benefits Coverage Support Eligibility (breast cancer screening)
-- **Clinical Trial**: Patient enrollment and eligibility assessment
-- **Referral Specialist**: Provider referral workflows
-- **Prior Authorization**: Prior auth request processing
-- **Custom**: Configurable scenarios for specific use cases
+| Scenario | Endpoint | Description |
+|----------|----------|-------------|
+| BCSE | `/api/bridge/demo/a2a` | Breast Cancer Screening Eligibility |
+| CQL Measure | `/api/bridge/cql-measure/a2a` | Clinical Quality Language measure development |
+| Clinical Trial | `/api/bridge/clinical-trial/a2a` | Patient enrollment eligibility |
+| Prior Auth | `/api/bridge/prior-auth/a2a` | Prior authorization processing |
 
-## 🎯 Interactive Demo
+## Quick Start
 
-**New!** We've added a beautiful guided demo interface perfect for client presentations:
-
-### Quick Demo Access
+### 1. Install
 
 ```bash
-# Start the server
-python app/main.py
-
-# Open in browser
-http://localhost:8000  # Guided demo wizard
-http://localhost:8000/simple  # Direct access interface
-```
-
-### Demo Resources
-- **📘 Quick Start Guide**: `DEMO_QUICK_START.md` - Get a demo running in 30 seconds
-- **📗 Full Demo Guide**: `DEMO_GUIDE.md` - Complete walkthrough with scripts and scenarios
-- **📊 System Analysis**: `COMPREHENSIVE_ANALYSIS.md` - Deep technical overview
-
-### For Client Demos
-The new landing page features:
-- 🧙 **Interactive Wizard**: 4-step guided setup for non-technical users
-- 🎨 **Modern UI**: Beautiful dark theme with smooth animations
-- 📊 **Live Stats**: Real-time platform capabilities display
-- 🚀 **One-Click Launch**: Pre-configured demo scenarios ready to go
-
-Perfect for showcasing the platform to clients, stakeholders, and collaborators!
-
-## 🏃 Quick Start
-
-### Environment Setup
-
-1. **Clone and Install**:
-```bash
-git clone <repository-url>
+git clone https://github.com/aks129/AgentInterOp.git
 cd AgentInterOp
 pip install -e .
 ```
 
-2. **Configure Environment** - Create `.env` file:
+### 2. Configure Environment
+
+Create a `.env` file:
+
 ```bash
 # Required for AI features
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
-# Optional: Session security (auto-generated if not set)
+# Optional
 SESSION_SECRET=your_secure_secret_here
-
-# Optional: Public base URL for Agent Card discovery
 PUBLIC_BASE_URL=https://your-domain.com
 ```
 
-3. **Start the Server**:
+### 3. Run
+
 ```bash
-# Development (recommended)
+# Development
 make run
 # or
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Production
-gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app
+gunicorn --bind 0.0.0.0:8000 app.main:app
 ```
 
-4. **Access the Application**:
+### 4. Access
+
 - **Main UI**: `http://localhost:8000`
-- **Experimental Banterop UI**: `http://localhost:8000/experimental/banterop`
-- **API Documentation**: `http://localhost:8000/docs`
+- **Banterop UI**: `http://localhost:8000/experimental/banterop`
+- **API Docs**: `http://localhost:8000/docs`
 - **Agent Card**: `http://localhost:8000/.well-known/agent-card.json`
 
-## 📋 Key Endpoints
+## Calling Agents via A2A Protocol
 
-### Core A2A Endpoints
-- `POST /api/bridge/demo/a2a` - Primary A2A JSON-RPC endpoint
-- `GET /.well-known/agent-card.json` - Agent discovery card
-
-### Health & Status
-- `GET /healthz` - Health check
-- `GET /version` - Version info
-- `GET /api/selftest` - Self-test suite
-
-### Experimental Banterop UI
-- `POST /api/experimental/banterop/scenario/load` - Load scenario from URL
-- `POST /api/experimental/banterop/agentcard/load` - Load remote agent card
-- `POST /api/experimental/banterop/run/start` - Start conversation run
-- `POST /api/experimental/banterop/llm/narrative` - Generate AI summary
-- `POST /api/experimental/banterop/test/smoke` - Run smoke test
-
-## 🧪 Experimental Banterop UI
-
-The Banterop-style console provides a comprehensive testing interface:
-
-### Getting Started
-1. Navigate to `/experimental/banterop`
-2. **Load a Scenario**: Use sample BCS or provide JSON URL
-3. **Configure Remote Agent**: Load from CareCommons or provide agent card URL
-4. **Optional FHIR Setup**: Connect to FHIR server for patient data
-5. **Start Run**: Begin conversation with remote agent
-6. **Send Messages**: Use the composer to interact
-7. **Analyze with Claude**: Generate summaries and rationales
-
-### Features
-- **Two-column Transcript**: Side-by-side conversation view
-- **Real-time Streaming**: SSE support for live responses
-- **FHIR Integration**: Fetch patient data with `$everything` operation
-- **BCS Evaluation**: Built-in breast cancer screening rules engine
-- **Claude Analysis**: AI-powered conversation insights
-- **Smoke Testing**: Automated multi-turn test scripts
-
-## 🏥 FHIR Integration
-
-### Quick Setup
-1. **Configure Connection**: Enter FHIR base URL and optional Bearer token
-2. **Test Connection**: Verify server compatibility and authentication
-3. **Search Patients**: Find relevant records by name or ID
-4. **Fetch $everything**: Pull complete patient bundle
-5. **Auto-mapping**: System converts FHIR to scenario payloads
-
-### Example FHIR Servers
-- **HAPI FHIR**: `https://hapi.fhir.org/baseR4` (public test server)
-- **SMART Health IT**: `https://r4.smarthealthit.org` (test server)
-- **Your Organization**: Configure with appropriate base URL and token
-
-### Supported Operations
-- `GET /metadata` - Server capabilities
-- `GET /Patient?name=John` - Patient search
-- `GET /Patient/123/$everything` - Complete patient data
-
-## 🤖 Claude AI Integration
-
-### Features
-- **Conversation Summaries**: Patient and administrator perspectives
-- **Guideline Rationale**: Detailed explanation of BCS evaluation decisions
-- **Custom Analysis**: General-purpose LLM completion endpoint
-
-### Setup
-1. Get API key from [Anthropic](https://console.anthropic.com)
-2. Set `ANTHROPIC_API_KEY` environment variable
-3. Claude features auto-enable when key is detected
-
-### API Usage
-```bash
-# Check Claude status
-curl http://localhost:8000/api/experimental/banterop/llm/status
-
-# Generate narrative summary
-curl -X POST http://localhost:8000/api/experimental/banterop/llm/narrative \
-  -H "Content-Type: application/json" \
-  -d '{"role":"applicant","transcript":[...]}'
-
-# Get guideline rationale
-curl -X POST http://localhost:8000/api/experimental/banterop/llm/rationale \
-  -H "Content-Type: application/json" \
-  -d '{"patient_facts":{...},"evaluation":{...},"guidelines":{...}}'
-```
-
-## 🤖 Agent Templates (NEW!)
-
-Create healthcare agents instantly from pre-built templates:
-
-### Available Templates
-1. **Diabetes Monitoring Agent** - Track A1C, glucose levels, and medication adherence
-2. **Medication Reconciliation Agent** - Identify drug interactions and discrepancies
-3. **SDOH Screening Agent** - Assess social determinants of health and connect to resources
-
-### Using Templates via API
+### Basic Request
 
 ```bash
-# List all available templates
-curl http://localhost:8000/api/agents/templates/list
-
-# Get template details
-curl http://localhost:8000/api/agents/templates/template_diabetes_monitoring
-
-# Create agent from template
-curl -X POST http://localhost:8000/api/agents/templates/template_diabetes_monitoring/instantiate \
+curl -X POST "http://localhost:8000/api/bridge/cql-measure/a2a" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "My Diabetes Monitor",
-    "description": "Customized diabetes monitoring for our hospital"
+    "jsonrpc": "2.0",
+    "id": "1",
+    "method": "message/send",
+    "params": {
+      "message": {
+        "role": "user",
+        "parts": [{"kind": "text", "text": "Build breast cancer screening CQL measure"}]
+      }
+    }
   }'
 ```
 
-### Using Templates via UI
+### Response Format
 
-1. Navigate to **Agent Studio** at `http://localhost:8000/studio`
-2. Click **"Create from Template"**
-3. Select template (e.g., "Diabetes Monitoring Agent")
-4. Customize name and settings
-5. Click **"Create Agent"**
-
-Your new agent is instantly deployed with full A2A protocol support!
-
-## 🔧 Development
-
-### Available Commands
-```bash
-# Install development dependencies
-make dev
-
-# Code formatting and linting
-make format
-make lint
-make typecheck
-
-# Run tests
-make test
-
-# Run smoke tests
-make smoke
-# or manually:
-bash tools/smoke_a2a.sh http://localhost:8000
-
-# Clean build artifacts
-make clean
-```
-
-### Project Structure
-```
-app/
-├── main.py                 # FastAPI application entry point
-├── config.py              # Pydantic configuration models
-├── agents/                 # Agent implementations (administrator, applicant)
-├── protocols/             # Protocol implementations (A2A, MCP)
-├── scenarios/             # Healthcare scenarios (BCSE, clinical trial, etc.)
-├── eligibility/           # Eligibility checking engines
-├── fhir/                  # FHIR server integration
-├── llm/                   # Claude AI integration
-├── banterop_ui/           # Experimental Banterop-style UI backend
-├── experimental/          # Other experimental features
-└── web/                   # Frontend templates and static assets
-    └── experimental/
-        └── banterop/      # Banterop UI frontend (HTML/JS)
-
-main.py                    # Flask-compatible WSGI entry point (legacy)
-api/index.py              # Vercel serverless entry point
-tools/                    # Development scripts
-scripts/                  # CI/build scripts
-```
-
-## 🚢 Deployment
-
-### Vercel (Serverless)
-The application is pre-configured for Vercel deployment:
-- `vercel.json` routes all traffic to `api/index.py`
-- `api/index.py` imports the FastAPI app
-- Environment variables configured in Vercel dashboard
-
-### Traditional Hosting
-```bash
-# Using gunicorn (recommended for production)
-gunicorn --bind 0.0.0.0:8000 app.main:app
-
-# Using uvicorn
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-### Docker
-```bash
-# Build image
-docker build -t agentinterop .
-
-# Run container
-docker run -p 8000:8000 -e ANTHROPIC_API_KEY=your_key agentinterop
-```
-
-## 🧪 Testing & Integration
-
-### Smoke Tests
-```bash
-# Test local instance
-bash tools/smoke_a2a.sh
-
-# Test remote instance
-bash tools/smoke_a2a.sh https://your-domain.com
-
-# Expected output:
-# 1. Health check: OK
-# 2. Agent Card: /api/bridge/demo/a2a
-# 3. A2A message/send test: {"result":{"taskId":"..."}}
-# 4. A2A tasks/get test: {"result":{"tasks":[...]}}
-```
-
-### Partner Integration Testing
-1. **Agent Card Discovery**: Verify your card at `/.well-known/agent-card.json`
-2. **A2A Compliance**: Test JSON-RPC 2.0 compatibility
-3. **Streaming Support**: Test Server-Sent Events (SSE)
-4. **BCSE Scenario**: Validate breast cancer screening workflow
-
-### Using with External Partners
-- **CareCommons**: `https://care-commons.meteorapp.com`
-- **Banterop**: Compatible with Banterop's console interface
-- **Your Partners**: Provide your agent card URL for integration
-
-## 📚 API Reference
-
-### A2A Protocol Methods
-- `message/send` - Send message with optional task context
-- `message/stream` - Send message with streaming response
-- `tasks/get` - Retrieve active tasks
-- `tasks/cancel` - Cancel specific task
-- `tasks/resubscribe` - Resubscribe to task updates
-
-### MCP Protocol Tools
-- `begin_chat_thread` - Start new conversation
-- `send_message_to_chat_thread` - Send message to thread
-- `check_replies` - Check for new responses
-
-### Response Formats
-All endpoints return consistent JSON structure:
 ```json
 {
-  "success": true|false,
-  "data": {...},
-  "error": "Error message (if success=false)",
-  "timestamp": "2024-01-01T00:00:00Z"
+  "jsonrpc": "2.0",
+  "id": "1",
+  "result": {
+    "id": "task-id",
+    "status": {"state": "input-required"},
+    "history": [
+      {"role": "user", "parts": [{"kind": "text", "text": "..."}]},
+      {"role": "agent", "parts": [{"kind": "text", "text": "Built CQL measure..."}]}
+    ],
+    "artifacts": [
+      {
+        "kind": "file",
+        "file": {
+          "name": "BreastCancerScreening.cql",
+          "mimeType": "text/cql",
+          "bytes": "base64-encoded-content"
+        }
+      }
+    ]
+  }
 }
 ```
 
-## ❓ Troubleshooting
+### A2A Methods
 
-### Common Issues
+| Method | Description |
+|--------|-------------|
+| `message/send` | Send message, get response |
+| `message/stream` | Send message, get SSE stream |
+| `tasks/get` | Get task status by ID |
+| `tasks/resubscribe` | Resubscribe to task updates |
 
-**404 on A2A endpoint**:
-- Verify URL: `/api/bridge/demo/a2a` (not `/a2a`)
-- Check server is running on correct port
+## FHIR Integration
 
-**CORS errors**:
-- Application allows all origins by default
-- Check your request headers include `Content-Type: application/json`
+Connect to FHIR R4 servers for patient data:
 
-**SSE timeout**:
-- Streams auto-close after 30 seconds of inactivity
-- Implement reconnection logic in client
+```bash
+# Test servers
+https://hapi.fhir.org/baseR4
+https://r4.smarthealthit.org
+```
 
-**Agent Card not found**:
-- Endpoint is `/.well-known/agent-card.json`
-- Should return `url` field with A2A endpoint
+Supported operations:
+- `GET /metadata` - Server capabilities
+- `GET /Patient?name=John` - Patient search
+- `GET /Patient/123/$everything` - Complete patient bundle
 
-**Claude features disabled**:
-- Set `ANTHROPIC_API_KEY` environment variable
-- Restart application after setting key
-- Check `/api/experimental/banterop/llm/status`
+## Development
 
-### Environment Variables
+```bash
+# Install dev dependencies
+make dev
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | No | None | Claude API key for AI features |
-| `SESSION_SECRET` | No | Auto-generated | Flask session security key |
-| `PUBLIC_BASE_URL` | No | Request URL | Base URL for agent card generation |
-| `APP_ENV` | No | None | Set to `vercel` for serverless deployment |
-| `UI_EXPERIMENTAL` | No | `false` | Enable experimental UI features |
+# Code quality
+make format     # black, ruff, isort
+make lint       # ruff check, flake8
+make typecheck  # mypy
 
-## 📄 License
+# Testing
+make test       # pytest
+make smoke      # A2A smoke tests
+```
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+### Project Structure
 
-## 🤝 Contributing
+```
+app/
+├── main.py              # FastAPI entry point
+├── config.py            # Pydantic configuration
+├── agents/              # Agent implementations
+│   ├── administrator.py
+│   ├── applicant.py
+│   └── clinical_informaticist.py
+├── protocols/           # A2A, MCP implementations
+├── scenarios/           # Healthcare scenarios
+├── routers/             # FastAPI route handlers
+├── banterop_ui/         # Banterop UI backend
+├── fhir/                # FHIR server integration
+├── llm/                 # Claude AI integration
+└── web/                 # Frontend assets
+    └── experimental/
+        └── banterop/    # Banterop V2 UI
 
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/my-feature`
-3. Make changes and add tests
-4. Run quality checks: `make format lint typecheck test`
-5. Commit changes: `git commit -am 'Add my feature'`
-6. Push to branch: `git push origin feature/my-feature`
-7. Create pull request
+api/index.py             # Vercel serverless entry
+```
 
-## 📞 Support
+## Deployment
 
-- **Issues**: Report bugs and feature requests via GitHub Issues
-- **Documentation**: Additional docs available in `docs/` directory
-- **API Docs**: Interactive documentation at `/docs` when server is running
+### Vercel (Serverless)
 
----
+Pre-configured for Vercel:
 
-*Built with ❤️ for healthcare interoperability*
+- Routes configured in `vercel.json`
+- Entry point: `api/index.py`
+- Set environment variables in Vercel dashboard
+
+**Live Demo**: <https://agent-inter-op.vercel.app>
+
+### Docker
+
+```bash
+docker build -t agentinterop .
+docker run -p 8000:8000 -e ANTHROPIC_API_KEY=your_key agentinterop
+```
+
+## API Endpoints
+
+### Health & Status
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /healthz` | Health check |
+| `GET /version` | Version info |
+| `GET /api/selftest` | Self-test suite |
+| `GET /.well-known/agent-card.json` | Agent discovery |
+
+### Banterop UI API
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/experimental/banterop/scenario/load` | Load scenario |
+| `POST /api/experimental/banterop/run/start` | Start conversation |
+| `POST /api/experimental/banterop/a2a/proxy` | Proxy A2A requests |
+| `GET /api/experimental/banterop/llm/status` | Claude status |
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | For AI features | Claude API key |
+| `SESSION_SECRET` | No | Session security (auto-generated) |
+| `PUBLIC_BASE_URL` | No | Base URL for agent cards |
+| `APP_ENV` | No | Set to `vercel` for serverless |
+
+## License
+
+MIT License - see LICENSE file for details.
