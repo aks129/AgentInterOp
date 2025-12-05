@@ -41,6 +41,10 @@ async def fetch_scenario(url: str) -> Scenario:
             response = await client.get(url)
             response.raise_for_status()
             scenario_data = response.json()
+            
+            # Handle API wrapper
+            if isinstance(scenario_data, dict) and scenario_data.get("success") is True and "data" in scenario_data:
+                scenario_data = scenario_data["data"]
     
     else:
         # Try as local file name in scenarios directory

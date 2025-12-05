@@ -160,7 +160,7 @@ class BanteropV2 {
             this.loadAgentCard();
         }
     }
-    
+
     // UI Helpers
     togglePanel(panelId) {
         const panel = document.getElementById(panelId);
@@ -172,15 +172,15 @@ class BanteropV2 {
     showToast(message, type = 'info') {
         const container = document.getElementById('toastContainer');
         if (!container) return;
-        
+
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         toast.innerHTML = `
             <div class="toast-content">${message}</div>
         `;
-        
+
         container.appendChild(toast);
-        
+
         // Remove after 3 seconds
         setTimeout(() => {
             toast.style.opacity = '0';
@@ -249,8 +249,11 @@ class BanteropV2 {
         try {
             let result;
             if (preset === 'sample-bcs') {
+                const fullUrl = window.location.origin + this.api.baseUrl + '/scenario/sample/bcs';
+                this.state.scenarioUrl = fullUrl;
                 result = await this.apiCall('/scenario/sample/bcs');
             } else if (url) {
+                this.state.scenarioUrl = url;
                 result = await this.apiCall('/scenario/load', 'POST', { url });
             }
 
@@ -286,7 +289,8 @@ class BanteropV2 {
             if (result.success) {
                 this.state.currentScenario = result.data;
                 // Store the scenario URL for run start
-                this.state.scenarioUrl = 'clinical-informaticist';
+                const fullUrl = window.location.origin + this.api.baseUrl + '/scenario/sample/clinical-informaticist';
+                this.state.scenarioUrl = fullUrl;
                 this.state.scenarioPreset = 'clinical-informaticist';
                 this.showScenarioInfo(result.data);
 
@@ -461,8 +465,8 @@ class BanteropV2 {
         try {
             // Determine the scenario URL - use preset name or actual URL
             const scenarioUrl = this.state.scenarioUrl ||
-                               this.state.scenarioPreset ||
-                               document.getElementById('scenarioUrl').value.trim();
+                this.state.scenarioPreset ||
+                document.getElementById('scenarioUrl').value.trim();
 
             if (!scenarioUrl) {
                 this.showAlert('No scenario URL available', 'error');
@@ -474,7 +478,7 @@ class BanteropV2 {
 
             // Get remote agent card URL if available
             const remoteAgentCardUrl = this.state.agentCardUrl ||
-                                       document.getElementById('agentCardUrl').value.trim();
+                document.getElementById('agentCardUrl').value.trim();
 
             const config = {
                 scenarioUrl: scenarioUrl,
@@ -686,7 +690,7 @@ class BanteropV2 {
             container.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-text">No conversation started</div>
-                    <button class="btn" onclick="BanteropV2.startNewRun()">
+                    <button class="btn" onclick="banteropApp.startNewRun()">
                         Start New Conversation
                     </button>
                 </div>
@@ -706,7 +710,7 @@ class BanteropV2 {
 
         container.scrollTop = container.scrollHeight;
     }
-    
+
     formatMessageContent(content) {
         // Basic markdown-like formatting
         let formatted = this.escapeHtml(content);
@@ -777,7 +781,7 @@ class BanteropV2 {
             if (result.success) {
                 this.showSmokeTestResults(result.data);
                 this.addLog(`Smoke test ${result.data.passed ? 'PASSED' : 'FAILED'}`,
-                           result.data.passed ? 'success' : 'error');
+                    result.data.passed ? 'success' : 'error');
             }
         } catch (error) {
             this.showAlert(`Smoke test failed: ${error.message}`, 'error');
@@ -975,7 +979,7 @@ class BanteropV2 {
 
         this.state.logs.push(log);
         this.updateLogsDisplay();
-        
+
         // Show toast for important messages
         if (type === 'error' || type === 'success' || type === 'warning') {
             this.showToast(message, type);
@@ -1065,5 +1069,8 @@ document.addEventListener('DOMContentLoaded', () => {
     banteropInstance = new BanteropV2();
 
     // Make instance globally available for onclick handlers
+    window.banteropApp = banteropInstance;
+    // Backwards compatibility for cached HTML or legacy references
     window.BanteropV2 = banteropInstance;
+    console.log('BanteropV2 initialized as window.banteropApp and window.BanteropV2');
 });

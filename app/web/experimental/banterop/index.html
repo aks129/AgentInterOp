@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -85,13 +86,28 @@
             animation: pulse 2s infinite;
         }
 
-        .status-dot.online { background: var(--success); }
-        .status-dot.offline { background: var(--text-tertiary); }
-        .status-dot.error { background: var(--danger); }
+        .status-dot.online {
+            background: var(--success);
+        }
+
+        .status-dot.offline {
+            background: var(--text-tertiary);
+        }
+
+        .status-dot.error {
+            background: var(--danger);
+        }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
 
         .stats-row {
@@ -137,11 +153,11 @@
             flex-direction: column;
             transition: all 0.3s ease;
         }
-        
+
         .panel.collapsed .panel-content {
             display: none;
         }
-        
+
         .panel.collapsed {
             padding-bottom: 0.5rem;
         }
@@ -155,7 +171,7 @@
             border-bottom: 1px solid var(--border);
             cursor: pointer;
         }
-        
+
         .panel.collapsed .panel-header {
             border-bottom: none;
             margin-bottom: 0;
@@ -169,7 +185,7 @@
             align-items: center;
             gap: 0.5rem;
         }
-        
+
         .panel-toggle {
             background: none;
             border: none;
@@ -177,7 +193,7 @@
             color: var(--text-secondary);
             transition: transform 0.3s ease;
         }
-        
+
         .panel.collapsed .panel-toggle {
             transform: rotate(-90deg);
         }
@@ -220,8 +236,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .form-group {
@@ -327,14 +350,21 @@
             max-width: 80%;
             align-self: flex-start;
         }
-        
+
         .message.user {
             align-self: flex-end;
         }
 
         @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .message-header {
@@ -345,7 +375,7 @@
             font-size: 0.75rem;
             color: var(--text-tertiary);
         }
-        
+
         .message.user .message-header {
             flex-direction: row-reverse;
         }
@@ -363,14 +393,14 @@
             line-height: 1.5;
             box-shadow: var(--shadow-sm);
         }
-        
+
         .message.user .message-content {
             background: var(--primary);
             color: white;
             border-radius: 12px;
             border-top-right-radius: 2px;
         }
-        
+
         .message.assistant .message-content {
             background: white;
             border: 1px solid var(--border);
@@ -442,7 +472,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .empty-state {
@@ -473,7 +505,7 @@
         .hidden {
             display: none !important;
         }
-        
+
         /* Toast Notifications */
         .toast-container {
             position: fixed;
@@ -484,7 +516,7 @@
             flex-direction: column;
             gap: 0.5rem;
         }
-        
+
         .toast {
             padding: 1rem 1.5rem;
             border-radius: 8px;
@@ -497,21 +529,40 @@
             animation: slideInRight 0.3s ease-out;
             border-left: 4px solid var(--primary);
         }
-        
-        .toast.success { border-left-color: var(--success); }
-        .toast.error { border-left-color: var(--danger); }
-        .toast.warning { border-left-color: var(--warning); }
-        .toast.info { border-left-color: var(--primary); }
-        
+
+        .toast.success {
+            border-left-color: var(--success);
+        }
+
+        .toast.error {
+            border-left-color: var(--danger);
+        }
+
+        .toast.warning {
+            border-left-color: var(--warning);
+        }
+
+        .toast.info {
+            border-left-color: var(--primary);
+        }
+
         @keyframes slideInRight {
-            from { opacity: 0; transform: translateX(100%); }
-            to { opacity: 1; transform: translateX(0); }
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
 
         @media (max-width: 1024px) {
             .main-grid {
                 grid-template-columns: 1fr;
             }
+
             .stats-row {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -521,6 +572,7 @@
             .container {
                 padding: 1rem;
             }
+
             .header {
                 flex-direction: column;
                 gap: 1rem;
@@ -528,6 +580,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -537,7 +590,7 @@
                     <div class="status-dot online" id="statusDot"></div>
                     <span id="statusText">Ready</span>
                 </div>
-                <button class="btn btn-secondary" onclick="BanteropV2.cleanup()">
+                <button class="btn btn-secondary" onclick="banteropApp.cleanup()">
                     Cleanup Old Runs
                 </button>
             </div>
@@ -564,7 +617,7 @@
 
         <div class="main-grid">
             <div class="panel" id="configPanel">
-                <div class="panel-header" onclick="BanteropV2.togglePanel('configPanel')">
+                <div class="panel-header" onclick="banteropApp.togglePanel('configPanel')">
                     <h2 class="panel-title">
                         <button class="panel-toggle">▼</button>
                         Configuration
@@ -583,7 +636,7 @@
                         <div class="form-group">
                             <label class="form-label">Scenario URL</label>
                             <input type="text" class="form-input" id="scenarioUrl"
-                                   placeholder="https://example.com/scenario.json">
+                                placeholder="https://example.com/scenario.json">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Preset Scenarios</label>
@@ -595,7 +648,7 @@
                                 <option value="prior-auth">Prior Authorization</option>
                             </select>
                         </div>
-                        <button class="btn" onclick="BanteropV2.loadScenario()">
+                        <button class="btn" onclick="banteropApp.loadScenario()">
                             <span class="loading hidden" id="scenarioLoading"></span>
                             Load Scenario
                         </button>
@@ -606,20 +659,20 @@
                         <div class="form-group">
                             <label class="form-label">Agent Card URL</label>
                             <input type="text" class="form-input" id="agentCardUrl"
-                                   placeholder="https://example.com/.well-known/agent-card.json">
+                                placeholder="https://example.com/.well-known/agent-card.json">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Preset Agents</label>
                             <div class="btn-group">
-                                <button class="btn btn-secondary" onclick="BanteropV2.setPresetAgent('carecommons')">
+                                <button class="btn btn-secondary" onclick="banteropApp.setPresetAgent('carecommons')">
                                     CareCommons
                                 </button>
-                                <button class="btn btn-secondary" onclick="BanteropV2.setPresetAgent('local')">
+                                <button class="btn btn-secondary" onclick="banteropApp.setPresetAgent('local')">
                                     Local
                                 </button>
                             </div>
                         </div>
-                        <button class="btn" onclick="BanteropV2.loadAgentCard()">
+                        <button class="btn" onclick="banteropApp.loadAgentCard()">
                             Load Agent Card
                         </button>
                         <div id="agentInfo" class="hidden" style="margin-top: 1rem;"></div>
@@ -629,19 +682,18 @@
                         <div class="form-group">
                             <label class="form-label">FHIR Server Base URL</label>
                             <input type="text" class="form-input" id="fhirBase"
-                                   value="https://api.carecommonsdev.org/fhir">
+                                value="https://api.carecommonsdev.org/fhir">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Patient ID</label>
-                            <input type="text" class="form-input" id="patientId"
-                                   placeholder="Patient/123">
+                            <input type="text" class="form-input" id="patientId" placeholder="Patient/123">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Bearer Token (optional)</label>
                             <input type="password" class="form-input" id="bearerToken"
-                                   placeholder="Optional authentication token">
+                                placeholder="Optional authentication token">
                         </div>
-                        <button class="btn" onclick="BanteropV2.fetchFhirData()">
+                        <button class="btn" onclick="banteropApp.fetchFhirData()">
                             Fetch Patient Data
                         </button>
                         <div id="fhirFacts" class="json-viewer hidden" style="margin-top: 1rem;"></div>
@@ -651,13 +703,13 @@
                         <div class="form-group">
                             <label class="form-label">BCS Guidelines JSON</label>
                             <textarea class="form-textarea" id="guidelinesJson"
-                                      placeholder='{"rules": [], "metadata": {}}'></textarea>
+                                placeholder='{"rules": [], "metadata": {}}'></textarea>
                         </div>
                         <div class="btn-group">
-                            <button class="btn" onclick="BanteropV2.loadGuidelines()">
+                            <button class="btn" onclick="banteropApp.loadGuidelines()">
                                 Load Guidelines
                             </button>
-                            <button class="btn btn-secondary" onclick="BanteropV2.resetGuidelines()">
+                            <button class="btn btn-secondary" onclick="banteropApp.resetGuidelines()">
                                 Reset to Default
                             </button>
                         </div>
@@ -677,7 +729,7 @@
                 <div class="conversation-container" id="conversationContainer">
                     <div class="empty-state">
                         <div class="empty-state-text">No conversation started</div>
-                        <button class="btn" onclick="BanteropV2.startNewRun()">
+                        <button class="btn" onclick="banteropApp.startNewRun()">
                             Start New Conversation
                         </button>
                     </div>
@@ -685,9 +737,9 @@
 
                 <div class="message-input-container">
                     <input type="text" class="form-input message-input" id="messageInput"
-                           placeholder="Type your message..."
-                           onkeypress="if(event.key==='Enter') BanteropV2.sendMessage()">
-                    <button class="btn" onclick="BanteropV2.sendMessage()" id="sendBtn">
+                        placeholder="Type your message..."
+                        onkeypress="if(event.key==='Enter') banteropApp.sendMessage()">
+                    <button class="btn" onclick="banteropApp.sendMessage()" id="sendBtn">
                         Send
                     </button>
                 </div>
@@ -695,7 +747,7 @@
         </div>
 
         <div class="panel" id="testingPanel">
-            <div class="panel-header" onclick="BanteropV2.togglePanel('testingPanel')">
+            <div class="panel-header" onclick="banteropApp.togglePanel('testingPanel')">
                 <h2 class="panel-title">
                     <button class="panel-toggle">▼</button>
                     Testing & Analysis
@@ -714,7 +766,7 @@
                     <div class="form-group">
                         <label class="form-label">Remote A2A Endpoint</label>
                         <input type="text" class="form-input" id="smokeTestUrl"
-                               placeholder="https://example.com/api/bridge/bcse/a2a">
+                            placeholder="https://example.com/api/bridge/bcse/a2a">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Script Length</label>
@@ -724,7 +776,7 @@
                             <option value="5">5 messages</option>
                         </select>
                     </div>
-                    <button class="btn" onclick="BanteropV2.runSmokeTest()">
+                    <button class="btn" onclick="banteropApp.runSmokeTest()">
                         Run Smoke Test
                     </button>
                     <div id="smokeTestResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
@@ -734,9 +786,9 @@
                     <div class="form-group">
                         <label class="form-label">Patient Facts JSON</label>
                         <textarea class="form-textarea" id="patientFactsJson"
-                                  placeholder='{"sex": "female", "birthDate": "1970-01-01"}'></textarea>
+                            placeholder='{"sex": "female", "birthDate": "1970-01-01"}'></textarea>
                     </div>
-                    <button class="btn" onclick="BanteropV2.evaluateGuidelines()">
+                    <button class="btn" onclick="banteropApp.evaluateGuidelines()">
                         Evaluate Guidelines
                     </button>
                     <div id="evaluationResults" class="json-viewer hidden" style="margin-top: 1rem;"></div>
@@ -747,13 +799,16 @@
                         Checking LLM availability...
                     </div>
                     <div class="btn-group" style="margin-top: 1rem;">
-                        <button class="btn" onclick="BanteropV2.generateNarrative('applicant')" id="narrativeApplicantBtn" disabled>
+                        <button class="btn" onclick="banteropApp.generateNarrative('applicant')"
+                            id="narrativeApplicantBtn" disabled>
                             Applicant Summary
                         </button>
-                        <button class="btn" onclick="BanteropV2.generateNarrative('administrator')" id="narrativeAdminBtn" disabled>
+                        <button class="btn" onclick="banteropApp.generateNarrative('administrator')"
+                            id="narrativeAdminBtn" disabled>
                             Admin Assessment
                         </button>
-                        <button class="btn btn-secondary" onclick="BanteropV2.generateRationale()" id="rationaleBtn" disabled>
+                        <button class="btn btn-secondary" onclick="banteropApp.generateRationale()" id="rationaleBtn"
+                            disabled>
                             Guideline Rationale
                         </button>
                     </div>
@@ -764,16 +819,17 @@
                     <div class="json-viewer" id="logsContainer" style="max-height: 400px;">
                         No logs yet...
                     </div>
-                    <button class="btn btn-secondary" onclick="BanteropV2.clearLogs()" style="margin-top: 1rem;">
+                    <button class="btn btn-secondary" onclick="banteropApp.clearLogs()" style="margin-top: 1rem;">
                         Clear Logs
                     </button>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <div class="toast-container" id="toastContainer"></div>
 
     <script src="/experimental/banterop/banterop.js"></script>
 </body>
+
 </html>
