@@ -162,6 +162,10 @@ app.include_router(agents_router)
 from app.routers.clinical_informaticist import router as clinical_informaticist_router
 app.include_router(clinical_informaticist_router)
 
+# Include Colonoscopy Scheduling Agent router
+from app.routers.colonoscopy_scheduler import router as colonoscopy_scheduler_router
+app.include_router(colonoscopy_scheduler_router)
+
 # Include Pages Router (HTML serving)
 from app.routers.pages import router as pages_router
 app.include_router(pages_router)

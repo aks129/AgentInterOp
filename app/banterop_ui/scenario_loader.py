@@ -131,6 +131,101 @@ def create_sample_bcs_scenario() -> Scenario:
     )
 
 
+def create_colonoscopy_scheduling_scenario() -> Scenario:
+    """Create a Colonoscopy Scheduling scenario"""
+    return Scenario(
+        metadata={
+            "id": "colonoscopy_scheduling",
+            "name": "Colonoscopy Scheduling Agent",
+            "description": "Automates colonoscopy scheduling - eliminates long phone queues and 40+ question intake forms",
+            "version": "1.0.0",
+            "tags": ["healthcare", "scheduling", "colonoscopy", "gi", "screening", "intake"]
+        },
+        agents=[
+            {
+                "agentId": "patient",
+                "name": "Patient",
+                "role": "patient",
+                "systemPrompt": "You are a patient who needs to schedule a colonoscopy. Your PCP has given you a referral. You want to avoid the long phone queues and tedious intake forms.",
+                "goals": [
+                    "Schedule a colonoscopy appointment",
+                    "Complete intake forms efficiently",
+                    "Get prep instructions"
+                ],
+                "messageToUseWhenInitiatingConversation": "Hi, I need to schedule a colonoscopy. My doctor gave me a referral but I've been on hold for 30 minutes trying to call the clinic. Can you help me schedule this?"
+            },
+            {
+                "agentId": "colonoscopy_scheduler",
+                "name": "Colonoscopy Scheduling Agent",
+                "role": "scheduling_coordinator",
+                "systemPrompt": "You are a Colonoscopy Scheduling Agent that automates the complex scheduling workflow. You gather intake information through conversation, verify insurance, find appointments, and provide prep instructions.",
+                "goals": [
+                    "Gather patient intake information (40+ questions made easy)",
+                    "Verify insurance coverage",
+                    "Verify PCP referral",
+                    "Find available appointments",
+                    "Book the appointment",
+                    "Provide prep instructions"
+                ],
+                "tools": [
+                    "process_message",
+                    "bulk_process_intake",
+                    "verify_insurance",
+                    "verify_referral",
+                    "search_appointments",
+                    "select_appointment",
+                    "get_prep_instructions"
+                ],
+                "a2a_endpoint": "/api/colonoscopy-scheduler/a2a"
+            }
+        ],
+        settings={
+            "enableFhir": True,
+            "enableInsuranceVerification": True,
+            "enableAppointmentScheduling": True,
+            "enablePrepInstructions": True
+        },
+        tools=[
+            {
+                "name": "process_message",
+                "description": "Process natural language message and determine appropriate action",
+                "parameters": {
+                    "message": {"type": "string", "description": "The patient's message"}
+                }
+            },
+            {
+                "name": "verify_insurance",
+                "description": "Verify insurance coverage for colonoscopy",
+                "parameters": {}
+            },
+            {
+                "name": "search_appointments",
+                "description": "Search for available colonoscopy appointments",
+                "parameters": {
+                    "preferred_dates": {"type": "string", "description": "Preferred appointment dates"},
+                    "preferred_location": {"type": "string", "description": "Preferred facility location"}
+                }
+            },
+            {
+                "name": "get_prep_instructions",
+                "description": "Get colonoscopy preparation instructions customized for the patient",
+                "parameters": {}
+            }
+        ],
+        knowledgeBase=[
+            {
+                "id": "colonoscopy_intake",
+                "type": "intake_form",
+                "content": json.dumps({
+                    "sections": ["demographics", "insurance", "referral", "medical_history", "medications", "health_conditions", "scheduling_preferences"],
+                    "total_questions": 42,
+                    "problem_solved": "Eliminates 40+ question paper forms through conversational AI"
+                })
+            }
+        ]
+    )
+
+
 def create_clinical_informaticist_scenario() -> Scenario:
     """Create a Clinical Informaticist CQL Measure Development scenario"""
     return Scenario(

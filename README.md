@@ -18,6 +18,7 @@ A healthcare interoperability platform supporting dual protocols for agent-to-ag
 
 ### Specialized Agents
 
+- **Colonoscopy Scheduling Agent**: Automates 40+ question intake forms, insurance verification, and appointment booking
 - **Clinical Informaticist Agent**: CQL measure development and quality measure authoring
 - **Administrator Agent**: Benefits eligibility and prior authorization processing
 - **Applicant Agent**: Patient-side conversation handling
@@ -26,6 +27,7 @@ A healthcare interoperability platform supporting dual protocols for agent-to-ag
 
 | Scenario | Endpoint | Description |
 |----------|----------|-------------|
+| Colonoscopy Scheduling | `/api/colonoscopy-scheduler/a2a` | Automates complex scheduling workflow |
 | BCSE | `/api/bridge/demo/a2a` | Breast Cancer Screening Eligibility |
 | CQL Measure | `/api/bridge/cql-measure/a2a` | Clinical Quality Language measure development |
 | Clinical Trial | `/api/bridge/clinical-trial/a2a` | Patient enrollment eligibility |
@@ -140,6 +142,7 @@ https://r4.smarthealthit.org
 ```
 
 Supported operations:
+
 - `GET /metadata` - Server capabilities
 - `GET /Patient?name=John` - Patient search
 - `GET /Patient/123/$everything` - Complete patient bundle
@@ -162,14 +165,15 @@ make smoke      # A2A smoke tests
 
 ### Project Structure
 
-```
+```text
 app/
 ├── main.py              # FastAPI entry point
 ├── config.py            # Pydantic configuration
 ├── agents/              # Agent implementations
 │   ├── administrator.py
 │   ├── applicant.py
-│   └── clinical_informaticist.py
+│   ├── clinical_informaticist.py
+│   └── colonoscopy_scheduler.py
 ├── protocols/           # A2A, MCP implementations
 ├── scenarios/           # Healthcare scenarios
 ├── routers/             # FastAPI route handlers
