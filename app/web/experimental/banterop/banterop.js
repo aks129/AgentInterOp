@@ -134,10 +134,9 @@ class BanteropV2 {
         const scenarioPreset = document.getElementById('scenarioPreset');
         if (scenarioPreset) {
             scenarioPreset.addEventListener('change', (e) => {
-                if (e.target.value === 'sample-bcs') {
-                    this.loadSampleScenario();
-                } else if (e.target.value === 'clinical-informaticist') {
-                    this.loadClinicalInformaticistScenario();
+                // Auto-load when a preset is selected (not "Custom URL")
+                if (e.target.value) {
+                    this.loadScenario();
                 }
             });
         }
@@ -288,13 +287,22 @@ class BanteropV2 {
                 this.state.scenarioPreset = preset;
                 a2aEndpoint = presetConfig.a2a;
                 result = await this.apiCall(presetConfig.endpoint);
+            } else if (preset) {
+                // Preset selected but not in map - show error
+                this.showAlert(`Unknown preset: ${preset}`, 'error');
+                return;
             } else if (url) {
                 this.state.scenarioUrl = url;
                 this.state.scenarioPreset = null;
                 result = await this.apiCall('/scenario/load', 'POST', { url });
             }
 
-            if (result && result.success) {
+            if (!result) {
+                this.showAlert('No scenario data received', 'error');
+                return;
+            }
+
+            if (result.success) {
                 this.state.currentScenario = result.data;
                 this.showScenarioInfo(result.data);
                 await this.updateStats();
@@ -307,6 +315,8 @@ class BanteropV2 {
                     this.state.remoteA2aUrl = smokeTestUrl;
                     this.addLog(`A2A endpoint set to: ${smokeTestUrl}`, 'info');
                 }
+            } else {
+                this.showAlert(`Failed to load scenario: ${result.error || result.message || 'Unknown error'}`, 'error');
             }
         } catch (error) {
             this.showAlert(`Failed to load scenario: ${error.message}`, 'error');
