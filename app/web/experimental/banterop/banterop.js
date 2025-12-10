@@ -255,20 +255,58 @@ class BanteropV2 {
 
         try {
             let result;
-            if (preset === 'sample-bcs') {
-                const fullUrl = window.location.origin + this.api.baseUrl + '/scenario/sample/bcs';
+            let a2aEndpoint = null;
+
+            // Map presets to their API endpoints and A2A endpoints
+            const presetMap = {
+                'colonoscopy-scheduling': {
+                    endpoint: '/scenario/sample/colonoscopy-scheduling',
+                    a2a: '/api/colonoscopy-scheduler/a2a'
+                },
+                'sample-bcs': {
+                    endpoint: '/scenario/sample/bcs',
+                    a2a: '/api/bridge/demo/a2a'
+                },
+                'clinical-informaticist': {
+                    endpoint: '/scenario/sample/clinical-informaticist',
+                    a2a: '/api/bridge/cql-measure/a2a'
+                },
+                'clinical-trial': {
+                    endpoint: '/scenario/sample/bcs',  // Use BCS as fallback
+                    a2a: '/api/bridge/clinical-trial/a2a'
+                },
+                'prior-auth': {
+                    endpoint: '/scenario/sample/bcs',  // Use BCS as fallback
+                    a2a: '/api/bridge/prior-auth/a2a'
+                }
+            };
+
+            if (preset && presetMap[preset]) {
+                const presetConfig = presetMap[preset];
+                const fullUrl = window.location.origin + this.api.baseUrl + presetConfig.endpoint;
                 this.state.scenarioUrl = fullUrl;
-                result = await this.apiCall('/scenario/sample/bcs');
+                this.state.scenarioPreset = preset;
+                a2aEndpoint = presetConfig.a2a;
+                result = await this.apiCall(presetConfig.endpoint);
             } else if (url) {
                 this.state.scenarioUrl = url;
+                this.state.scenarioPreset = null;
                 result = await this.apiCall('/scenario/load', 'POST', { url });
             }
 
-            if (result.success) {
+            if (result && result.success) {
                 this.state.currentScenario = result.data;
                 this.showScenarioInfo(result.data);
                 await this.updateStats();
                 this.addLog('Scenario loaded successfully', 'success');
+
+                // Auto-set the A2A endpoint if we have one
+                if (a2aEndpoint) {
+                    const smokeTestUrl = window.location.origin + a2aEndpoint;
+                    document.getElementById('smokeTestUrl').value = smokeTestUrl;
+                    this.state.remoteA2aUrl = smokeTestUrl;
+                    this.addLog(`A2A endpoint set to: ${smokeTestUrl}`, 'info');
+                }
             }
         } catch (error) {
             this.showAlert(`Failed to load scenario: ${error.message}`, 'error');
