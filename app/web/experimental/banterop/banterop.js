@@ -169,6 +169,13 @@ class BanteropV2 {
         }
     }
 
+    toggleHelp() {
+        const modal = document.getElementById('helpModal');
+        if (modal) {
+            modal.classList.toggle('active');
+        }
+    }
+
     showToast(message, type = 'info') {
         const container = document.getElementById('toastContainer');
         if (!container) return;
