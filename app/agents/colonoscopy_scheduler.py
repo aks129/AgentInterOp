@@ -579,6 +579,63 @@ class ColonoscopySchedulerAgent:
             "timestamp": datetime.now().isoformat()
         }
 
+    def _extract_answers_from_message(self, message: str, questions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Extract answers from a natural language message based on pending questions"""
+        extracted = {}
+        message_lower = message.lower().strip()
+        parts = message.split()
+
+        # Try to match answers to questions
+        for q in questions:
+            qid = q["id"]
+            qtype = q.get("type", "text")
+
+            # Date detection (various formats)
+            if qtype == "date" or qid in ["dob", "referral_date", "previous_colonoscopy_date"]:
+                import re
+                # Match patterns like 05/22/1975, 1975-05-22, May 22 1975, etc.
+                date_patterns = [
+                    r'\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b',  # MM/DD/YYYY or MM-DD-YYYY
+                    r'\b(\d{4}[/-]\d{1,2}[/-]\d{1,2})\b',    # YYYY-MM-DD
+                    r'\b(\w+\s+\d{1,2},?\s+\d{4})\b',        # Month DD, YYYY
+                ]
+                for pattern in date_patterns:
+                    match = re.search(pattern, message)
+                    if match:
+                        extracted[qid] = match.group(1)
+                        break
+
+            # Sex/gender detection
+            elif qid == "sex":
+                if "male" in message_lower and "female" not in message_lower:
+                    extracted[qid] = "Male"
+                elif "female" in message_lower:
+                    extracted[qid] = "Female"
+                elif message_lower in ["m", "f"]:
+                    extracted[qid] = "Male" if message_lower == "m" else "Female"
+
+            # Boolean detection
+            elif qtype == "boolean":
+                if any(word in message_lower for word in ["yes", "yeah", "yep", "true", "correct", "affirmative"]):
+                    extracted[qid] = True
+                elif any(word in message_lower for word in ["no", "nope", "false", "negative", "none", "n/a"]):
+                    extracted[qid] = False
+
+            # Name detection (for full_name question)
+            elif qid == "full_name":
+                # Look for name patterns - typically 2-4 words at start of message
+                import re
+                # Remove date and other obvious non-name content
+                name_text = re.sub(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', '', message)
+                name_text = re.sub(r'\b(male|female|m|f)\b', '', name_text, flags=re.IGNORECASE)
+                name_text = name_text.strip()
+                # Extract capitalized words or words that look like names
+                name_parts = [p for p in name_text.split() if p and not p.isdigit()]
+                if name_parts:
+                    extracted[qid] = ' '.join(name_parts[:4])  # Max 4 words for name
+
+        return extracted
+
     def process_message(self, message: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """Process a natural language message and determine appropriate action"""
         message_lower = message.lower()
@@ -589,6 +646,16 @@ class ColonoscopySchedulerAgent:
             "content": message,
             "timestamp": datetime.now().isoformat()
         })
+
+        # If intake is in progress, try to extract answers from the message
+        if self.workflow_state["status"] == SchedulingStatus.INTAKE_IN_PROGRESS:
+            pending_questions = self.get_next_questions(5)
+            if pending_questions:
+                extracted = self._extract_answers_from_message(message, pending_questions)
+                if extracted:
+                    # Store the extracted answers
+                    for qid, answer in extracted.items():
+                        self.process_intake_answer(qid, answer)
 
         # Determine intent and respond
         response = None
@@ -628,13 +695,34 @@ class ColonoscopySchedulerAgent:
         else:
             # Default: check if intake is in progress and provide next questions
             if self.workflow_state["status"] == SchedulingStatus.INTAKE_IN_PROGRESS:
+                # Check what was extracted from the message
+                pending_questions = self.get_next_questions(5)
+                extracted = self._extract_answers_from_message(message, pending_questions) if pending_questions else {}
+
+                # Build acknowledgment of captured data
+                captured_items = []
+                intake_data = self.workflow_state["intake_data"]
+                if intake_data.get("full_name"):
+                    captured_items.append(f"Name: {intake_data['full_name']}")
+                if intake_data.get("dob"):
+                    captured_items.append(f"DOB: {intake_data['dob']}")
+                if intake_data.get("sex"):
+                    captured_items.append(f"Sex: {intake_data['sex']}")
+
                 next_questions = self.get_next_questions(3)
                 if next_questions:
+                    progress = self.get_intake_progress()
+                    if captured_items:
+                        ack_msg = f"Got it! I've recorded: {', '.join(captured_items)}. "
+                    else:
+                        ack_msg = ""
+
                     response = {
                         "action": "continue_intake",
-                        "message": "Let's continue with the intake form. Here are the next questions:",
+                        "message": f"{ack_msg}Now let's continue with the next questions ({progress['answered_questions']}/{progress['total_questions']} complete):",
                         "next_questions": next_questions,
-                        "progress": self.get_intake_progress()
+                        "progress": progress,
+                        "captured_data": {k: v for k, v in intake_data.items() if v} if captured_items else None
                     }
                 else:
                     response = {
