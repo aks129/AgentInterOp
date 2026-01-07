@@ -33,7 +33,7 @@ async def index(request: Request):
 
 @router.get("/banterop", response_class=HTMLResponse)
 async def banterop_ui(request: Request):
-    """GET /banterop renders Banterop V2 UI"""
+    """GET /banterop renders Agent 2 Agent Chat UI"""
     base = Path(__file__).resolve().parent.parent
     banterop_dir = base / "web" / "experimental" / "banterop"
 
@@ -42,13 +42,13 @@ async def banterop_ui(request: Request):
             content = f.read()
         return HTMLResponse(content)
     else:
-        # Fallback to splash if Banterop V2 not available
+        # Fallback to splash if Agent 2 Agent Chat not available
         if templates:
             return templates.TemplateResponse("splash.html", {
                 "request": request
             })
         else:
-            return HTMLResponse("<h1>Banterop UI</h1><p>Not available in this environment</p>")
+            return HTMLResponse("<h1>Agent 2 Agent Chat</h1><p>Not available in this environment</p>")
 
 @router.get("/legacy", response_class=HTMLResponse)
 async def legacy_ui(request: Request):
@@ -197,7 +197,7 @@ async def documentation_page(doc_name: str, request: Request):
 
 @router.get("/experimental/banterop", response_class=HTMLResponse)
 async def experimental_banterop(request: Request):
-    """GET /experimental/banterop renders Banterop-style scenario UI"""
+    """GET /experimental/banterop renders Agent 2 Agent Chat scenario UI"""
     base = Path(__file__).resolve().parent.parent
     banterop_dir = base / "web" / "experimental" / "banterop"
 
@@ -206,7 +206,7 @@ async def experimental_banterop(request: Request):
             content = f.read()
         return HTMLResponse(content)
     else:
-        return HTMLResponse("<h1>Experimental Banterop UI</h1><p>Frontend files not found</p>")
+        return HTMLResponse("<h1>Agent 2 Agent Chat</h1><p>Frontend files not found</p>")
 
 @router.get("/experimental/banterop/banterop.js")
 async def experimental_banterop_js():
@@ -236,7 +236,7 @@ async def banterop_js():
 
 @router.get("/debug", response_class=HTMLResponse)
 async def debug_console(request: Request):
-    """Debug console for troubleshooting Banterop V2 configuration"""
+    """Debug console for troubleshooting Agent 2 Agent Chat configuration"""
     base = Path(__file__).resolve().parent.parent
     debug_file = base / "web" / "debug.html"
 

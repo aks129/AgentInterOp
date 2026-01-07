@@ -1,8 +1,8 @@
 /**
- * Banterop V2 - Modern Agent Interoperability Platform
+ * Agent 2 Agent Chat - Healthcare Agent Interoperability Platform
  */
 
-class BanteropV2 {
+class Agent2AgentChat {
     constructor() {
         this.state = {
             currentRun: null,
@@ -27,7 +27,7 @@ class BanteropV2 {
 
     async init() {
         try {
-            this.addLog('Starting Banterop V2 initialization...', 'info');
+            this.addLog('Starting Agent 2 Agent Chat initialization...', 'info');
             this.setupEventListeners();
             this.setupTabSwitching();
 
@@ -85,7 +85,7 @@ class BanteropV2 {
             message.className = 'alert alert-warning';
             message.innerHTML = `
                 <strong>Limited Mode</strong><br>
-                The Banterop API is currently unavailable. Some features may not work correctly.<br>
+                The Agent 2 Agent Chat API is currently unavailable. Some features may not work correctly.<br>
                 <small>This may be due to server startup time or configuration issues.</small><br>
                 <button class="btn btn-secondary" onclick="location.reload()">Retry</button>
             `;
@@ -1119,13 +1119,14 @@ class BanteropV2 {
 }
 
 // Initialize on page load
-let banteropInstance;
+let agent2AgentInstance;
 document.addEventListener('DOMContentLoaded', () => {
-    banteropInstance = new BanteropV2();
+    agent2AgentInstance = new Agent2AgentChat();
 
     // Make instance globally available for onclick handlers
-    window.banteropApp = banteropInstance;
+    window.banteropApp = agent2AgentInstance;
     // Backwards compatibility for cached HTML or legacy references
-    window.BanteropV2 = banteropInstance;
-    console.log('BanteropV2 initialized as window.banteropApp and window.BanteropV2');
+    window.Agent2AgentChat = agent2AgentInstance;
+    window.BanteropV2 = agent2AgentInstance; // Legacy compatibility
+    console.log('Agent2AgentChat initialized as window.banteropApp');
 });

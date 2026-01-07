@@ -80,7 +80,7 @@ app/
 ├── protocols/              # Protocol implementations (A2A, MCP)
 ├── scenarios/              # Healthcare scenarios (BCSE, clinical trial, etc.)
 ├── routers/                # FastAPI route handlers
-├── banterop_ui/            # Experimental Banterop UI backend
+├── banterop_ui/            # Agent 2 Agent Chat UI backend
 ├── eligibility/            # Eligibility checking engines
 ├── fhir/                   # FHIR server integration
 ├── ingest/                 # FHIR-to-payload mapping
@@ -88,7 +88,7 @@ app/
 ├── store/                  # Data persistence (memory, file)
 └── web/                    # Frontend templates and static assets
     └── experimental/
-        └── banterop/       # Banterop V2 UI (HTML/JS)
+        └── banterop/       # Agent 2 Agent Chat UI (HTML/JS)
 
 main.py                     # Flask-compatible WSGI entry point
 api/index.py                # Vercel serverless entry point
@@ -150,7 +150,7 @@ Implements `.well-known/agent-card.json` for external agent discovery with:
 - Self-test: `/api/selftest`
 - Version: `/version`
 - Agent card: `/.well-known/agent-card.json`
-- Banterop UI: `/experimental/banterop/`
+- Agent 2 Agent Chat UI: `/experimental/banterop/`
 
 ### Calling Agents via A2A
 

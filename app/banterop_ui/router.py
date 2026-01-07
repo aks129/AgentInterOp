@@ -1,4 +1,4 @@
-"""FastAPI router for Banterop-style scenario UI"""
+"""FastAPI router for Agent 2 Agent Chat scenario UI"""
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -23,7 +23,7 @@ from .claude_integration import (
 )
 import asyncio
 
-router = APIRouter(prefix="/api/experimental/banterop", tags=["banterop-ui"])
+router = APIRouter(prefix="/api/experimental/banterop", tags=["agent-2-agent-chat"])
 
 
 # Request/Response models

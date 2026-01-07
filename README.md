@@ -71,7 +71,7 @@ gunicorn --bind 0.0.0.0:8000 app.main:app
 ### 4. Access
 
 - **Main UI**: `http://localhost:8000`
-- **Banterop UI**: `http://localhost:8000/experimental/banterop`
+- **Agent 2 Agent Chat**: `http://localhost:8000/experimental/banterop`
 - **API Docs**: `http://localhost:8000/docs`
 - **Agent Card**: `http://localhost:8000/.well-known/agent-card.json`
 
@@ -177,12 +177,12 @@ app/
 ├── protocols/           # A2A, MCP implementations
 ├── scenarios/           # Healthcare scenarios
 ├── routers/             # FastAPI route handlers
-├── banterop_ui/         # Banterop UI backend
+├── banterop_ui/         # Agent 2 Agent Chat UI backend
 ├── fhir/                # FHIR server integration
 ├── llm/                 # Claude AI integration
 └── web/                 # Frontend assets
     └── experimental/
-        └── banterop/    # Banterop V2 UI
+        └── banterop/    # Agent 2 Agent Chat UI
 
 api/index.py             # Vercel serverless entry
 ```
@@ -217,7 +217,7 @@ docker run -p 8000:8000 -e ANTHROPIC_API_KEY=your_key agentinterop
 | `GET /api/selftest` | Self-test suite |
 | `GET /.well-known/agent-card.json` | Agent discovery |
 
-### Banterop UI API
+### Agent 2 Agent Chat UI API
 
 | Endpoint | Description |
 |----------|-------------|
