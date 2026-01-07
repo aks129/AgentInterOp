@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -303,7 +304,9 @@
             font-size: 14px;
         }
 
-        .form-input, .form-textarea, .form-select {
+        .form-input,
+        .form-textarea,
+        .form-select {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border);
@@ -312,7 +315,9 @@
             transition: all 0.3s;
         }
 
-        .form-input:focus, .form-textarea:focus, .form-select:focus {
+        .form-input:focus,
+        .form-textarea:focus,
+        .form-select:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -745,7 +750,9 @@
                 display: none;
             }
 
-            .grid-2, .grid-3, .grid-4 {
+            .grid-2,
+            .grid-3,
+            .grid-4 {
                 grid-template-columns: 1fr;
             }
         }
@@ -768,10 +775,103 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Help Modal */
+        .help-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .help-modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .help-modal-content {
+            background: white;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .help-modal-overlay.active .help-modal-content {
+            transform: translateY(0);
+        }
+
+        .help-modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .help-modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .help-modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        .help-modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .help-section {
+            margin-bottom: 2rem;
+        }
+
+        .help-section h3 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+
+        .help-item {
+            margin-bottom: 1rem;
+        }
+
+        .help-question {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .help-answer {
+            color: #6b7280;
+            font-size: 0.9rem;
+            line-height: 1.5;
         }
     </style>
 </head>
+
 <body>
     <!-- Top Navigation -->
     <nav class="top-nav">
@@ -783,6 +883,7 @@
                 </div>
             </div>
             <div class="nav-actions">
+                <button class="nav-btn" onclick="toggleHelp()">❓ Help</button>
                 <button class="nav-btn" onclick="window.location.href='/'">🏠 Home</button>
                 <button class="nav-btn" onclick="window.location.href='/docs'">📚 Docs</button>
                 <button class="nav-btn" onclick="saveAll()">💾 Save All</button>
@@ -1028,7 +1129,8 @@
 
                     <div class="form-group">
                         <label class="form-label">Base URL</label>
-                        <input type="text" class="form-input" id="a2aBaseUrl" placeholder="https://your-agent.example.com" />
+                        <input type="text" class="form-input" id="a2aBaseUrl"
+                            placeholder="https://your-agent.example.com" />
                     </div>
 
                     <div class="config-panel">
@@ -1137,7 +1239,8 @@
                     <div class="card-header">
                         <h3 class="card-title">Query Editor</h3>
                         <div class="card-actions">
-                            <button class="btn btn-secondary btn-small" onclick="loadCQLExample()">📝 Load Example</button>
+                            <button class="btn btn-secondary btn-small" onclick="loadCQLExample()">📝 Load
+                                Example</button>
                             <button class="btn btn-primary btn-small" onclick="validateCQL()">✓ Validate</button>
                             <button class="btn btn-success btn-small" onclick="executeCQL()">▶ Execute</button>
                         </div>
@@ -1216,19 +1319,22 @@ WHERE p.active = 1"></textarea>
             <section id="fhir" class="section">
                 <div class="section-header">
                     <h2 class="section-title">FHIR MCP Configuration</h2>
-                    <p class="section-description">Configure FHIR server connections and Model Context Protocol settings</p>
+                    <p class="section-description">Configure FHIR server connections and Model Context Protocol settings
+                    </p>
                 </div>
 
                 <div class="grid-2">
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title">FHIR Server Configuration</h3>
-                            <button class="btn btn-primary btn-small" onclick="testFHIRConnection()">🔌 Test Connection</button>
+                            <button class="btn btn-primary btn-small" onclick="testFHIRConnection()">🔌 Test
+                                Connection</button>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">FHIR Base URL</label>
-                            <input type="text" class="form-input" id="fhirBaseUrl" placeholder="https://fhir.example.com/r4" />
+                            <input type="text" class="form-input" id="fhirBaseUrl"
+                                placeholder="https://fhir.example.com/r4" />
                         </div>
 
                         <div class="form-group">
@@ -1252,7 +1358,8 @@ WHERE p.active = 1"></textarea>
 
                         <div class="form-group">
                             <label class="form-label">Bearer Token (if applicable)</label>
-                            <input type="password" class="form-input" id="fhirToken" placeholder="Enter bearer token..." />
+                            <input type="password" class="form-input" id="fhirToken"
+                                placeholder="Enter bearer token..." />
                         </div>
                     </div>
 
@@ -1320,7 +1427,8 @@ WHERE p.active = 1"></textarea>
 
                     <div class="form-group">
                         <label class="form-label">Search Parameters</label>
-                        <input type="text" class="form-input" id="fhirSearchParams" placeholder="e.g., _id=123 or birthdate=gt1970-01-01" />
+                        <input type="text" class="form-input" id="fhirSearchParams"
+                            placeholder="e.g., _id=123 or birthdate=gt1970-01-01" />
                     </div>
 
                     <div id="fhirQueryResults"></div>
@@ -1403,17 +1511,20 @@ WHERE p.active = 1"></textarea>
             <form id="agentForm" onsubmit="saveAgent(event)">
                 <div class="form-group">
                     <label class="form-label">Agent Name</label>
-                    <input type="text" class="form-input" id="agentName" required placeholder="e.g., BCS-E Eligibility Agent" />
+                    <input type="text" class="form-input" id="agentName" required
+                        placeholder="e.g., BCS-E Eligibility Agent" />
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Description</label>
-                    <textarea class="form-textarea" id="agentDescription" required placeholder="Describe what this agent does..."></textarea>
+                    <textarea class="form-textarea" id="agentDescription" required
+                        placeholder="Describe what this agent does..."></textarea>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Purpose</label>
-                    <input type="text" class="form-input" id="agentPurpose" required placeholder="Primary purpose of this agent" />
+                    <input type="text" class="form-input" id="agentPurpose" required
+                        placeholder="Primary purpose of this agent" />
                 </div>
 
                 <div class="grid-2">
@@ -1441,6 +1552,54 @@ WHERE p.active = 1"></textarea>
         </div>
     </div>
 
+    <!-- Help Modal -->
+    <div class="help-modal-overlay" id="helpModal">
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <h2 class="help-modal-title">Agent Studio Help</h2>
+                <button class="help-modal-close" onclick="toggleHelp()">&times;</button>
+            </div>
+            <div class="help-modal-body">
+                <div class="help-section">
+                    <h3>How to Use</h3>
+                    <div class="help-item">
+                        <div class="help-question">Overview</div>
+                        <div class="help-answer">The Dashboard provides a high-level view of all your agents and their
+                            current status.</div>
+                    </div>
+                    <div class="help-item">
+                        <div class="help-question">Editing Agents</div>
+                        <div class="help-answer">Navigate to the "Agents" section to view details. Select an agent to
+                            edit its constitution, operational plan, or metadata.</div>
+                    </div>
+                    <div class="help-item">
+                        <div class="help-question">Saving Changes</div>
+                        <div class="help-answer">Click "Save All" in the top navigation bar to persist your changes to
+                            the backend.</div>
+                    </div>
+                </div>
+                <div class="help-section">
+                    <h3>FAQ</h3>
+                    <div class="help-item">
+                        <div class="help-question">What is the Constitution?</div>
+                        <div class="help-answer">The Constitution defines the ethical boundaries and operational
+                            constraints of your agent, ensuring safe and compliant behavior.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleHelp() {
+            const modal = document.getElementById('helpModal');
+            if (modal) {
+                modal.classList.toggle('active');
+            }
+        }
+    </script>
+
     <script src="/static/agent-studio.js"></script>
 </body>
+
 </html>

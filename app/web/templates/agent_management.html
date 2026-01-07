@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -144,14 +145,16 @@
             text-transform: uppercase;
         }
 
-        select, input {
+        select,
+        input {
             padding: 10px 14px;
             border: 1px solid #d1d5db;
             border-radius: 8px;
             font-size: 14px;
         }
 
-        select:focus, input:focus {
+        select:focus,
+        input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -388,7 +391,8 @@
             color: #c00;
         }
 
-        .constitution-section, .plan-section {
+        .constitution-section,
+        .plan-section {
             margin-bottom: 20px;
             padding: 16px;
             background: #f9fafb;
@@ -403,8 +407,99 @@
         .list-item:last-child {
             border-bottom: none;
         }
+
+        /* Help Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .help-modal-content {
+            background: white;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.active .help-modal-content {
+            transform: translateY(0);
+        }
+
+        .help-modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .help-modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .help-modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        .help-modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .help-section {
+            margin-bottom: 2rem;
+        }
+
+        .help-section h3 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+
+        .help-item {
+            margin-bottom: 1rem;
+        }
+
+        .help-question {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .help-answer {
+            color: #6b7280;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -412,7 +507,10 @@
                 <h1>🏥 Healthcare Agent Management</h1>
                 <div class="header-subtitle">A2A-Compliant Agent Development with Google ADK Framework</div>
             </div>
-            <button class="btn btn-primary" onclick="openCreateModal()">+ Create New Agent</button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" onclick="toggleHelp()">Help</button>
+                <button class="btn btn-primary" onclick="openCreateModal()">+ Create New Agent</button>
+            </div>
         </div>
 
         <div class="tabs">
@@ -492,7 +590,8 @@
 
                 <div class="form-group">
                     <label>Purpose *</label>
-                    <input type="text" id="agentPurpose" required placeholder="e.g., Automate breast cancer screening eligibility">
+                    <input type="text" id="agentPurpose" required
+                        placeholder="e.g., Automate breast cancer screening eligibility">
                 </div>
 
                 <div class="form-group">
@@ -515,17 +614,20 @@
 
                     <div class="form-group">
                         <label>Constraints (one per line)</label>
-                        <textarea id="constitutionConstraints" placeholder="e.g., Age range: 50-74 years&#10;Must verify recent history"></textarea>
+                        <textarea id="constitutionConstraints"
+                            placeholder="e.g., Age range: 50-74 years&#10;Must verify recent history"></textarea>
                     </div>
 
                     <div class="form-group">
                         <label>Ethical Guidelines (one per line)</label>
-                        <textarea id="constitutionEthics" placeholder="e.g., Prioritize patient safety&#10;Ensure equitable access"></textarea>
+                        <textarea id="constitutionEthics"
+                            placeholder="e.g., Prioritize patient safety&#10;Ensure equitable access"></textarea>
                     </div>
 
                     <div class="form-group">
                         <label>Capabilities (one per line)</label>
-                        <textarea id="constitutionCapabilities" placeholder="e.g., FHIR R4 processing&#10;Age calculation"></textarea>
+                        <textarea id="constitutionCapabilities"
+                            placeholder="e.g., FHIR R4 processing&#10;Age calculation"></textarea>
                     </div>
                 </div>
 
@@ -534,12 +636,14 @@
 
                     <div class="form-group">
                         <label>Goals (one per line)</label>
-                        <textarea id="planGoals" placeholder="e.g., Accurately determine eligibility&#10;Generate compliant artifacts"></textarea>
+                        <textarea id="planGoals"
+                            placeholder="e.g., Accurately determine eligibility&#10;Generate compliant artifacts"></textarea>
                     </div>
 
                     <div class="form-group">
                         <label>Success Criteria (one per line)</label>
-                        <textarea id="planCriteria" placeholder="e.g., Decision accuracy >= 95%&#10;Response time < 2 seconds"></textarea>
+                        <textarea id="planCriteria"
+                            placeholder="e.g., Decision accuracy >= 95%&#10;Response time < 2 seconds"></textarea>
                     </div>
                 </div>
 
@@ -548,6 +652,46 @@
                     <button type="submit" class="btn btn-primary">Create Agent</button>
                 </div>
             </form>
+        </div>
+    </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <h2 class="help-modal-title">Agent Management Help</h2>
+                <button class="help-modal-close" onclick="toggleHelp()">&times;</button>
+            </div>
+            <div class="help-modal-body">
+                <div class="help-section">
+                    <h3>How to Use</h3>
+                    <div class="help-item">
+                        <div class="help-question">Creating an Agent</div>
+                        <div class="help-answer">Click "+ Create New Agent" to define a new agent. You'll need to
+                            specify its role, domain, and constitutional guidelines (constraints, ethics, capabilities).
+                        </div>
+                    </div>
+                    <div class="help-item">
+                        <div class="help-question">Managing Agents</div>
+                        <div class="help-answer">Use the "Activate/Deactivate" buttons to control agent availability.
+                            "Archive" removes an agent from the active list.</div>
+                    </div>
+                </div>
+                <div class="help-section">
+                    <h3>FAQ</h3>
+                    <div class="help-item">
+                        <div class="help-question">What is the ADK Framework?</div>
+                        <div class="help-answer">The Agent Development Kit (ADK) provides a structured way to define
+                            agent behaviors, ensuring they adhere to specific constraints and ethical guidelines.</div>
+                    </div>
+                    <div class="help-item">
+                        <div class="help-question">What are Templates?</div>
+                        <div class="help-answer">Templates are pre-configured agent definitions that you can use as a
+                            starting point for common healthcare roles.</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -703,6 +847,13 @@
         }
 
         // UI functions
+        function toggleHelp() {
+            const modal = document.getElementById('helpModal');
+            if (modal) {
+                modal.classList.toggle('active');
+            }
+        }
+
         function renderAgents() {
             const container = document.getElementById('agentsContainer');
 
@@ -752,7 +903,7 @@
                         </div>
                     </div>
                 `).join('') +
-            '</div>';
+                '</div>';
         }
 
         function renderDomains() {
@@ -770,7 +921,7 @@
                         </div>
                     </div>
                 `).join('') +
-            '</div>';
+                '</div>';
         }
 
         function renderTemplates() {
@@ -791,7 +942,7 @@
                         </div>
                     </div>
                 `).join('') +
-            '</div>';
+                '</div>';
         }
 
         function switchTab(tabName) {
@@ -897,4 +1048,5 @@
         }
     </script>
 </body>
+
 </html>
