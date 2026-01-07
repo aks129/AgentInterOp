@@ -1,0 +1,86 @@
+# Docker Compose for Telephony Stack (Asterisk + Shim Server)
+#
+# This deploys the open-telephony-stack components for VoIP functionality.
+# Requires AWS Chime SIP trunking to be configured separately.
+#
+# Usage:
+#   cd deployment/telephony
+#   cp env.example .env
+#   # Edit .env with your configuration
+#   docker-compose up -d
+#
+# Prerequisites:
+#   - AWS Chime Voice Connector configured
+#   - Phone number provisioned in AWS Chime
+#   - Domain with DNS A record pointing to this server
+#   - TLS certificates (Let's Encrypt recommended)
+
+version: '3.8'
+
+services:
+  # Asterisk PBX - Core telephony engine
+  asterisk:
+    image: andrius/asterisk:alpine-20
+    container_name: agentinterop-asterisk
+    hostname: asterisk
+    restart: unless-stopped
+    network_mode: host  # Required for RTP media
+    volumes:
+      - ./asterisk/pjsip.conf:/etc/asterisk/pjsip.conf:ro
+      - ./asterisk/extensions.conf:/etc/asterisk/extensions.conf:ro
+      - ./asterisk/ari.conf:/etc/asterisk/ari.conf:ro
+      - ./asterisk/http.conf:/etc/asterisk/http.conf:ro
+      - ./certs:/etc/asterisk/keys:ro
+      - asterisk-logs:/var/log/asterisk
+    environment:
+      - TZ=UTC
+    healthcheck:
+      test: ["CMD", "asterisk", "-rx", "core show version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Shim Server - Bridges Asterisk to Voice Agents
+  shim-server:
+    build:
+      context: ./shim-server
+      dockerfile: Dockerfile
+    container_name: agentinterop-shim
+    restart: unless-stopped
+    depends_on:
+      asterisk:
+        condition: service_healthy
+    ports:
+      - "8080:8080"  # Health and API endpoints
+    environment:
+      - ARI_BASE=http://127.0.0.1:8088/ari
+      - ARI_USER=${ARI_USER:-ariuser}
+      - ARI_PASS=${ARI_PASS}
+      - ARI_APP=voice-agent
+      - EXTERNAL_MEDIA_HOST=127.0.0.1
+      - RTP_PORT_START=10000
+      - RTP_PORT_END=10299
+      - ECS_MEDIA_WSS_URL=${VOICE_AGENT_WSS_URL:-ws://host.docker.internal:8000/api/telephony/voice}
+      - LOG_LEVEL=INFO
+    network_mode: host  # Required to reach Asterisk ARI
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Certificate renewal (Let's Encrypt)
+  certbot:
+    image: certbot/certbot:latest
+    container_name: agentinterop-certbot
+    volumes:
+      - ./certs:/etc/letsencrypt
+      - ./certbot-webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'"
+
+volumes:
+  asterisk-logs:
+
+networks:
+  default:
+    name: telephony-network

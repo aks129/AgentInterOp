@@ -166,6 +166,18 @@ app.include_router(clinical_informaticist_router)
 from app.routers.colonoscopy_scheduler import router as colonoscopy_scheduler_router
 app.include_router(colonoscopy_scheduler_router)
 
+# Include Telephony router (VoIP integration)
+try:
+    from app.telephony.config import is_telephony_enabled
+    from app.telephony.router import router as telephony_router
+    app.include_router(telephony_router)
+    if is_telephony_enabled():
+        print("[INIT] Telephony features enabled", flush=True)
+    else:
+        print("[INIT] Telephony router registered (disabled - set TELEPHONY_ENABLED=true to enable)", flush=True)
+except ImportError as e:
+    print(f"[WARN] Telephony module not available: {e}", flush=True)
+
 # Include Pages Router (HTML serving)
 from app.routers.pages import router as pages_router
 app.include_router(pages_router)

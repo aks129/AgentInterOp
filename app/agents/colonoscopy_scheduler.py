@@ -798,6 +798,197 @@ class ColonoscopySchedulerAgent:
 
         return workflow_results
 
+    # =========================================================================
+    # Voice/Telephony Capabilities
+    # =========================================================================
+
+    def get_voice_greeting(self, direction: str = "inbound") -> str:
+        """
+        Get voice-optimized greeting for phone calls.
+
+        Args:
+            direction: "inbound" for patient calling in, "outbound" for agent calling out
+
+        Returns:
+            Greeting text optimized for text-to-speech
+        """
+        if direction == "outbound":
+            return (
+                "Hello, this is the automated scheduling assistant calling from "
+                "G I Specialists. I'm calling to help schedule a colonoscopy appointment. "
+                "Is this a good time to talk?"
+            )
+        else:
+            return (
+                "Hello, thank you for calling G I Specialists scheduling. "
+                "I'm an automated assistant and I can help you schedule your "
+                "colonoscopy appointment. To get started, may I have your full name please?"
+            )
+
+    def process_voice_message(self, text: str, call_context: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Process a message from a phone call.
+
+        Optimized for voice interactions with shorter responses and clearer questions.
+
+        Args:
+            text: Transcribed speech from the caller
+            call_context: Call metadata (call_id, caller, etc.)
+
+        Returns:
+            Response dict with voice-optimized message
+        """
+        # Use standard message processing
+        result = self.process_message(text, call_context)
+
+        # Optimize the message for voice
+        if result.get("message"):
+            result["message"] = self._optimize_for_voice(result["message"])
+
+        # Add voice-specific response formatting
+        if result.get("next_questions"):
+            # For voice, ask one question at a time
+            questions = result["next_questions"]
+            if questions:
+                first_q = questions[0]
+                result["voice_prompt"] = f"Next question: {first_q.get('question', '')}"
+                result["pending_questions"] = questions[1:] if len(questions) > 1 else []
+
+        # Check if we should trigger an outbound call (e.g., to clinic)
+        if result.get("action") == "intake_complete" and self.workflow_state["insurance_verified"]:
+            # Patient intake is done, could trigger call to clinic
+            result["trigger_outbound_call"] = {
+                "purpose": "schedule_with_clinic",
+                "patient_data": self.workflow_state["intake_data"],
+                "target": "clinic"  # Would be actual clinic phone in production
+            }
+
+        return result
+
+    def _optimize_for_voice(self, text: str) -> str:
+        """
+        Make text more suitable for text-to-speech playback.
+
+        - Shorten long responses
+        - Expand abbreviations
+        - Remove markdown formatting
+        - Improve pronunciation hints
+        """
+        if not text:
+            return text
+
+        # Limit length for voice (shorter is better for phone)
+        if len(text) > 250:
+            sentences = text.split('. ')
+            text = '. '.join(sentences[:3])
+            if not text.endswith('.'):
+                text += '.'
+
+        # Replace abbreviations for better TTS pronunciation
+        replacements = {
+            "DOB": "date of birth",
+            "PCP": "primary care provider",
+            "GI": "G I",
+            "ID": "I D",
+            "Dr.": "Doctor",
+            "Appt": "Appointment",
+            "appt": "appointment",
+            "w/": "with",
+            "vs": "versus",
+            "&": "and",
+            "e.g.": "for example",
+            "i.e.": "that is",
+            "etc.": "and so on",
+            "approx.": "approximately",
+            "info": "information",
+            "amt": "amount",
+        }
+        for abbr, full in replacements.items():
+            text = text.replace(abbr, full)
+
+        # Remove markdown formatting
+        text = text.replace("**", "")
+        text = text.replace("*", "")
+        text = text.replace("`", "")
+        text = text.replace("#", "")
+
+        # Remove bullet points and list markers
+        import re
+        text = re.sub(r'^\s*[-•]\s*', '', text, flags=re.MULTILINE)
+        text = re.sub(r'^\s*\d+\.\s*', '', text, flags=re.MULTILINE)
+
+        # Collapse multiple spaces
+        text = re.sub(r'\s+', ' ', text).strip()
+
+        return text
+
+    def get_voice_prompt_for_question(self, question_id: str) -> str:
+        """
+        Get a voice-optimized prompt for a specific question.
+
+        Args:
+            question_id: ID of the intake question
+
+        Returns:
+            Voice-friendly prompt text
+        """
+        # Find the question
+        for section in INTAKE_FORM_SECTIONS.values():
+            for q in section["questions"]:
+                if q["id"] == question_id:
+                    base_question = q["question"]
+
+                    # Add context for certain question types
+                    if q.get("type") == "date":
+                        return f"{base_question}? You can say it like month day year."
+                    elif q.get("type") == "boolean":
+                        return f"{base_question}? Please answer yes or no."
+                    elif q.get("type") == "choice" and q.get("options"):
+                        options = ", or ".join(q["options"][:3])
+                        return f"{base_question}? Options include {options}."
+                    else:
+                        return f"{base_question}?"
+
+        return "Could you please provide that information?"
+
+    def get_voice_summary(self) -> str:
+        """
+        Get a voice-friendly summary of collected information.
+
+        Useful for confirmation before scheduling.
+        """
+        data = self.workflow_state["intake_data"]
+        progress = self.get_intake_progress()
+
+        if progress["answered_questions"] == 0:
+            return "I don't have any information recorded yet."
+
+        summary_parts = []
+
+        if data.get("full_name"):
+            summary_parts.append(f"Your name is {data['full_name']}")
+
+        if data.get("dob"):
+            summary_parts.append(f"date of birth {data['dob']}")
+
+        if data.get("insurance_provider"):
+            summary_parts.append(f"insured by {data['insurance_provider']}")
+
+        if data.get("referring_physician"):
+            summary_parts.append(f"referred by Doctor {data['referring_physician']}")
+
+        if self.workflow_state.get("selected_appointment"):
+            appt = self.workflow_state["selected_appointment"]
+            summary_parts.append(
+                f"scheduled for {appt.get('date_display', 'the selected date')} "
+                f"at {appt.get('time_display', 'the selected time')}"
+            )
+
+        if summary_parts:
+            return "Here's what I have: " + ", ".join(summary_parts) + "."
+        else:
+            return "I have some information recorded but need a few more details."
+
     def get_capabilities(self) -> Dict[str, Any]:
         """Get agent capabilities"""
         return {
@@ -812,11 +1003,13 @@ class ColonoscopySchedulerAgent:
                 "referral_verification",
                 "appointment_search",
                 "appointment_booking",
-                "prep_instructions_delivery"
+                "prep_instructions_delivery",
+                "voice_phone_calls"
             ],
-            "protocols_supported": ["a2a", "mcp"],
+            "protocols_supported": ["a2a", "mcp", "voice"],
             "methods": [
                 "process_message",
+                "process_voice_message",
                 "bulk_process_intake",
                 "verify_insurance",
                 "verify_referral",
@@ -824,10 +1017,13 @@ class ColonoscopySchedulerAgent:
                 "select_appointment",
                 "get_prep_instructions",
                 "execute_full_workflow",
-                "get_workflow_status"
+                "get_workflow_status",
+                "get_voice_greeting",
+                "get_voice_summary"
             ],
             "intake_sections": list(INTAKE_FORM_SECTIONS.keys()),
-            "total_intake_questions": sum(len(s["questions"]) for s in INTAKE_FORM_SECTIONS.values())
+            "total_intake_questions": sum(len(s["questions"]) for s in INTAKE_FORM_SECTIONS.values()),
+            "voice_enabled": True
         }
 
 
