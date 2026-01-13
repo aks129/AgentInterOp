@@ -226,6 +226,106 @@ def create_colonoscopy_scheduling_scenario() -> Scenario:
     )
 
 
+def create_smart_scheduling_scenario() -> Scenario:
+    """Create a Smart Scheduling scenario for provider search and appointment booking"""
+    return Scenario(
+        metadata={
+            "id": "smart_scheduling",
+            "name": "Smart Scheduling Agent",
+            "description": "Search healthcare providers and find available appointments using SMART Scheduling Links",
+            "version": "1.0.0",
+            "tags": ["healthcare", "scheduling", "appointments", "fhir", "provider-search", "smart-links"]
+        },
+        agents=[
+            {
+                "agentId": "patient",
+                "name": "Patient",
+                "role": "patient",
+                "systemPrompt": "You are a patient looking to find a healthcare provider and schedule an appointment. You may have preferences for specialty, location, languages, or insurance.",
+                "goals": [
+                    "Find a suitable healthcare provider",
+                    "Check appointment availability",
+                    "Get a booking link to schedule"
+                ],
+                "messageToUseWhenInitiatingConversation": "Hi, I need to find a dermatologist in the Boston area. Can you help me search for providers and find available appointments?"
+            },
+            {
+                "agentId": "smart_scheduler",
+                "name": "Smart Scheduling Agent",
+                "role": "scheduling_coordinator",
+                "systemPrompt": "You are a Smart Scheduling Agent that helps patients find healthcare providers and appointments. You can search providers by specialty, location, insurance, and languages. You can check availability and provide booking links.",
+                "goals": [
+                    "Search providers by specialty and location",
+                    "Filter by insurance and language preferences",
+                    "Check available appointment slots",
+                    "Provide booking links for scheduling"
+                ],
+                "tools": [
+                    "search_providers",
+                    "get_availability",
+                    "get_booking",
+                    "get_providers",
+                    "get_locations",
+                    "get_slots"
+                ],
+                "a2a_endpoint": "/api/smart-scheduler/a2a"
+            }
+        ],
+        settings={
+            "enableFhir": True,
+            "enableProviderSearch": True,
+            "enableAvailabilityLookup": True,
+            "enableBookingRetrieval": True,
+            "smartSchedulingApi": "https://smart-scheduling-links.vercel.app"
+        },
+        tools=[
+            {
+                "name": "search_providers",
+                "description": "Search for healthcare providers by specialty, location, insurance, and languages",
+                "parameters": {
+                    "specialty": {"type": "string", "description": "Medical specialty (e.g., dermatology, cardiology)"},
+                    "location": {"type": "string", "description": "Geographic location (e.g., Boston, New York)"},
+                    "insurance": {"type": "array", "description": "List of accepted insurance plans"},
+                    "languages": {"type": "array", "description": "List of languages spoken by provider"}
+                }
+            },
+            {
+                "name": "get_availability",
+                "description": "Get available appointment slots for a specific provider",
+                "parameters": {
+                    "provider_id": {"type": "string", "description": "The provider's unique identifier"},
+                    "date_from": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+                    "date_to": {"type": "string", "description": "End date (YYYY-MM-DD)"}
+                }
+            },
+            {
+                "name": "get_booking",
+                "description": "Get booking URL and phone number for a specific appointment slot",
+                "parameters": {
+                    "slot_id": {"type": "string", "description": "The slot's unique identifier"}
+                }
+            }
+        ],
+        knowledgeBase=[
+            {
+                "id": "smart_scheduling_links",
+                "type": "data_source",
+                "content": json.dumps({
+                    "name": "SMART Scheduling Links",
+                    "description": "Aggregates appointment data from multiple healthcare scheduling publishers",
+                    "sources": [
+                        "Zocdoc SMART Scheduling Demo",
+                        "Defacto SMART Scheduling",
+                        "Rendeva SMART Aligned Dataset",
+                        "SMART Reference Implementation"
+                    ],
+                    "fhir_profile": "http://fhir-registry.smarthealthit.org/StructureDefinition/scheduling-slot"
+                })
+            }
+        ]
+    )
+
+
 def create_clinical_informaticist_scenario() -> Scenario:
     """Create a Clinical Informaticist CQL Measure Development scenario"""
     return Scenario(

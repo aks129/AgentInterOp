@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional
 import json
 
 from .scenario_models import RunConfig
-from .scenario_loader import fetch_scenario, get_cached_scenarios, create_sample_bcs_scenario, create_clinical_informaticist_scenario, create_colonoscopy_scheduling_scenario
+from .scenario_loader import fetch_scenario, get_cached_scenarios, create_sample_bcs_scenario, create_clinical_informaticist_scenario, create_colonoscopy_scheduling_scenario, create_smart_scheduling_scenario
 from .agentcard_loader import fetch_agent_card, get_cached_agent_cards, get_preset_agent_cards
 from .mcp_fhir_bridge import fetch_patient_everything, extract_minimal_facts, get_configurable_codes
 from .bcs_guidelines import (
@@ -138,12 +138,23 @@ async def get_colonoscopy_scheduling_scenario():
     }
 
 
+@router.get("/scenario/sample/smart-scheduling")
+async def get_smart_scheduling_scenario():
+    """Get Smart Scheduling scenario - provider search and appointment booking"""
+    scenario = create_smart_scheduling_scenario()
+    return {
+        "success": True,
+        "data": scenario.dict()
+    }
+
+
 @router.get("/scenario/presets")
 async def get_scenario_presets():
     """Get all available scenario presets"""
     bcs_scenario = create_sample_bcs_scenario()
     cql_scenario = create_clinical_informaticist_scenario()
     colonoscopy_scenario = create_colonoscopy_scheduling_scenario()
+    smart_scheduling_scenario = create_smart_scheduling_scenario()
 
     return {
         "success": True,
@@ -171,6 +182,14 @@ async def get_scenario_presets():
                     "tags": colonoscopy_scenario.metadata.tags,
                     "endpoint": "/scenario/sample/colonoscopy-scheduling",
                     "a2a_endpoint": "/api/colonoscopy-scheduler/a2a"
+                },
+                {
+                    "id": "smart-scheduling",
+                    "name": smart_scheduling_scenario.metadata.name,
+                    "description": smart_scheduling_scenario.metadata.description,
+                    "tags": smart_scheduling_scenario.metadata.tags,
+                    "endpoint": "/scenario/sample/smart-scheduling",
+                    "a2a_endpoint": "/api/smart-scheduler/a2a"
                 }
             ]
         }

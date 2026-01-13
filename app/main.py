@@ -166,6 +166,10 @@ app.include_router(clinical_informaticist_router)
 from app.routers.colonoscopy_scheduler import router as colonoscopy_scheduler_router
 app.include_router(colonoscopy_scheduler_router)
 
+# Include Smart Scheduling Agent router (SMART Scheduling Links integration)
+from app.routers.smart_scheduler import router as smart_scheduler_router
+app.include_router(smart_scheduler_router)
+
 # Include Telephony router (VoIP integration)
 try:
     from app.telephony.config import is_telephony_enabled
@@ -258,6 +262,16 @@ def agent_card(request: Request):
             "url": f"{base}/api/clinical-informaticist/a2a"
           },
           "a2a.config64": base64.b64encode(b'{"agent":"clinical_informaticist"}').decode()
+        },
+        {
+          "id": "smart-scheduler",
+          "name": "Smart Scheduling",
+          "description": "Search healthcare providers and find available appointments using SMART Scheduling Links",
+          "tags": ["healthcare", "scheduling", "appointments", "fhir", "provider-search"],
+          "discovery": {
+            "url": f"{base}/api/smart-scheduler/a2a"
+          },
+          "a2a.config64": base64.b64encode(b'{"agent":"smart_scheduler"}').decode()
         }
       ]
     }

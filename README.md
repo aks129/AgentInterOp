@@ -18,6 +18,7 @@ A healthcare interoperability platform supporting dual protocols for agent-to-ag
 
 ### Specialized Agents
 
+- **Smart Scheduling Agent**: Provider search and appointment booking via SMART Scheduling Links
 - **Colonoscopy Scheduling Agent**: Automates 40+ question intake forms, insurance verification, and appointment booking
 - **Clinical Informaticist Agent**: CQL measure development and quality measure authoring
 - **Administrator Agent**: Benefits eligibility and prior authorization processing
@@ -27,6 +28,7 @@ A healthcare interoperability platform supporting dual protocols for agent-to-ag
 
 | Scenario | Endpoint | Description |
 |----------|----------|-------------|
+| Smart Scheduling | `/api/smart-scheduler/a2a` | Provider search and appointment booking |
 | Colonoscopy Scheduling | `/api/colonoscopy-scheduler/a2a` | Automates complex scheduling workflow |
 | BCSE | `/api/bridge/demo/a2a` | Breast Cancer Screening Eligibility |
 | CQL Measure | `/api/bridge/cql-measure/a2a` | Clinical Quality Language measure development |
