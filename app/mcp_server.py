@@ -12,10 +12,8 @@ A2A JSON-RPC endpoint inside the same process. This keeps protocol logic in
 one place (the A2A routers) and lets MCP and A2A stay in lock-step.
 """
 
-from __future__ import annotations
-
 import os
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 from mcp.server.fastmcp import FastMCP
