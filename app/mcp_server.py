@@ -15,12 +15,17 @@ one place (the A2A routers) and lets MCP and A2A stay in lock-step.
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-mcp = FastMCP("agentinterop", streamable_http_path="/")
+mcp = FastMCP(
+    "agentinterop",
+    streamable_http_path="/",
+    stateless_http=True,
+    json_response=True,
+)
 
 
 def _internal_base() -> str:
@@ -33,7 +38,7 @@ def _internal_base() -> str:
 async def _a2a_send(
     endpoint: str,
     text: str,
-    task_id: str | None = None,
+    task_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """POST a JSON-RPC `message/send` to an in-process A2A endpoint."""
     message: dict[str, Any] = {
@@ -69,7 +74,7 @@ async def _a2a_send(
 @mcp.tool()
 async def colonoscopy_schedule(
     message: str,
-    task_id: str | None = None,
+    task_id: Optional[str] = None,
 ) -> dict:
     """
     Drive the colonoscopy scheduling workflow: 40+ question intake form
@@ -97,7 +102,7 @@ async def colonoscopy_schedule(
 @mcp.tool()
 async def bcse_check_eligibility(
     message: str,
-    task_id: str | None = None,
+    task_id: Optional[str] = None,
 ) -> dict:
     """
     Check breast cancer screening eligibility against USPSTF guidelines.
@@ -120,7 +125,7 @@ async def bcse_check_eligibility(
 @mcp.tool()
 async def smart_scheduling_search(
     message: str,
-    task_id: str | None = None,
+    task_id: Optional[str] = None,
 ) -> dict:
     """
     Search healthcare providers and find available appointment slots via
@@ -145,7 +150,7 @@ async def smart_scheduling_search(
 @mcp.tool()
 async def build_cql_measure(
     message: str,
-    task_id: str | None = None,
+    task_id: Optional[str] = None,
 ) -> dict:
     """
     Generate an executable Clinical Quality Language (CQL) measure from a
