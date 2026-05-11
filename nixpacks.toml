@@ -8,7 +8,7 @@ nixPkgs = ["python311", "uv", "gcc"]
 [phases.install]
 cmds = [
   "uv venv --python python3.11 /opt/venv",
-  "/opt/venv/bin/uv pip install -e .",
+  "VIRTUAL_ENV=/opt/venv uv pip install -e .",
 ]
 
 [start]
