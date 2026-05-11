@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import os, json, time, base64
 
-from app.mcp_server import mcp as mcp_server
+from app.mcp_server import mcp as mcp_server, streamable_http_app_with_po_fhir
 
 
 @asynccontextmanager
@@ -42,7 +42,9 @@ app = FastAPI(
 
 # Mount standards-compliant MCP server (Streamable HTTP transport).
 # External clients connect to: <host>/mcp
-app.mount("/mcp", mcp_server.streamable_http_app())
+# Wrapped to support Prompt Opinion's FHIR context extension:
+# captures X-FHIR-* headers and advertises ai.promptopinion/fhir-context.
+app.mount("/mcp", streamable_http_app_with_po_fhir())
 
 # Global exception handler for unhandled errors
 @app.exception_handler(Exception)
