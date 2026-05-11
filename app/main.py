@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,6 +6,14 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from datetime import datetime, timezone
 from pathlib import Path
 import os, json, time, base64
+
+from app.mcp_server import mcp as mcp_server
+
+
+@asynccontextmanager
+async def _lifespan(app: "FastAPI"):
+    async with mcp_server.session_manager.run():
+        yield
 
 # Feature flags
 UI_EXPERIMENTAL = os.getenv("UI_EXPERIMENTAL", "false").lower() == "true"
@@ -27,8 +36,13 @@ app = FastAPI(
     version="1.0.0-bcse",
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
+    lifespan=_lifespan,
 )
+
+# Mount standards-compliant MCP server (Streamable HTTP transport).
+# External clients connect to: <host>/mcp
+app.mount("/mcp", mcp_server.streamable_http_app())
 
 # Global exception handler for unhandled errors
 @app.exception_handler(Exception)
@@ -240,6 +254,11 @@ def agent_card(request: Request):
         "bcse_simple": {
             "url": f"{base}/api/mcp/bcse",
             "transport": "http-post"
+        },
+        "mcp": {
+            "url": f"{base}/mcp",
+            "transport": "streamable-http",
+            "description": "Standards-compliant MCP server exposing colonoscopy_schedule, bcse_check_eligibility, smart_scheduling_search, and build_cql_measure tools."
         }
       },
       "skills": [

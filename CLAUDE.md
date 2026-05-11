@@ -44,11 +44,16 @@ ruff check app/ tests/
 make test
 # or: pytest tests/ -v
 
-# Run single test file
-pytest tests/test_specific.py -v
+# Run a single test file / single test
+pytest tests/test_bcse_evaluator.py -v
+pytest tests/test_a2a_stream.py::test_name -v
 
-# With coverage
+# With coverage (also enabled by default via pyproject.toml addopts)
 pytest --cov=app --cov-report=html
+
+# Playwright UI tests (requires running server + `npx playwright install`)
+npx playwright test
+# Config: playwright.config.ts; tests live in tests/playwright/
 
 # Smoke tests (requires running server)
 make smoke
@@ -64,9 +69,9 @@ This is a healthcare interoperability testing platform supporting dual protocols
 **Core Components:**
 
 - **Dual Protocol Support**: A2A (Agent-to-Agent JSON-RPC) and MCP (Model Context Protocol)
-- **Specialized Agents**: Applicant, Administrator, Clinical Informaticist agents with distinct roles
+- **Specialized Agents**: Applicant, Administrator, Clinical Informaticist, Smart Scheduler, Colonoscopy Scheduler
 - **FHIR Integration**: Real-time connectivity to FHIR R4 servers for healthcare data
-- **Scenario Engine**: Pluggable scenarios (BCSE, Clinical Trial, Prior Auth, CQL Measure, etc.)
+- **Scenario Engine**: Pluggable scenarios (BCSE, Clinical Trial, Prior Auth, CQL Measure, Referral Specialist, Custom)
 - **AI-Powered Processing**: Claude integration for narrative-to-JSON conversion
 
 ### Project Structure
@@ -76,11 +81,19 @@ app/
 ├── main.py                 # FastAPI application entry point
 ├── config.py               # Pydantic configuration models
 ├── engine.py               # Conversation management engine
-├── agents/                 # Agent implementations (administrator, applicant, clinical_informaticist)
+├── a2a_router.py           # Shared A2A JSON-RPC router for `/api/bridge/{scenario}/a2a`
+├── a2a_store.py            # Task/message persistence for A2A
+├── agents/                 # Agent implementations (administrator, applicant, clinical_informaticist,
+│                           #   smart_scheduler, colonoscopy_scheduler; registry.py)
 ├── protocols/              # Protocol implementations (A2A, MCP)
-├── scenarios/              # Healthcare scenarios (BCSE, clinical trial, etc.)
-├── routers/                # FastAPI route handlers
+├── scenarios/              # Healthcare scenarios (sc_bcse, sc_clinical_trial, sc_prior_auth,
+│                           #   sc_cql_measure, sc_referral_specialist, sc_custom; registry.py)
+├── routers/                # Per-agent FastAPI route handlers (smart_scheduler, colonoscopy_scheduler,
+│                           #   clinical_informaticist, scheduling, pages)
 ├── banterop_ui/            # Agent 2 Agent Chat UI backend
+├── scheduling/             # SMART Scheduling Links integration
+├── telephony/              # VoIP / phone-calling integration
+├── inspector/              # Protocol inspector tooling
 ├── eligibility/            # Eligibility checking engines
 ├── fhir/                   # FHIR server integration
 ├── ingest/                 # FHIR-to-payload mapping
@@ -99,7 +112,10 @@ api/index.py                # Vercel serverless entry point
 **A2A Protocol**: JSON-RPC 2.0 with Server-Sent Events
 
 - Methods: `message/send`, `message/stream`, `tasks/get`, `tasks/cancel`, `tasks/resubscribe`
-- Endpoints: `/api/bridge/{scenario}/a2a`
+- Generic scenario endpoint: `/api/bridge/{scenario}/a2a` (dispatched via `app/a2a_router.py`)
+- Dedicated per-agent endpoints (own routers under `app/routers/`):
+  - `/api/smart-scheduler/a2a`
+  - `/api/colonoscopy-scheduler/a2a`
 
 **MCP Protocol**: Tool-based interactions
 
