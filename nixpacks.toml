@@ -3,10 +3,10 @@
 providers = ["python"]
 
 [phases.setup]
-nixPkgs = ["python311", "gcc"]
+nixPkgs = ["python311", "uv", "gcc"]
 
 [phases.install]
-cmds = ["python -m pip install --upgrade pip", "pip install -e ."]
+cmds = ["uv pip install --system -e ."]
 
 [start]
 cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
