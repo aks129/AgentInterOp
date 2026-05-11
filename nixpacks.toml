@@ -6,7 +6,10 @@ providers = ["python"]
 nixPkgs = ["python311", "uv", "gcc"]
 
 [phases.install]
-cmds = ["uv pip install --system -e ."]
+cmds = [
+  "uv venv --python python3.11 /opt/venv",
+  "/opt/venv/bin/uv pip install -e .",
+]
 
 [start]
-cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+cmd = "/opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $PORT"
