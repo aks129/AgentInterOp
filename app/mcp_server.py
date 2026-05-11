@@ -13,7 +13,7 @@ one place (the A2A routers) and lets MCP and A2A stay in lock-step.
 """
 
 import os
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -23,6 +23,9 @@ mcp = FastMCP(
     streamable_http_path="/",
     stateless_http=True,
     json_response=True,
+    # Bind to 0.0.0.0 so FastMCP doesn't auto-enable DNS-rebinding protection,
+    # which rejects requests behind reverse proxies (Railway / Vercel) with 421.
+    host="0.0.0.0",
 )
 
 
