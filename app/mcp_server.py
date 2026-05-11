@@ -74,7 +74,7 @@ async def _a2a_send(
 @mcp.tool()
 async def colonoscopy_schedule(
     message: str,
-    task_id: Optional[str] = None,
+    task_id: str = "",
 ) -> dict:
     """
     Drive the colonoscopy scheduling workflow: 40+ question intake form
@@ -102,7 +102,7 @@ async def colonoscopy_schedule(
 @mcp.tool()
 async def bcse_check_eligibility(
     message: str,
-    task_id: Optional[str] = None,
+    task_id: str = "",
 ) -> dict:
     """
     Check breast cancer screening eligibility against USPSTF guidelines.
@@ -125,7 +125,7 @@ async def bcse_check_eligibility(
 @mcp.tool()
 async def smart_scheduling_search(
     message: str,
-    task_id: Optional[str] = None,
+    task_id: str = "",
 ) -> dict:
     """
     Search healthcare providers and find available appointment slots via
@@ -150,7 +150,7 @@ async def smart_scheduling_search(
 @mcp.tool()
 async def build_cql_measure(
     message: str,
-    task_id: Optional[str] = None,
+    task_id: str = "",
 ) -> dict:
     """
     Generate an executable Clinical Quality Language (CQL) measure from a
