@@ -1,0 +1,12 @@
+# Force Nixpacks to use the Python provider on Railway.
+# Without this it auto-detects Node from package.json (Playwright test deps).
+providers = ["python"]
+
+[phases.setup]
+nixPkgs = ["python311", "gcc"]
+
+[phases.install]
+cmds = ["python -m pip install --upgrade pip", "pip install -e ."]
+
+[start]
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
