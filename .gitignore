@@ -52,3 +52,20 @@ pids
 nul
 temp/
 tmp/
+
+# --- security-baseline additions ---
+# Claude Code / agent workspace state (never commit)
+.claude/
+.superpowers/
+claude-*.tmp
+
+# Strategy + outreach drafts (gitignored — local-only)
+.private/
+
+# Environment files (use .env.example for templates instead)
+.env
+.env.local
+.env.*.local
+
+# GCP/GitHub Actions service-account creds written by google-github-actions/auth
+gha-creds-*.json
